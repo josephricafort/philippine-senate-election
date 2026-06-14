@@ -144,13 +144,26 @@ export default function ChoroplethMap({ voteData, senatorId, metric }: Props) {
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: process.env.NEXT_PUBLIC_MAP_STYLE_URL ?? 'https://tiles.stadiamaps.com/styles/stamen_toner_lite.json',
+      style: process.env.NEXT_PUBLIC_MAP_STYLE_URL ?? 'https://tiles.stadiamaps.com/styles/alidade_smooth_dark.json',
       center: PH_CENTER,
       zoom: DEFAULT_ZOOM,
     });
     mapRef.current = map;
 
     map.on('load', async () => {
+      // Hide basemap labels and admin/boundary lines — keep only land & water fills
+      for (const layer of map.getStyle().layers ?? []) {
+        if (layer.type === 'symbol') {
+          map.setLayoutProperty(layer.id, 'visibility', 'none');
+        } else if (layer.type === 'line') {
+          const src = (layer as maplibregl.LineLayerSpecification).source as string;
+          // Only hide lines from the basemap source, not our own choropleth layers
+          if (src !== 'ph-municipalities') {
+            map.setLayoutProperty(layer.id, 'visibility', 'none');
+          }
+        }
+      }
+
       // Build a diagonal hatch pattern for no-data municipalities
       const patternSize = 8;
       const canvas = document.createElement('canvas');
