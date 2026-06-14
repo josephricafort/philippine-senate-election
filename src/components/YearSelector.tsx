@@ -10,7 +10,7 @@ type Props = {
 
 export default function YearSelector({ value, onChange, availableYears }: Props) {
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-0.5 sm:gap-1">
       {ELECTION_YEARS.map(year => {
         const disabled = availableYears !== undefined && !availableYears.includes(year);
         return (
@@ -20,7 +20,7 @@ export default function YearSelector({ value, onChange, availableYears }: Props)
             size="sm"
             disabled={disabled}
             onClick={() => onChange(year)}
-            className={disabled ? 'opacity-30 cursor-not-allowed' : ''}
+            className={`px-2 text-xs sm:px-2.5 sm:text-sm${disabled ? ' opacity-30 cursor-not-allowed' : ''}`}
           >
             {year}
           </Button>

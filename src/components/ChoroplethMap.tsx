@@ -165,7 +165,7 @@ export default function ChoroplethMap({ voteData, senatorId, metric }: Props) {
       }
 
       // Build a diagonal hatch pattern for no-data municipalities
-      const patternSize = 8;
+      const patternSize = 3;
       const canvas = document.createElement('canvas');
       canvas.width = patternSize;
       canvas.height = patternSize;
@@ -173,7 +173,7 @@ export default function ChoroplethMap({ voteData, senatorId, metric }: Props) {
       ctx.fillStyle = '#e4e4e7'; // zinc-200 background
       ctx.fillRect(0, 0, patternSize, patternSize);
       ctx.strokeStyle = '#a1a1aa'; // zinc-400 diagonal lines
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 0.5;
       ctx.beginPath();
       ctx.moveTo(0, patternSize);
       ctx.lineTo(patternSize, 0);

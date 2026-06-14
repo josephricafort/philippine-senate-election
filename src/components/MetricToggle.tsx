@@ -2,10 +2,10 @@
 import { Button } from '@/components/ui/button';
 import type { Metric } from '@/lib/types';
 
-const OPTIONS: { value: Metric; label: string }[] = [
-  { value: 'rank',       label: 'Rank' },
-  { value: 'vote_share', label: 'Vote share' },
-  { value: 'votes',      label: 'Raw votes' },
+const OPTIONS: { value: Metric; label: string; shortLabel: string }[] = [
+  { value: 'rank',       label: 'Rank',       shortLabel: 'Rank' },
+  { value: 'vote_share', label: 'Vote share', shortLabel: 'Share' },
+  { value: 'votes',      label: 'Raw votes',  shortLabel: 'Votes' },
 ];
 
 type Props = {
@@ -21,10 +21,11 @@ export default function MetricToggle({ value, onChange }: Props) {
           key={opt.value}
           variant={value === opt.value ? 'default' : 'ghost'}
           size="sm"
-          className="h-7 px-3 text-xs"
+          className="h-7 px-2 sm:px-3 text-xs"
           onClick={() => onChange(opt.value)}
         >
-          {opt.label}
+          <span className="sm:hidden">{opt.shortLabel}</span>
+          <span className="hidden sm:inline">{opt.label}</span>
         </Button>
       ))}
     </div>

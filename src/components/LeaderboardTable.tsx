@@ -15,6 +15,7 @@ type Props = {
   senators: Senator[];
   highlightId: string | null;
   metric: Metric;
+  onSelectSenator?: (senator: Senator) => void;
 };
 
 function topMuni(voteData: VoteData, senatorId: string, metric: Metric): { label: string; value: string } {
@@ -53,7 +54,7 @@ const METRIC_SORT: Record<Metric, { key: SortKey; asc: boolean }> = {
   votes:      { key: 'national_votes', asc: false },
 };
 
-export default function LeaderboardTable({ voteData, senators, highlightId, metric }: Props) {
+export default function LeaderboardTable({ voteData, senators, highlightId, metric, onSelectSenator }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>(METRIC_SORT[metric].key);
   const [asc, setAsc] = useState(METRIC_SORT[metric].asc);
   const [highlightVisible, setHighlightVisible] = useState(true);
@@ -81,7 +82,7 @@ export default function LeaderboardTable({ voteData, senators, highlightId, metr
     .sort((a, b) => {
       let diff = 0;
       if (sortKey === 'national_rank') diff = a.national.national_rank - b.national.national_rank;
-      else if (sortKey === 'national_votes') diff = b.national.national_votes - a.national.national_votes;
+      else if (sortKey === 'national_votes') diff = a.national.national_votes - b.national.national_votes;
       else diff = a.top_muni.label.localeCompare(b.top_muni.label);
       return asc ? diff : -diff;
     });
@@ -142,7 +143,16 @@ export default function LeaderboardTable({ voteData, senators, highlightId, metr
         className={isHighlight ? 'bg-primary/8 border-l-2 border-l-primary' : ''}
       >
         <TableCell className={`font-medium ${isHighlight ? 'text-primary' : ''}`}>
-          {row.senator.senator_name}
+          {onSelectSenator ? (
+            <button
+              className="text-left hover:underline underline-offset-2 cursor-pointer"
+              onClick={() => onSelectSenator(row.senator)}
+            >
+              {row.senator.senator_name}
+            </button>
+          ) : (
+            row.senator.senator_name
+          )}
         </TableCell>
         {renderMetricCell(row, isHighlight)}
         <TableCell className="text-muted-foreground text-sm">
