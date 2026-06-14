@@ -6,7 +6,6 @@ import SearchSelect from '@/components/SearchSelect';
 import CandidateCard from '@/components/CandidateCard';
 import YearSelector from '@/components/YearSelector';
 import MetricToggle from '@/components/MetricToggle';
-import TrendChart from '@/components/TrendChart';
 import TopMunicipalitiesTable from '@/components/TopMunicipalitiesTable';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -19,8 +18,9 @@ import {
   ELECTION_YEARS, type ElectionYear, type Metric, type Senator, type VoteData,
 } from '@/lib/types';
 
-// ChoroplethMap uses browser APIs — SSR-disable it
+// Browser-only components — SSR-disabled to avoid DOM/ResizeObserver errors
 const ChoroplethMap = dynamic(() => import('@/components/ChoroplethMap'), { ssr: false });
+const TrendChart = dynamic(() => import('@/components/TrendChart'), { ssr: false });
 
 type Tab = 'map' | 'leaderboard';
 

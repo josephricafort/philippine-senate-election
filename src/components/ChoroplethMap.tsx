@@ -144,7 +144,7 @@ export default function ChoroplethMap({ voteData, senatorId, metric }: Props) {
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style: process.env.NEXT_PUBLIC_MAP_STYLE_URL ?? 'https://tiles.stadiamaps.com/styles/alidade_smooth_dark.json',
+      style: process.env.NEXT_PUBLIC_MAP_STYLE_URL ?? 'https://tiles.openfreemap.org/styles/positron',
       center: PH_CENTER,
       zoom: DEFAULT_ZOOM,
     });
