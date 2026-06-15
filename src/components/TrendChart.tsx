@@ -9,14 +9,13 @@ type Props = {
   data: DataPoint[];
 };
 
-// Insert null gaps at missing election years (2010, 2016) so the line breaks visually
+// Insert a null gap at the missing election year 2010 so the line breaks visually
 function withGap(data: DataPoint[]): { year: number; vote_share: number | null }[] {
   const result: { year: number; vote_share: number | null }[] = [];
   for (const d of data) {
     const prev = result[result.length - 1];
-    if (prev) {
-      if (prev.year === 2007 && d.year === 2013) result.push({ year: 2010, vote_share: null });
-      if (prev.year === 2013 && d.year === 2019) result.push({ year: 2016, vote_share: null });
+    if (prev && prev.year === 2007 && d.year === 2013) {
+      result.push({ year: 2010, vote_share: null });
     }
     result.push(d);
   }
@@ -54,7 +53,7 @@ export default function TrendChart({ data }: Props) {
             labelStyle={{ color: '#a1a1aa', fontSize: 12 }}
             formatter={(v) => [`${(Number(v) * 100).toFixed(2)}%`, 'Vote share']}
           />
-          <ReferenceLine x={2016} stroke="#3f3f46" strokeDasharray="3 3" label={{ value: 'no data', fill: '#52525b', fontSize: 10, position: 'top' }} />
+          <ReferenceLine x={2010} stroke="#3f3f46" strokeDasharray="3 3" label={{ value: 'no election', fill: '#52525b', fontSize: 10, position: 'top' }} />
           <Line
             type="monotone"
             dataKey="vote_share"
