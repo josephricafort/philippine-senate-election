@@ -1,6 +1,6 @@
 export type Metric = 'vote_share' | 'rank' | 'votes';
 
-export const ELECTION_YEARS = [2007, 2013, 2016, 2019, 2022, 2025] as const;
+export const ELECTION_YEARS = [2007, 2010, 2013, 2016, 2019, 2022, 2025] as const;
 export type ElectionYear = typeof ELECTION_YEARS[number];
 
 export type MunicipalityCandidate = {
