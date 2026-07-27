@@ -35,6 +35,39 @@ export function topMunicipalities(
     .slice(0, n);
 }
 
+// Top N provinces for a senator in a given year, sorted by vote_share desc.
+// Aggregates all municipality votes up to province level, then ranks the
+// senator among all candidates using that province's aggregate votes —
+// same rank semantics as topMunicipalities, just one level up.
+export function topProvinces(
+  voteData: VoteData,
+  senatorId: string,
+  n = 5
+) {
+  const byProvince = new Map<string, Map<string, number>>();
+  for (const mun of Object.values(voteData.municipalities)) {
+    let candidateVotes = byProvince.get(mun.adm2_en);
+    if (!candidateVotes) {
+      candidateVotes = new Map();
+      byProvince.set(mun.adm2_en, candidateVotes);
+    }
+    for (const c of mun.candidates) {
+      candidateVotes.set(c.senator_id, (candidateVotes.get(c.senator_id) ?? 0) + c.votes);
+    }
+  }
+
+  return Array.from(byProvince.entries())
+    .flatMap(([adm2_en, candidateVotes]) => {
+      const votes = candidateVotes.get(senatorId);
+      if (votes === undefined) return [];
+      const totalVotes = Array.from(candidateVotes.values()).reduce((s, v) => s + v, 0);
+      const rank = Array.from(candidateVotes.values()).filter(v => v > votes).length + 1;
+      return [{ adm2_en, votes, vote_share: totalVotes > 0 ? votes / totalVotes : 0, rank }];
+    })
+    .sort((a, b) => b.vote_share - a.vote_share)
+    .slice(0, n);
+}
+
 // Vote share per year for a senator (for the trend chart)
 export function trendData(
   yearDataMap: Map<number, VoteData>,

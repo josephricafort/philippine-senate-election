@@ -1,32 +1,121 @@
 'use client';
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { feature } from 'topojson-client';
-import type { Topology } from 'topojson-specification';
+import { feature, mesh } from 'topojson-client';
+import type { Topology, GeometryCollection } from 'topojson-specification';
+import { ChevronLeft, Home, Plus, Minus } from 'lucide-react';
 import type { VoteData, Metric } from '@/lib/types';
+import { yearColor } from '@/lib/year-colors';
 
 type Props = {
   voteData: VoteData | null;
   senatorId: string | null;
+  senatorName: string | null;
+  year: number | null;
   metric: Metric;
+  onNavigateToProfile?: () => void;
 };
 
 const PH_CENTER: [number, number] = [122, 12.8];
 const DEFAULT_ZOOM = 5;
 const NO_DATA_COLOR = '#d4d4d8'; // light neutral — blends into toner_lite's land
 
-// Muted sequential: pale yellow → sage green → slate blue (pastel, not neon)
-const SEQ_STOPS = {
-  colors: ['#fef9c3', '#bbf7d0', '#6ee7b7', '#38bdf8', '#1d4ed8'],
-  fracs:  [0,          0.25,      0.5,       0.75,      1],
-};
+// Single-hue sequential ramp, light -> dark, so the ramp stays one hue per the
+// data-viz rule (never a rainbow). The hue itself is the selected year's accent
+// color, so the map reads as part of the same year-color system used by the
+// selector, pills, trend chart, and leaderboard elsewhere in the app.
+function sequentialStops(hex: string): string[] {
+  const [h, s] = hexToHsl(hex);
+  const lSteps = [92, 78, 58, 40, 24];
+  const sSteps = [Math.min(s * 0.55, 45), Math.min(s * 0.8, 65), s, Math.min(s * 1.05, 95), Math.min(s * 1.05, 90)];
+  return lSteps.map((l, i) => `hsl(${h.toFixed(0)}, ${sSteps[i].toFixed(0)}%, ${l}%)`);
+}
 
-// Rank: rank #1 (best) = deep blue, last = pale yellow
-const RANK_STOPS = {
-  colors: ['#1d4ed8', '#38bdf8', '#6ee7b7', '#bbf7d0', '#fef9c3'],
-  fracs:  [0,          0.25,      0.5,       0.75,      1],
-};
+function hexToHsl(hex: string): [number, number, number] {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0;
+  const l = (max + min) / 2;
+  const d = max - min;
+  const s = d === 0 ? 0 : l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  if (d !== 0) {
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h *= 60;
+  }
+  return [h, s * 100, l * 100];
+}
+
+const FRACS = [0, 0.25, 0.5, 0.75, 1];
+
+// Shoelace-formula centroid + area of a single polygon ring (outer ring only —
+// good enough for label placement, no need to subtract holes).
+function ringCentroidArea(ring: [number, number][]): { cx: number; cy: number; area: number } {
+  let area = 0, cx = 0, cy = 0;
+  for (let i = 0; i < ring.length - 1; i++) {
+    const [x0, y0] = ring[i];
+    const [x1, y1] = ring[i + 1];
+    const cross = x0 * y1 - x1 * y0;
+    area += cross;
+    cx += (x0 + x1) * cross;
+    cy += (y0 + y1) * cross;
+  }
+  area /= 2;
+  if (area === 0) return { cx: ring[0][0], cy: ring[0][1], area: 0 };
+  return { cx: cx / (6 * area), cy: cy / (6 * area), area: Math.abs(area) };
+}
+
+// Area-weighted centroid across every polygon/ring belonging to a municipality feature,
+// so multi-island municipalities (and later, multi-municipality provinces) label sensibly
+// at their largest landmass rather than an average that can fall in open water.
+function featureCentroid(geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon): { cx: number; cy: number; area: number } {
+  const polygons = geometry.type === 'Polygon' ? [geometry.coordinates] : geometry.coordinates;
+  let best = { cx: 0, cy: 0, area: 0 };
+  for (const poly of polygons) {
+    const outer = poly[0] as [number, number][];
+    const c = ringCentroidArea(outer);
+    if (c.area > best.area) best = c;
+  }
+  return best;
+}
+
+// Province name labels — one point per province, placed at the area-weighted centroid of
+// its largest municipality landmass. Names come from voteData (already resolved adm2_en per
+// municipality by the data pipeline) rather than duplicating the PSGC→name lookup table
+// client-side; adm3_psgc is the join key shared between the topojson and voteData.
+function buildProvinceLabelPoints(
+  features: GeoJSON.Feature[],
+  voteData: VoteData
+): GeoJSON.FeatureCollection<GeoJSON.Point, { name: string }> {
+  const best = new Map<string, { cx: number; cy: number; area: number; name: string }>();
+  for (const g of features) {
+    const props = g.properties as { adm2_pcode?: string; adm3_psgc?: string } | null;
+    const adm2Pcode = props?.adm2_pcode;
+    const psgc = props?.adm3_psgc;
+    if (!adm2Pcode || !psgc) continue;
+    const name = voteData.municipalities[psgc]?.adm2_en;
+    if (!name) continue;
+
+    const c = featureCentroid(g.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon);
+    const prev = best.get(adm2Pcode);
+    if (!prev || c.area > prev.area) best.set(adm2Pcode, { ...c, name });
+  }
+
+  return {
+    type: 'FeatureCollection',
+    features: Array.from(best.values()).map(p => ({
+      type: 'Feature',
+      properties: { name: p.name },
+      geometry: { type: 'Point', coordinates: [p.cx, p.cy] },
+    })),
+  };
+}
 
 const NO_DATA_SENTINEL = -1; // value returned by match when psgc has no data
 
@@ -58,12 +147,15 @@ function buildMatchExpression(
 function buildColorExpression(
   voteData: VoteData,
   senatorId: string,
-  metric: Metric
+  metric: Metric,
+  year: number | null
 ): maplibregl.ExpressionSpecification {
   const valueExpr = buildMatchExpression(voteData, senatorId, metric);
   // Wrap with case: sentinel → NO_DATA_COLOR, otherwise → interpolated color
   const noDataGuard = (colorExpr: unknown) =>
     ['case', ['==', valueExpr, NO_DATA_SENTINEL], NO_DATA_COLOR, colorExpr] as unknown as maplibregl.ExpressionSpecification;
+
+  const rampColors = sequentialStops(yearColor(year ?? 0));
 
   if (metric === 'rank') {
     const ranks = Object.values(voteData.municipalities).flatMap(m =>
@@ -71,11 +163,13 @@ function buildColorExpression(
     );
     if (ranks.length === 0) return NO_DATA_COLOR as unknown as maplibregl.ExpressionSpecification;
     const maxRank = Math.max(...ranks);
+    // Best rank (#1) = darkest step, worst = lightest — same ramp direction reversed
+    const rankColors = [...rampColors].reverse();
     const stops: (string | number)[] = [];
-    for (let i = 0; i < RANK_STOPS.colors.length; i++) {
-      const stop = Math.round(1 + RANK_STOPS.fracs[i] * (maxRank - 1));
+    for (let i = 0; i < rankColors.length; i++) {
+      const stop = Math.round(1 + FRACS[i] * (maxRank - 1));
       if (i > 0 && stop <= (stops[stops.length - 2] as number)) continue;
-      stops.push(stop, RANK_STOPS.colors[i]);
+      stops.push(stop, rankColors[i]);
     }
     return noDataGuard(['interpolate', ['linear'], valueExpr, ...stops]);
   }
@@ -83,8 +177,8 @@ function buildColorExpression(
   // Fixed-scale stops: always span 0 → cap so colors are comparable across senators
   const cap = metric === 'vote_share' ? VOTE_SHARE_CAP : RAW_VOTES_CAP;
   const stops: (string | number)[] = [];
-  for (let i = 0; i < SEQ_STOPS.colors.length; i++) {
-    stops.push(cap * SEQ_STOPS.fracs[i], SEQ_STOPS.colors[i]);
+  for (let i = 0; i < rampColors.length; i++) {
+    stops.push(cap * FRACS[i], rampColors[i]);
   }
   return noDataGuard(['interpolate', ['linear'], valueExpr, ...stops]);
 }
@@ -113,9 +207,55 @@ function buildTooltipHtml(props: Record<string, unknown>, voteData: VoteData | n
     </div>`;
 }
 
-function applyPaint(map: maplibregl.Map, voteData: VoteData, senatorId: string, metric: Metric) {
+const METRIC_LABEL: Record<Metric, string> = {
+  rank: 'Rank by municipality',
+  vote_share: 'Vote share',
+  votes: 'Raw votes',
+};
+
+function formatLegendValue(metric: Metric, v: number): string {
+  if (metric === 'rank') return `#${Math.round(v)}`;
+  if (metric === 'vote_share') return `${(v * 100).toFixed(0)}%`;
+  if (v >= 1000) return `${(v / 1000).toFixed(0)}K`;
+  return `${Math.round(v)}`;
+}
+
+// Legend gradient + min/max labels for the currently selected senator/metric.
+// Mirrors the color logic in buildColorExpression so the legend always matches what's painted.
+function buildLegend(voteData: VoteData | null, senatorId: string | null, metric: Metric, year: number | null) {
+  if (!voteData || !senatorId) return null;
+
+  const values = Object.values(voteData.municipalities).flatMap(m => {
+    const c = m.candidates.find(c => c.senator_id === senatorId);
+    return c ? [metric === 'vote_share' ? c.vote_share : metric === 'rank' ? c.rank : c.votes] : [];
+  });
+  if (values.length === 0) return null;
+
+  const rampColors = sequentialStops(yearColor(year ?? 0));
+
+  if (metric === 'rank') {
+    const maxRank = Math.max(...values);
+    return {
+      colors: [...rampColors].reverse(),
+      minLabel: formatLegendValue('rank', 1),
+      maxLabel: formatLegendValue('rank', maxRank),
+      bestFirst: true,
+    };
+  }
+
+  const cap = metric === 'vote_share' ? VOTE_SHARE_CAP : RAW_VOTES_CAP;
+  const max = Math.min(Math.max(...values), cap);
+  return {
+    colors: rampColors,
+    minLabel: formatLegendValue(metric, 0),
+    maxLabel: `${max >= cap ? '≥' : ''}${formatLegendValue(metric, max)}`,
+    bestFirst: false,
+  };
+}
+
+function applyPaint(map: maplibregl.Map, voteData: VoteData, senatorId: string, metric: Metric, year: number | null) {
   map.setPaintProperty('municipalities-fill', 'fill-color',
-    buildColorExpression(voteData, senatorId, metric));
+    buildColorExpression(voteData, senatorId, metric, year));
 
   // Show hatch only on features where this senator has no data
   const psgcsWithData = Object.entries(voteData.municipalities)
@@ -130,13 +270,17 @@ function applyPaint(map: maplibregl.Map, voteData: VoteData, senatorId: string, 
   );
 }
 
-export default function ChoroplethMap({ voteData, senatorId, metric }: Props) {
+export default function ChoroplethMap({ voteData, senatorId, senatorName, year, metric, onNavigateToProfile }: Props) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const mapRef        = useRef<maplibregl.Map | null>(null);
   const loadedRef     = useRef(false);
+  const muniFeaturesRef = useRef<GeoJSON.Feature[] | null>(null);
+  const labelsBuiltRef  = useRef(false);
   // Keep latest props accessible inside stable event handlers
-  const propsRef      = useRef({ voteData, senatorId, metric });
-  propsRef.current    = { voteData, senatorId, metric };
+  const propsRef      = useRef({ voteData, senatorId, metric, year });
+  propsRef.current    = { voteData, senatorId, metric, year };
+  // Drives the "reset view" button — only shown once the user has actually panned/zoomed away
+  const [showResetButton, setShowResetButton] = useState(false);
 
   // Init map + load topojson once
   useEffect(() => {
@@ -147,8 +291,22 @@ export default function ChoroplethMap({ voteData, senatorId, metric }: Props) {
       style: process.env.NEXT_PUBLIC_MAP_STYLE_URL ?? 'https://tiles.openfreemap.org/styles/positron',
       center: PH_CENTER,
       zoom: DEFAULT_ZOOM,
+      // Always start collapsed to an "i" icon — expands as an overlay on click.
+      // Default compact mode only auto-collapses under 640px container width,
+      // which left it expanded (and blocking the legend) on wider map columns.
+      attributionControl: { compact: true },
     });
     mapRef.current = map;
+
+    // Show the reset button once the view has moved away from the default center/zoom
+    map.on('moveend', () => {
+      const center = map.getCenter();
+      const moved =
+        Math.abs(center.lng - PH_CENTER[0]) > 0.01 ||
+        Math.abs(center.lat - PH_CENTER[1]) > 0.01 ||
+        Math.abs(map.getZoom() - DEFAULT_ZOOM) > 0.01;
+      setShowResetButton(moved);
+    });
 
     map.on('load', async () => {
       // Hide basemap labels and admin/boundary lines — keep only land & water fills
@@ -191,9 +349,51 @@ export default function ChoroplethMap({ voteData, senatorId, metric }: Props) {
 
       const res  = await fetch('/data/ph_municipalities.json');
       const topo: Topology = await res.json();
-      const geojson = feature(topo, topo.objects.municities as Parameters<typeof feature>[1]);
+      const municitiesObj = topo.objects.municities as GeometryCollection<{ adm2_pcode: string }>;
+      const geojson = feature(topo, municitiesObj);
 
       map.addSource('ph-municipalities', { type: 'geojson', data: geojson });
+
+      // Province outlines — dissolved from municipality boundaries (kept only where an arc
+      // borders two different provinces, or sits on the outer edge) so no separate province
+      // geometry file is needed.
+      const provinceMesh = mesh(topo, municitiesObj, (a, b) =>
+        (a.properties as { adm2_pcode?: string } | undefined)?.adm2_pcode !==
+        (b.properties as { adm2_pcode?: string } | undefined)?.adm2_pcode
+      );
+
+      map.addSource('ph-provinces', { type: 'geojson', data: provinceMesh });
+
+      // Municipality features are kept for building province labels once voteData (which
+      // supplies adm2_en names) is available — may not be loaded yet on first mount.
+      muniFeaturesRef.current = geojson.features;
+
+      const initialVoteData = propsRef.current.voteData;
+      if (initialVoteData) labelsBuiltRef.current = true;
+      map.addSource('ph-province-labels', {
+        type: 'geojson',
+        data: initialVoteData
+          ? buildProvinceLabelPoints(geojson.features, initialVoteData)
+          : { type: 'FeatureCollection', features: [] },
+      });
+      map.addLayer({
+        id: 'province-labels',
+        type: 'symbol',
+        source: 'ph-province-labels',
+        minzoom: 6,
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': ['Noto Sans Regular'],
+          'text-size': ['interpolate', ['linear'], ['zoom'], 6, 10, 10, 14],
+          'text-letter-spacing': 0.02,
+          'text-max-width': 8,
+        },
+        paint: {
+          'text-color': 'rgba(24,24,27,0.85)',
+          'text-halo-color': 'rgba(255,255,255,0.9)',
+          'text-halo-width': 1.4,
+        },
+      });
 
       map.addLayer({
         id: 'municipalities-fill',
@@ -211,11 +411,42 @@ export default function ChoroplethMap({ voteData, senatorId, metric }: Props) {
         paint: { 'fill-pattern': 'no-data-hatch' },
       });
 
+      // Mid-gray rather than black or white — a dark line disappeared into dark ramp fills
+      // (e.g. top rank stops), and a light line would have the same problem against the
+      // palest fills, so neither end-of-ramp color alone stays visible everywhere. Kept
+      // thinner than the province line/halo so the province hierarchy still reads clearly.
       map.addLayer({
         id: 'municipalities-outline',
         type: 'line',
         source: 'ph-municipalities',
-        paint: { 'line-color': 'rgba(0,0,0,0.15)', 'line-width': 0.4 },
+        paint: {
+          'line-color': 'rgba(113,113,122,0.55)',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.6, 10, 1.1],
+        },
+      });
+
+      // Province boundaries — findable at a glance instead of drowning in hundreds of thin
+      // municipal slivers. Drawn as a light halo + dark core so the line stays visible against
+      // both the pale and near-black ends of the choropleth ramp — a single fixed color
+      // disappears into dark fills (e.g. top rank stops), which a halo works around without
+      // needing to sample the fill color under the line.
+      map.addLayer({
+        id: 'provinces-outline-halo',
+        type: 'line',
+        source: 'ph-provinces',
+        paint: {
+          'line-color': 'rgba(255,255,255,0.65)',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 5, 2.2, 10, 4],
+        },
+      });
+      map.addLayer({
+        id: 'provinces-outline',
+        type: 'line',
+        source: 'ph-provinces',
+        paint: {
+          'line-color': 'rgba(24,24,27,0.7)',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.9, 10, 1.8],
+        },
       });
 
       // Thin white highlight on hovered feature
@@ -274,9 +505,9 @@ export default function ChoroplethMap({ voteData, senatorId, metric }: Props) {
       loadedRef.current = true;
 
       // Apply paint if data already loaded
-      const { voteData, senatorId, metric } = propsRef.current;
+      const { voteData, senatorId, metric, year } = propsRef.current;
       if (voteData && senatorId) {
-        applyPaint(map, voteData, senatorId, metric);
+        applyPaint(map, voteData, senatorId, metric, year);
       }
     });
 
@@ -284,17 +515,128 @@ export default function ChoroplethMap({ voteData, senatorId, metric }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-paint when senator / metric / voteData changes
+  // Re-paint when senator / metric / voteData / year changes
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current || !voteData || !senatorId) return;
     if (!map.getLayer('municipalities-fill')) return;
-    applyPaint(map, voteData, senatorId, metric);
-  }, [voteData, senatorId, metric]);
+    applyPaint(map, voteData, senatorId, metric, year);
+  }, [voteData, senatorId, metric, year]);
+
+  // Province labels don't depend on a selected candidate, only on voteData being loaded
+  // (it supplies adm2_en names) — build them once, as soon as both are ready, independent
+  // of whether the map or voteData finished loading first.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || !voteData || labelsBuiltRef.current) return;
+    const source = map.getSource('ph-province-labels') as maplibregl.GeoJSONSource | undefined;
+    const features = muniFeaturesRef.current;
+    if (!source || !features) return;
+    source.setData(buildProvinceLabelPoints(features, voteData));
+    labelsBuiltRef.current = true;
+  }, [voteData]);
+
+  const legend = buildLegend(voteData, senatorId, metric, year);
 
   return (
     <div className="relative w-full h-full">
       <div ref={containerRef} className="w-full h-full" />
+
+      {/* Context strip — who/when/what is being shown, so the map is legible on its own.
+          Doubles as a shortcut back to the candidate's profile (mobile only, when lost in the map). */}
+      {senatorId && (
+        onNavigateToProfile ? (
+          <button
+            onClick={onNavigateToProfile}
+            title="Back to profile"
+            aria-label="Back to profile"
+            className="absolute top-3 left-3 z-10 max-w-[calc(100%-5rem)] flex items-center gap-1.5 bg-white/95 text-zinc-700 border border-zinc-200 shadow-sm rounded-lg pl-2 pr-3 py-2 hover:bg-white transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4 text-zinc-400 shrink-0" />
+            <span className="min-w-0 text-left">
+              <p className="text-sm font-semibold leading-tight truncate">
+                {senatorName ?? senatorId}
+              </p>
+              <p className="text-xs text-zinc-500 leading-tight mt-0.5">
+                {year ?? '—'} · {METRIC_LABEL[metric]}
+              </p>
+            </span>
+          </button>
+        ) : (
+          <div className="absolute top-3 left-3 z-10 max-w-[calc(100%-5rem)] bg-white/95 text-zinc-700 border border-zinc-200 shadow-sm rounded-lg px-3 py-2">
+            <p className="text-sm font-semibold leading-tight truncate">
+              {senatorName ?? senatorId}
+            </p>
+            <p className="text-xs text-zinc-500 leading-tight mt-0.5">
+              {year ?? '—'} · {METRIC_LABEL[metric]}
+            </p>
+          </div>
+        )
+      )}
+
+      {/* Zoom + reset — one aligned control stack instead of MapLibre's default control */}
+      <div className="absolute top-3 right-3 z-10 flex flex-col rounded-lg bg-white/95 border border-zinc-200 shadow-sm overflow-hidden">
+        <button
+          onClick={() => mapRef.current?.zoomIn()}
+          title="Zoom in"
+          aria-label="Zoom in"
+          className="flex items-center justify-center w-9 h-9 text-zinc-700 hover:bg-zinc-100 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+        </button>
+        <div className="h-px bg-zinc-200" />
+        <button
+          onClick={() => mapRef.current?.zoomOut()}
+          title="Zoom out"
+          aria-label="Zoom out"
+          className="flex items-center justify-center w-9 h-9 text-zinc-700 hover:bg-zinc-100 transition-colors"
+        >
+          <Minus className="w-4 h-4" />
+        </button>
+        {showResetButton && (
+          <>
+            <div className="h-px bg-zinc-200" />
+            <button
+              onClick={() => mapRef.current?.flyTo({ center: PH_CENTER, zoom: DEFAULT_ZOOM })}
+              title="Reset map view"
+              aria-label="Reset map view"
+              className="flex items-center justify-center w-9 h-9 text-zinc-700 hover:bg-zinc-100 transition-colors"
+            >
+              <Home className="w-4 h-4" />
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Legend — color scale for the active metric, plus what the hatch pattern means */}
+      {legend && (
+        <div className="absolute bottom-3 left-3 z-10 bg-white/95 text-zinc-700 border border-zinc-200 shadow-sm rounded-lg px-3 py-2 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-24 h-2.5 rounded-full"
+              style={{ background: `linear-gradient(to right, ${legend.colors.join(', ')})` }}
+            />
+          </div>
+          <div className="flex items-center justify-between w-24 text-[10px] text-zinc-500 leading-none">
+            <span>{legend.minLabel}</span>
+            <span>{legend.maxLabel}</span>
+          </div>
+          {legend.bestFirst && (
+            <p className="text-[10px] text-zinc-400 leading-tight">Left = best rank</p>
+          )}
+          <div className="flex items-center gap-1.5 pt-1 border-t border-zinc-200">
+            <div
+              className="w-3 h-3 rounded-sm shrink-0"
+              style={{
+                backgroundImage:
+                  'repeating-linear-gradient(45deg, #e4e4e7 0, #e4e4e7 1.5px, #a1a1aa 1.5px, #a1a1aa 2px, #e4e4e7 2px, #e4e4e7 3.5px)',
+              }}
+            />
+            <span className="text-[10px] text-zinc-500 leading-none">No data recorded</span>
+          </div>
+        </div>
+      )}
+
       {!senatorId && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <p className="text-sm bg-white/90 text-zinc-600 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm">

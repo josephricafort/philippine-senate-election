@@ -2,6 +2,7 @@
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, Dot,
 } from 'recharts';
+import { yearColor } from '@/lib/year-colors';
 
 type DataPoint = { year: number; vote_share: number };
 
@@ -9,17 +10,15 @@ type Props = {
   data: DataPoint[];
 };
 
-// Insert a null gap at the missing election year 2010 so the line breaks visually
-function withGap(data: DataPoint[]): { year: number; vote_share: number | null }[] {
-  const result: { year: number; vote_share: number | null }[] = [];
-  for (const d of data) {
-    const prev = result[result.length - 1];
-    if (prev && prev.year === 2007 && d.year === 2013) {
-      result.push({ year: 2010, vote_share: null });
-    }
-    result.push(d);
+// Show 2010 as a tick on the axis (no election that year) without breaking the line —
+// the line stays continuous across the gap, the tick + dashed marker just call it out.
+function axisTicks(data: DataPoint[]): number[] {
+  const years = data.map(d => d.year);
+  const ticks = [...years];
+  if (years.includes(2007) && years.includes(2013) && !years.includes(2010)) {
+    ticks.push(2010);
   }
-  return result;
+  return ticks.sort((a, b) => a - b);
 }
 
 export default function TrendChart({ data }: Props) {
@@ -29,14 +28,17 @@ export default function TrendChart({ data }: Props) {
     </div>
   );
 
-  const chartData = withGap(data);
+  const showGapMarker = data.some(d => d.year === 2007) && data.some(d => d.year === 2013);
 
   return (
     <div className="h-32">
       <ResponsiveContainer width="100%" height="100%" minHeight={128}>
-        <LineChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -24 }}>
+        <LineChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: -24 }}>
           <XAxis
             dataKey="year"
+            type="number"
+            domain={['dataMin', 'dataMax']}
+            ticks={axisTicks(data)}
             tick={{ fill: '#71717a', fontSize: 11 }}
             axisLine={false}
             tickLine={false}
@@ -53,14 +55,17 @@ export default function TrendChart({ data }: Props) {
             labelStyle={{ color: '#a1a1aa', fontSize: 12 }}
             formatter={(v) => [`${(Number(v) * 100).toFixed(2)}%`, 'Vote share']}
           />
-          <ReferenceLine x={2010} stroke="#3f3f46" strokeDasharray="3 3" label={{ value: 'no election', fill: '#52525b', fontSize: 10, position: 'top' }} />
+          {showGapMarker && (
+            <ReferenceLine x={2010} stroke="#3f3f46" strokeDasharray="3 3" label={{ value: 'no election', fill: '#52525b', fontSize: 10, position: 'top' }} />
+          )}
           <Line
             type="monotone"
             dataKey="vote_share"
-            stroke="#6366f1"
-            strokeWidth={2}
-            dot={<Dot r={3} fill="#6366f1" />}
-            connectNulls={false}
+            stroke="#71717a"
+            strokeWidth={2.5}
+            dot={(props: { cx?: number; cy?: number; payload?: DataPoint }) => (
+              <Dot key={props.payload?.year} cx={props.cx} cy={props.cy} r={4.5} fill={yearColor(props.payload?.year ?? 0)} />
+            )}
           />
         </LineChart>
       </ResponsiveContainer>

@@ -6,8 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import type { Metric } from '@/lib/types';
 
 type Row = {
-  psgc: string;
-  adm3_en: string;
   adm2_en: string;
   votes: number;
   vote_share: number;
@@ -22,7 +20,7 @@ function formatVotes(n: number) {
   return n.toLocaleString();
 }
 
-export default function TopMunicipalitiesTable({ rows, metric }: Props) {
+export default function TopProvincesTable({ rows, metric }: Props) {
   if (rows.length === 0) return (
     <p className="text-muted-foreground text-sm py-2">No data</p>
   );
@@ -31,7 +29,6 @@ export default function TopMunicipalitiesTable({ rows, metric }: Props) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="text-xs">Municipality</TableHead>
           <TableHead className="text-xs">Province</TableHead>
           <TableHead className="text-xs text-right">Share</TableHead>
           <TableHead className="text-xs text-right">{metric === 'votes' ? 'Votes' : 'Rank'}</TableHead>
@@ -39,9 +36,8 @@ export default function TopMunicipalitiesTable({ rows, metric }: Props) {
       </TableHeader>
       <TableBody>
         {rows.map(row => (
-          <TableRow key={row.psgc}>
-            <TableCell className="py-1.5 text-sm truncate max-w-32">{row.adm3_en}</TableCell>
-            <TableCell className="py-1.5 text-sm text-muted-foreground truncate max-w-32">{row.adm2_en}</TableCell>
+          <TableRow key={row.adm2_en}>
+            <TableCell className="py-1.5 text-sm truncate max-w-32">{row.adm2_en}</TableCell>
             <TableCell className="py-1.5 text-right text-sm font-medium tabular-nums whitespace-nowrap">
               {(row.vote_share * 100).toFixed(1)}%
             </TableCell>
