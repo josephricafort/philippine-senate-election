@@ -1,7 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
-import { ChevronRight, Map as MapIcon, Vote } from 'lucide-react';
+import Link from 'next/link';
+import { ChevronRight, Map as MapIcon, Share2, Vote } from 'lucide-react';
 
 import SearchSelect from '@/components/SearchSelect';
 import CandidateCard from '@/components/CandidateCard';
@@ -11,6 +12,7 @@ import TopMunicipalitiesTable from '@/components/TopMunicipalitiesTable';
 import TopProvincesTable from '@/components/TopProvincesTable';
 import LeaderboardTable from '@/components/LeaderboardTable';
 import InfoMenu from '@/components/InfoMenu';
+import SwingSection from '@/components/SwingSection';
 
 type MobileTab = 'leaderboard' | 'profile' | 'map';
 
@@ -55,15 +57,15 @@ export default function ExplorerPage() {
   const [voteCache, setVoteCache] = useState<Map<number, VoteData>>(new Map());
   const [loading, setLoading] = useState(false);
 
-  // Load candidate index once and default to Legarda
+  // Load candidate index once and default to Bong Go
   useEffect(() => {
     loadCandidateIndex().then(idx => {
       const list = buildSenatorList(idx);
       setSenators(list);
-      const legarda = list.find(s => s.senator_id === 'legarda_loren');
-      if (legarda) {
-        setSelectedSenator(legarda);
-        setYear(2022); // most recent year she ran
+      const bongGo = list.find(s => s.senator_id === 'go_bong');
+      if (bongGo) {
+        setSelectedSenator(bongGo);
+        setYear(2025);
       }
     });
   }, []);
@@ -124,15 +126,29 @@ export default function ExplorerPage() {
             onSelectYear={setYear}
           />
 
-          {/* Vote share trend — only meaningful with 2+ runs; hidden for one-time candidates */}
-          {selectedSenator.years.length > 1 && (
-            <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3 font-medium">
-                Vote share trend
-              </p>
-              <TrendChart data={trend} />
-            </div>
-          )}
+          <div className="flex items-center gap-3 -mt-3">
+            {didRunSelectedYear && (
+              /* Compact shortcut to the years this candidate ran in — updates the shared year state */
+              <>
+                <span className="text-xs text-muted-foreground font-medium shrink-0">Years Ran</span>
+                <YearSelector
+                  value={year}
+                  onChange={setYear}
+                  availableYears={selectedSenator.years}
+                  filterToAvailable
+                />
+              </>
+            )}
+            <Link
+              href={`/senator/${selectedSenator.senator_id}`}
+              title="View shareable profile page"
+              aria-label="View shareable profile page"
+              className="ml-auto flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5 shadow-sm hover:opacity-90 active:scale-95 transition-all shrink-0"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              Share
+            </Link>
+          </div>
 
           <button
             onClick={() => setMobileTab('map')}
@@ -149,33 +165,35 @@ export default function ExplorerPage() {
 
           {didRunSelectedYear ? (
             <>
-              {/* Compact shortcut to the years this candidate ran in — updates the shared year state */}
-              <YearSelector
-                value={year}
-                onChange={setYear}
-                availableYears={selectedSenator.years}
-                filterToAvailable
-              />
+              {voteCache.size === ELECTION_YEARS.length && (
+                <SwingSection
+                  senator={selectedSenator}
+                  voteCache={voteCache}
+                  latestVoteData={voteCache.get(Math.max(...selectedSenator.years)) ?? null}
+                />
+              )}
 
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3 font-medium">
-                  Top provinces · {year}
-                </p>
-                {currentVoteData
-                  ? <TopProvincesTable rows={topProvs} metric={metric} />
-                  : <p className="text-muted-foreground text-sm">Loading…</p>
-                }
-              </div>
+              {/* Vote share trend — only meaningful with 2+ runs; hidden for one-time candidates */}
+              {selectedSenator.years.length > 1 && (
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3 font-medium">
+                    National vote trends
+                  </p>
+                  <TrendChart data={trend} />
+                </div>
+              )}
 
-              <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3 font-medium">
-                  Top municipalities · {year}
-                </p>
-                {currentVoteData
-                  ? <TopMunicipalitiesTable rows={topMunis} metric={metric} />
-                  : <p className="text-muted-foreground text-sm">Loading…</p>
-                }
-              </div>
+              {currentVoteData ? (
+                <TopProvincesTable rows={topProvs} metric={metric} year={year} />
+              ) : (
+                <p className="text-muted-foreground text-sm">Loading…</p>
+              )}
+
+              {currentVoteData ? (
+                <TopMunicipalitiesTable rows={topMunis} metric={metric} year={year} />
+              ) : (
+                <p className="text-muted-foreground text-sm">Loading…</p>
+              )}
             </>
           ) : (
             topCandidatesThisYear.length > 0 && (
@@ -218,9 +236,6 @@ export default function ExplorerPage() {
   // Reuses the same YearSelector styling as the Leaderboard tab for visual consistency.
   const mobileMapPanel = (
     <div className="flex-1 flex flex-col overflow-hidden h-full">
-      <div className="shrink-0 border-b px-4 py-2 flex items-center gap-2">
-        <MetricToggle value={metric} onChange={setMetric} />
-      </div>
       {selectedSenator && selectedSenator.years.length > 1 && (
         <div className="shrink-0 border-b px-4 py-2 overflow-x-auto">
           <YearSelector
@@ -231,6 +246,10 @@ export default function ExplorerPage() {
           />
         </div>
       )}
+      <div className="shrink-0 border-b px-4 py-2 flex items-center gap-3">
+        <span className="text-xs text-muted-foreground font-medium shrink-0">View By</span>
+        <MetricToggle value={metric} onChange={setMetric} />
+      </div>
       <div className="flex-1 overflow-hidden">
         <ChoroplethMap
           voteData={currentVoteData}
@@ -289,7 +308,8 @@ export default function ExplorerPage() {
         {/* Full-width year bar — py-3 (vs. py-2 elsewhere) matches MetricToggle's extra
             internal p-1 wrapper padding, so this bar is the same height as the metric
             toggle bar in column 3 */}
-        <div className="shrink-0 border-b px-4 py-3">
+        <div className="shrink-0 border-b px-4 py-3 flex items-center gap-3">
+          <span className="text-xs text-muted-foreground font-medium shrink-0">Election Years</span>
           <YearSelector value={year} onChange={setYear} />
         </div>
 
@@ -316,6 +336,7 @@ export default function ExplorerPage() {
           {/* Column 3: metric toggle + map */}
           <main className="flex-1 flex flex-col overflow-hidden">
             <div className="shrink-0 border-b px-4 py-2 flex items-center gap-3">
+              <span className="text-xs text-muted-foreground font-medium shrink-0">View By</span>
               <MetricToggle value={metric} onChange={setMetric} />
             </div>
             <div className="flex-1 overflow-hidden">

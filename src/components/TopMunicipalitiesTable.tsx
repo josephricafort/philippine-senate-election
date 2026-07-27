@@ -14,7 +14,7 @@ type Row = {
   rank: number;
 };
 
-type Props = { rows: Row[]; metric: Metric };
+type Props = { rows: Row[]; metric: Metric; year: number };
 
 function formatVotes(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
@@ -22,39 +22,43 @@ function formatVotes(n: number) {
   return n.toLocaleString();
 }
 
-export default function TopMunicipalitiesTable({ rows, metric }: Props) {
-  if (rows.length === 0) return (
-    <p className="text-muted-foreground text-sm py-2">No data</p>
-  );
-
+export default function TopMunicipalitiesTable({ rows, metric, year }: Props) {
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="text-xs">Municipality</TableHead>
-          <TableHead className="text-xs">Province</TableHead>
-          <TableHead className="text-xs text-right">Share</TableHead>
-          <TableHead className="text-xs text-right">{metric === 'votes' ? 'Votes' : 'Rank'}</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map(row => (
-          <TableRow key={row.psgc}>
-            <TableCell className="py-1.5 text-sm truncate max-w-32">{row.adm3_en}</TableCell>
-            <TableCell className="py-1.5 text-sm text-muted-foreground truncate max-w-32">{row.adm2_en}</TableCell>
-            <TableCell className="py-1.5 text-right text-sm font-medium tabular-nums whitespace-nowrap">
-              {(row.vote_share * 100).toFixed(1)}%
-            </TableCell>
-            <TableCell className="py-1.5 text-right">
-              {metric === 'votes' ? (
-                <span className="text-sm font-medium tabular-nums">{formatVotes(row.votes)}</span>
-              ) : (
-                <Badge variant="outline" className="text-xs tabular-nums">#{row.rank}</Badge>
-              )}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <div className="rounded-xl border bg-card p-4">
+      <p className="text-sm font-semibold mb-3.5">Top municipalities &middot; {year}</p>
+
+      {rows.length === 0 ? (
+        <p className="text-muted-foreground text-sm py-2">No data</p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="text-xs">Municipality</TableHead>
+              <TableHead className="text-xs">Province</TableHead>
+              <TableHead className="text-xs text-right">Share</TableHead>
+              <TableHead className="text-xs text-right">{metric === 'votes' ? 'Votes' : 'Rank'}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map(row => (
+              <TableRow key={row.psgc}>
+                <TableCell className="py-1.5 text-sm truncate max-w-32">{row.adm3_en}</TableCell>
+                <TableCell className="py-1.5 text-sm text-muted-foreground truncate max-w-32">{row.adm2_en}</TableCell>
+                <TableCell className="py-1.5 text-right text-sm font-medium tabular-nums whitespace-nowrap">
+                  {(row.vote_share * 100).toFixed(1)}%
+                </TableCell>
+                <TableCell className="py-1.5 text-right">
+                  {metric === 'votes' ? (
+                    <span className="text-sm font-medium tabular-nums">{formatVotes(row.votes)}</span>
+                  ) : (
+                    <Badge variant="outline" className="text-xs tabular-nums">#{row.rank}</Badge>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </div>
   );
 }

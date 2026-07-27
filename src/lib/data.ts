@@ -87,3 +87,75 @@ export function trendData(
   }
   return result.sort((a, b) => a.year - b.year);
 }
+
+// Sorted list of every province (adm2_en) present in a year's data — for the swing section's province picker.
+export function provinceList(voteData: VoteData): string[] {
+  const provinces = new Set(Object.values(voteData.municipalities).map(m => m.adm2_en));
+  return Array.from(provinces).sort();
+}
+
+// A senator's vote share within one province, per year they ran — the province swing trend line.
+// Also carries that year's national vote share, so callers can express province performance
+// as an index relative to the candidate's own national average (e.g. "1.4x national") rather
+// than raw share — raw province share often tracks the national trend closely enough that the
+// two charts read as near-duplicates, which the index framing avoids.
+export function provinceShareTrend(
+  yearDataMap: Map<number, VoteData>,
+  senatorId: string,
+  adm2_en: string
+): { year: number; vote_share: number; national_share: number }[] {
+  const result: { year: number; vote_share: number; national_share: number }[] = [];
+  for (const [year, data] of yearDataMap) {
+    if (!data.national[senatorId]) continue;
+    let candidateVotes = 0;
+    let totalVotes = 0;
+    let nationalCandidateVotes = 0;
+    let nationalTotalVotes = 0;
+    for (const mun of Object.values(data.municipalities)) {
+      const munTotal = mun.candidates.reduce((s, c) => s + c.votes, 0);
+      const munCandidateVotes = mun.candidates.find(c => c.senator_id === senatorId)?.votes ?? 0;
+      nationalTotalVotes += munTotal;
+      nationalCandidateVotes += munCandidateVotes;
+      if (mun.adm2_en !== adm2_en) continue;
+      totalVotes += munTotal;
+      candidateVotes += munCandidateVotes;
+    }
+    if (totalVotes === 0) continue;
+    result.push({
+      year,
+      vote_share: candidateVotes / totalVotes,
+      national_share: nationalTotalVotes > 0 ? nationalCandidateVotes / nationalTotalVotes : 0,
+    });
+  }
+  return result.sort((a, b) => a.year - b.year);
+}
+
+// Per-municipality vote-share swing for a senator within one province, between two years —
+// sorted by delta ascending (biggest drop first), matching the diverging-bar chart's default sort.
+export function municipalitySwing(
+  voteDataA: VoteData,
+  voteDataB: VoteData,
+  senatorId: string,
+  adm2_en: string
+): { psgc: string; adm3_en: string; share_a: number; share_b: number; delta: number }[] {
+  const inProvince = (data: VoteData) =>
+    Object.entries(data.municipalities).filter(([, m]) => m.adm2_en === adm2_en);
+
+  const sharesB = new Map<string, number>();
+  for (const [psgc, mun] of inProvince(voteDataB)) {
+    const total = mun.candidates.reduce((s, c) => s + c.votes, 0);
+    const votes = mun.candidates.find(c => c.senator_id === senatorId)?.votes ?? 0;
+    sharesB.set(psgc, total > 0 ? votes / total : 0);
+  }
+
+  return inProvince(voteDataA)
+    .flatMap(([psgc, mun]) => {
+      const shareB = sharesB.get(psgc);
+      if (shareB === undefined) return [];
+      const total = mun.candidates.reduce((s, c) => s + c.votes, 0);
+      const votes = mun.candidates.find(c => c.senator_id === senatorId)?.votes ?? 0;
+      const shareA = total > 0 ? votes / total : 0;
+      return [{ psgc, adm3_en: mun.adm3_en, share_a: shareA, share_b: shareB, delta: shareB - shareA }];
+    })
+    .sort((a, b) => a.delta - b.delta);
+}

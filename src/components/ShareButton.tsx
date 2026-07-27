@@ -1,0 +1,37 @@
+'use client';
+import { useState } from 'react';
+import { Share2, Check } from 'lucide-react';
+
+type Props = {
+  title: string;
+  text: string;
+};
+
+export default function ShareButton({ title, text }: Props) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleShare() {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+      } catch {
+        // User cancelled the share sheet — no-op.
+      }
+      return;
+    }
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <button
+      onClick={handleShare}
+      className="flex items-center gap-2 rounded-full bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 shadow-sm hover:opacity-90 active:scale-95 transition-all shrink-0"
+    >
+      {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+      {copied ? 'Link copied' : 'Share'}
+    </button>
+  );
+}

@@ -2,7 +2,7 @@
 import { useRef, useEffect, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { feature, mesh } from 'topojson-client';
+import { feature, mesh, merge } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import { ChevronLeft, Home, Plus, Minus } from 'lucide-react';
 import type { VoteData, Metric } from '@/lib/types';
@@ -19,6 +19,12 @@ type Props = {
 
 const PH_CENTER: [number, number] = [122, 12.8];
 const DEFAULT_ZOOM = 5;
+// Padded box around the default view — keeps panning from drifting past the
+// Philippines even at the min zoom, without pinning the map rigidly to center.
+const MAX_BOUNDS: maplibregl.LngLatBoundsLike = [
+  [PH_CENTER[0] - 10, PH_CENTER[1] - 10],
+  [PH_CENTER[0] + 10, PH_CENTER[1] + 10],
+];
 const NO_DATA_COLOR = '#d4d4d8'; // light neutral — blends into toner_lite's land
 
 // Single-hue sequential ramp, light -> dark, so the ramp stays one hue per the
@@ -85,36 +91,64 @@ function featureCentroid(geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon): { cx
   return best;
 }
 
-// Province name labels — one point per province, placed at the area-weighted centroid of
-// its largest municipality landmass. Names come from voteData (already resolved adm2_en per
-// municipality by the data pipeline) rather than duplicating the PSGC→name lookup table
-// client-side; adm3_psgc is the join key shared between the topojson and voteData.
+// PSGC region code for the National Capital Region — NCR has no real province layer.
+// Its adm2_pcode values are administrative "districts" (1st–4th NCR district) that don't
+// match any single city's boundary or name, so grouping by adm2_pcode there produced
+// nonsense: 3–6 unrelated cities dissolved into one shape labeled with whichever city's
+// name happened to be read first (e.g. a Manila/Makati/Muntinlupa blob labeled "Las Piñas
+// City"). NCR's cities are grouped under one "Metro Manila" label instead — the province
+// dissolve/label logic below only applies outside NCR.
+const NCR_REGION_PCODE = 'PH13';
+const NCR_LABEL = 'Metro Manila';
+
+// Province name labels — one point per province (or, for NCR, one "Metro Manila" point),
+// placed at the centroid of the dissolved shape of all its municipalities merged into one
+// polygon — not derived from any single municipality, which previously placed labels off
+// toward wherever one municipality's landmass happened to sit rather than the visual middle
+// of the whole shape. Names come from voteData (already resolved adm2_en per municipality
+// by the data pipeline) rather than duplicating the PSGC→name lookup table client-side;
+// adm3_psgc is the join key shared between the topojson and voteData.
 function buildProvinceLabelPoints(
-  features: GeoJSON.Feature[],
+  topo: Topology,
+  municitiesObj: GeometryCollection<{ adm1_pcode: string; adm2_pcode: string }>,
   voteData: VoteData
 ): GeoJSON.FeatureCollection<GeoJSON.Point, { name: string }> {
-  const best = new Map<string, { cx: number; cy: number; area: number; name: string }>();
-  for (const g of features) {
-    const props = g.properties as { adm2_pcode?: string; adm3_psgc?: string } | null;
-    const adm2Pcode = props?.adm2_pcode;
-    const psgc = props?.adm3_psgc;
-    if (!adm2Pcode || !psgc) continue;
-    const name = voteData.municipalities[psgc]?.adm2_en;
-    if (!name) continue;
+  const byGroup = new Map<string, typeof municitiesObj.geometries>();
+  const nameByGroup = new Map<string, string>();
 
-    const c = featureCentroid(g.geometry as GeoJSON.Polygon | GeoJSON.MultiPolygon);
-    const prev = best.get(adm2Pcode);
-    if (!prev || c.area > prev.area) best.set(adm2Pcode, { ...c, name });
+  for (const g of municitiesObj.geometries) {
+    const props = g.properties as { adm1_pcode?: string; adm2_pcode?: string; adm3_psgc?: string } | undefined;
+    const psgc = props?.adm3_psgc;
+    if (!psgc) continue;
+
+    const isNcr = props?.adm1_pcode === NCR_REGION_PCODE;
+    const groupKey = isNcr ? NCR_REGION_PCODE : props?.adm2_pcode;
+    if (!groupKey) continue;
+
+    if (!nameByGroup.has(groupKey)) {
+      const name = isNcr ? NCR_LABEL : voteData.municipalities[psgc]?.adm2_en;
+      if (name) nameByGroup.set(groupKey, name);
+    }
+    const list = byGroup.get(groupKey);
+    if (list) list.push(g);
+    else byGroup.set(groupKey, [g]);
   }
 
-  return {
-    type: 'FeatureCollection',
-    features: Array.from(best.values()).map(p => ({
+  const points: GeoJSON.Feature<GeoJSON.Point, { name: string }>[] = [];
+  for (const [groupKey, geoms] of byGroup) {
+    const name = nameByGroup.get(groupKey);
+    if (!name) continue;
+    const dissolved = merge(topo, geoms as Parameters<typeof merge>[1]);
+    const c = featureCentroid(dissolved);
+    if (c.area === 0) continue;
+    points.push({
       type: 'Feature',
-      properties: { name: p.name },
-      geometry: { type: 'Point', coordinates: [p.cx, p.cy] },
-    })),
-  };
+      properties: { name },
+      geometry: { type: 'Point', coordinates: [c.cx, c.cy] },
+    });
+  }
+
+  return { type: 'FeatureCollection', features: points };
 }
 
 const NO_DATA_SENTINEL = -1; // value returned by match when psgc has no data
@@ -274,7 +308,7 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
   const containerRef  = useRef<HTMLDivElement>(null);
   const mapRef        = useRef<maplibregl.Map | null>(null);
   const loadedRef     = useRef(false);
-  const muniFeaturesRef = useRef<GeoJSON.Feature[] | null>(null);
+  const topoRef = useRef<{ topo: Topology; municitiesObj: GeometryCollection<{ adm1_pcode: string; adm2_pcode: string }> } | null>(null);
   const labelsBuiltRef  = useRef(false);
   // Keep latest props accessible inside stable event handlers
   const propsRef      = useRef({ voteData, senatorId, metric, year });
@@ -291,12 +325,37 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
       style: process.env.NEXT_PUBLIC_MAP_STYLE_URL ?? 'https://tiles.openfreemap.org/styles/positron',
       center: PH_CENTER,
       zoom: DEFAULT_ZOOM,
+      minZoom: DEFAULT_ZOOM,
+      maxBounds: MAX_BOUNDS,
       // Always start collapsed to an "i" icon — expands as an overlay on click.
       // Default compact mode only auto-collapses under 640px container width,
       // which left it expanded (and blocking the legend) on wider map columns.
       attributionControl: { compact: true },
     });
     mapRef.current = map;
+
+    // MapLibre's compact attribution starts visually expanded (native <details open>
+    // + a "-show" class) the first time it computes attribution text — which happens
+    // asynchronously once style/tile data loads, not synchronously on construction.
+    // Force it closed on every recompute until the user opens it themselves.
+    let userOpenedAttribution = false;
+    function collapseAttribution() {
+      if (userOpenedAttribution || !containerRef.current) return;
+      const el = containerRef.current.querySelector('.maplibregl-ctrl-attrib.maplibregl-compact');
+      if (el) {
+        el.classList.remove('maplibregl-compact-show');
+        el.removeAttribute('open');
+      }
+    }
+    collapseAttribution();
+    map.on('data', collapseAttribution);
+    map.on('styledata', collapseAttribution);
+    map.on('resize', collapseAttribution);
+    containerRef.current.addEventListener('click', e => {
+      if ((e.target as HTMLElement)?.closest?.('.maplibregl-ctrl-attrib-button')) {
+        userOpenedAttribution = true;
+      }
+    });
 
     // Show the reset button once the view has moved away from the default center/zoom
     map.on('moveend', () => {
@@ -309,9 +368,20 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
     });
 
     map.on('load', async () => {
+      // Bold font actually shipped by whichever basemap style is configured — different
+      // providers ship different families (e.g. stamen_toner_lite serves "Inter Bold",
+      // OpenFreeMap's Positron serves "Noto Sans Bold"), and a font name absent from the
+      // style's glyphs endpoint fails silently with no text rendered at all. Detected here
+      // from any basemap symbol layer's own text-font, so province labels always match a
+      // font the current style actually has, whichever style is active.
+      let boldFont = 'Noto Sans Bold';
+
       // Hide basemap labels and admin/boundary lines — keep only land & water fills
       for (const layer of map.getStyle().layers ?? []) {
         if (layer.type === 'symbol') {
+          const font = map.getLayoutProperty(layer.id, 'text-font') as string[] | undefined;
+          const bold = font?.find(f => /bold/i.test(f));
+          if (bold) boldFont = bold;
           map.setLayoutProperty(layer.id, 'visibility', 'none');
         } else if (layer.type === 'line') {
           const src = (layer as maplibregl.LineLayerSpecification).source as string;
@@ -349,50 +419,39 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
 
       const res  = await fetch('/data/ph_municipalities.json');
       const topo: Topology = await res.json();
-      const municitiesObj = topo.objects.municities as GeometryCollection<{ adm2_pcode: string }>;
+      const municitiesObj = topo.objects.municities as GeometryCollection<{ adm1_pcode: string; adm2_pcode: string }>;
       const geojson = feature(topo, municitiesObj);
 
       map.addSource('ph-municipalities', { type: 'geojson', data: geojson });
 
+      // Group key used for the dissolved province boundary: adm2_pcode everywhere except
+      // NCR, whose adm2_pcode values are internal "districts" that don't correspond to real
+      // provinces (see NCR_REGION_PCODE above) — NCR is treated as one region instead, so
+      // no boundary line is drawn between its cities.
+      const provinceGroupKey = (props: { adm1_pcode?: string; adm2_pcode?: string } | undefined) =>
+        props?.adm1_pcode === NCR_REGION_PCODE ? NCR_REGION_PCODE : props?.adm2_pcode;
+
       // Province outlines — dissolved from municipality boundaries (kept only where an arc
-      // borders two different provinces, or sits on the outer edge) so no separate province
-      // geometry file is needed.
+      // borders two different provinces/regions, or sits on the outer edge) so no separate
+      // province geometry file is needed.
       const provinceMesh = mesh(topo, municitiesObj, (a, b) =>
-        (a.properties as { adm2_pcode?: string } | undefined)?.adm2_pcode !==
-        (b.properties as { adm2_pcode?: string } | undefined)?.adm2_pcode
+        provinceGroupKey(a.properties as { adm1_pcode?: string; adm2_pcode?: string } | undefined) !==
+        provinceGroupKey(b.properties as { adm1_pcode?: string; adm2_pcode?: string } | undefined)
       );
 
       map.addSource('ph-provinces', { type: 'geojson', data: provinceMesh });
 
-      // Municipality features are kept for building province labels once voteData (which
-      // supplies adm2_en names) is available — may not be loaded yet on first mount.
-      muniFeaturesRef.current = geojson.features;
+      // Topology + geometry collection kept for building province labels once voteData
+      // (which supplies adm2_en names) is available — may not be loaded yet on first mount.
+      topoRef.current = { topo, municitiesObj };
 
       const initialVoteData = propsRef.current.voteData;
       if (initialVoteData) labelsBuiltRef.current = true;
       map.addSource('ph-province-labels', {
         type: 'geojson',
         data: initialVoteData
-          ? buildProvinceLabelPoints(geojson.features, initialVoteData)
+          ? buildProvinceLabelPoints(topo, municitiesObj, initialVoteData)
           : { type: 'FeatureCollection', features: [] },
-      });
-      map.addLayer({
-        id: 'province-labels',
-        type: 'symbol',
-        source: 'ph-province-labels',
-        minzoom: 6,
-        layout: {
-          'text-field': ['get', 'name'],
-          'text-font': ['Noto Sans Regular'],
-          'text-size': ['interpolate', ['linear'], ['zoom'], 6, 10, 10, 14],
-          'text-letter-spacing': 0.02,
-          'text-max-width': 8,
-        },
-        paint: {
-          'text-color': 'rgba(24,24,27,0.85)',
-          'text-halo-color': 'rgba(255,255,255,0.9)',
-          'text-halo-width': 1.4,
-        },
       });
 
       map.addLayer({
@@ -456,6 +515,28 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
         source: 'ph-municipalities',
         paint: { 'line-color': 'rgba(255,255,255,0.85)', 'line-width': 1.2 },
         filter: ['==', ['get', 'adm3_psgc'], ''],
+      });
+
+      // Province labels — added last so they paint on top of every fill/line layer above
+      // instead of being drawn under and then covered by them.
+      map.addLayer({
+        id: 'province-labels',
+        type: 'symbol',
+        source: 'ph-province-labels',
+        minzoom: 6,
+        layout: {
+          'text-field': ['get', 'name'],
+          'text-font': [boldFont],
+          'text-transform': 'uppercase',
+          'text-size': ['interpolate', ['linear'], ['zoom'], 6, 10, 10, 14],
+          'text-letter-spacing': 0.06,
+          'text-max-width': 8,
+        },
+        paint: {
+          'text-color': 'rgba(24,24,27,0.95)',
+          'text-halo-color': 'rgba(255,255,255,0.95)',
+          'text-halo-width': 1.6,
+        },
       });
 
       // Hover tooltip — inline dark style so it's immune to CSS var overrides
@@ -530,9 +611,9 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
     const map = mapRef.current;
     if (!map || !loadedRef.current || !voteData || labelsBuiltRef.current) return;
     const source = map.getSource('ph-province-labels') as maplibregl.GeoJSONSource | undefined;
-    const features = muniFeaturesRef.current;
-    if (!source || !features) return;
-    source.setData(buildProvinceLabelPoints(features, voteData));
+    const loaded = topoRef.current;
+    if (!source || !loaded) return;
+    source.setData(buildProvinceLabelPoints(loaded.topo, loaded.municitiesObj, voteData));
     labelsBuiltRef.current = true;
   }, [voteData]);
 
