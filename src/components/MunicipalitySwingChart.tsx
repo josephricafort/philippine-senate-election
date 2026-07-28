@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { GAIN, LOSS } from '@/lib/swing';
+import { GAIN, LOSS, quartileSample, formatSwingParts } from '@/lib/swing';
 
 type Row = { psgc: string; adm3_en: string; share_a: number; share_b: number; delta: number };
 
@@ -11,24 +11,7 @@ type Props = {
   yearB: number;
 };
 
-// Picks 5 representative rows from a delta-sorted list: biggest drop, 25th pct,
-// median, 75th pct, biggest gain — so the collapsed view shows the spread of the
-// distribution rather than an arbitrary top-N.
-function quartileSample(rows: Row[]): { row: Row; label: string }[] {
-  if (rows.length <= 5) return rows.map(row => ({ row, label: '' }));
-  const n = rows.length;
-  const at = (frac: number) => rows[Math.round(frac * (n - 1))];
-  const picks = [
-    { row: at(0), label: 'Biggest drop' },
-    { row: at(0.25), label: '25th pct.' },
-    { row: at(0.5), label: 'Median' },
-    { row: at(0.75), label: '75th pct.' },
-    { row: at(1), label: 'Biggest gain' },
-  ];
-  // Dedupe in case rounding collapses two quantiles onto the same row (small n).
-  const seen = new Set<string>();
-  return picks.filter(p => (seen.has(p.row.psgc) ? false : (seen.add(p.row.psgc), true)));
-}
+const SAMPLE_SIZE = 5;
 
 export default function MunicipalitySwingChart({ rows, province, yearA, yearB }: Props) {
   const [expanded, setExpanded] = useState(false);
@@ -41,7 +24,7 @@ export default function MunicipalitySwingChart({ rows, province, yearA, yearB }:
   );
 
   const maxAbsDelta = Math.max(...rows.map(r => Math.abs(r.delta)), 0.01);
-  const sample = quartileSample(rows);
+  const sample = quartileSample(rows, r => r.psgc, SAMPLE_SIZE);
   const visible: { row: Row; label: string }[] = expanded
     ? rows.map(row => ({ row, label: '' }))
     : sample;
@@ -71,6 +54,7 @@ export default function MunicipalitySwingChart({ rows, province, yearA, yearB }:
         {visible.map(({ row, label }) => {
           const gain = row.delta >= 0;
           const widthPct = (Math.abs(row.delta) / maxAbsDelta) * 50;
+          const { sign, magnitude } = formatSwingParts(row.delta);
           return (
             <div key={row.psgc} className="grid grid-cols-[84px_1fr_52px] gap-2.5 items-center">
               <div className="min-w-0">
@@ -94,14 +78,14 @@ export default function MunicipalitySwingChart({ rows, province, yearA, yearB }:
                 />
               </div>
               <p className="font-mono text-xs font-semibold text-right tabular-nums" style={{ color: gain ? GAIN : LOSS }}>
-                {gain ? '+' : '−'}{Math.abs(row.delta * 100).toFixed(1)}
+                {sign}{magnitude}
               </p>
             </div>
           );
         })}
       </div>
 
-      {rows.length > 5 && (
+      {rows.length > SAMPLE_SIZE && (
         <button
           onClick={() => setExpanded(e => !e)}
           className="mt-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"

@@ -7,6 +7,9 @@ import type { Topology, GeometryCollection } from 'topojson-specification';
 import { ChevronLeft, Home, Plus, Minus } from 'lucide-react';
 import type { VoteData, Metric } from '@/lib/types';
 import { yearColor } from '@/lib/year-colors';
+import { formatSwingPt } from '@/lib/swing';
+import { trackEvent } from '@/lib/analytics';
+type SwingEntry = { delta: number };
 
 type Props = {
   voteData: VoteData | null;
@@ -14,6 +17,10 @@ type Props = {
   senatorName: string | null;
   year: number | null;
   metric: Metric;
+  /** Per-municipality swing (psgc -> delta), required when metric === 'swing'. */
+  swingMap?: Map<string, SwingEntry> | null;
+  /** The two years being compared for the swing metric, e.g. [2019, 2025]. */
+  swingYears?: [number, number] | null;
   onNavigateToProfile?: () => void;
 };
 
@@ -159,22 +166,89 @@ const NO_DATA_SENTINEL = -1; // value returned by match when psgc has no data
 const VOTE_SHARE_CAP = 0.15;
 const RAW_VOTES_CAP  = 50_000;
 
+// Swing uses 6 discrete buckets, 3 shades of loss + 3 shades of gain split exactly at zero —
+// no neutral/"flat" bucket, so every municipality reads as a clear direction rather than
+// blending into a middle band. (An earlier version used a white midpoint; continuous
+// interpolation toward it washed out almost the whole map since most swings cluster near
+// zero, and even a 5-bucket version with a neutral band undersold small-but-real movement.)
+// Thresholds scale to each candidate's own min/max swing (same idea as the Rank metric
+// scaling to that candidate's maxRank) so the full color range is always used, rather than
+// a fixed cap leaving most candidates' maps mostly in the lightest bucket.
+const SWING_LOSS_COLORS = ['#fca5a5', '#ef4444', '#991b1b']; // mild -> strong loss
+const SWING_GAIN_COLORS = ['#86efac', '#22c55e', '#15803d']; // mild -> strong gain
+const SWING_BUCKET_COLORS = [...[...SWING_LOSS_COLORS].reverse(), ...SWING_GAIN_COLORS];
+// Exact-zero swing gets its own subtle gray rather than falling into the lightest gain
+// bucket — a municipality with literally no measured change shouldn't read as "gained".
+const SWING_ZERO_COLOR = '#d4d4d8';
+
+// Largest absolute swing across all municipalities — used only for the legend's
+// min/max labels now; bucket boundaries themselves come from swingQuantileBounds.
+function swingMaxAbs(swingMap: Map<string, SwingEntry>): number {
+  let max = 0;
+  for (const entry of swingMap.values()) max = Math.max(max, Math.abs(entry.delta));
+  return max;
+}
+
+// Value at a given fraction through a sorted array (nearest-rank; good enough for a
+// 3-bucket map legend, no need for interpolated-percentile precision).
+function quantile(sorted: number[], frac: number): number {
+  const idx = Math.min(sorted.length - 1, Math.floor(frac * sorted.length));
+  return sorted[idx];
+}
+
+// Losses and gains are quantiled separately (not the combined signed distribution) so each
+// side's 3 buckets split its own municipalities into even thirds — losses cluster differently
+// than gains, and quantiling them together would let one side dominate the bucket boundaries.
+// Falls back to even thirds of maxAbs when a side has too few municipalities to bucket meaningfully.
+function swingQuantileBounds(swingMap: Map<string, SwingEntry>, maxAbs: number): {
+  lossBounds: [number, number]; // [-2/3 boundary, -1/3 boundary], both <= 0
+  gainBounds: [number, number]; // [+1/3 boundary, +2/3 boundary], both >= 0
+} {
+  const losses: number[] = [];
+  const gains: number[] = [];
+  for (const { delta } of swingMap.values()) {
+    if (delta < 0) losses.push(-delta); // store as positive magnitude for quantiling
+    else if (delta > 0) gains.push(delta);
+  }
+  losses.sort((a, b) => a - b);
+  gains.sort((a, b) => a - b);
+
+  const third = maxAbs / 3;
+  const lossBounds: [number, number] = losses.length >= 3
+    ? [-quantile(losses, 2 / 3), -quantile(losses, 1 / 3)]
+    : [-third * 2, -third];
+  const gainBounds: [number, number] = gains.length >= 3
+    ? [quantile(gains, 1 / 3), quantile(gains, 2 / 3)]
+    : [third, third * 2];
+
+  return { lossBounds, gainBounds };
+}
+
 function buildMatchExpression(
   voteData: VoteData,
   senatorId: string,
-  metric: Metric
+  metric: Metric,
+  swingMap?: Map<string, SwingEntry> | null
 ): maplibregl.ExpressionSpecification {
   const pairs: (string | number)[] = [];
-  for (const [psgc, mun] of Object.entries(voteData.municipalities)) {
-    const c = mun.candidates.find(c => c.senator_id === senatorId);
-    if (!c) continue;
-    let val: number;
-    if (metric === 'vote_share') val = Math.min(c.vote_share, VOTE_SHARE_CAP);
-    else if (metric === 'rank')  val = c.rank;
-    else                         val = Math.min(c.votes, RAW_VOTES_CAP);
-    pairs.push(psgc, val);
+  if (metric === 'swing') {
+    for (const [psgc, entry] of swingMap ?? []) {
+      pairs.push(psgc, entry.delta);
+    }
+  } else {
+    for (const [psgc, mun] of Object.entries(voteData.municipalities)) {
+      const c = mun.candidates.find(c => c.senator_id === senatorId);
+      if (!c) continue;
+      let val: number;
+      if (metric === 'vote_share') val = Math.min(c.vote_share, VOTE_SHARE_CAP);
+      else if (metric === 'rank')  val = c.rank;
+      else                         val = Math.min(c.votes, RAW_VOTES_CAP);
+      pairs.push(psgc, val);
+    }
   }
-  // Fallback -1 signals "no data" — real values are always >= 0
+  // Fallback -1 signals "no data" — real vote-share/votes/rank values are always >= 0.
+  // Swing deltas can be negative, so they're offset by +1 below the match/interpolate boundary
+  // instead of relying on sign to detect "no data" — see the swing branch in buildColorExpression.
   return ['match', ['get', 'adm3_psgc'], ...pairs, NO_DATA_SENTINEL] as unknown as maplibregl.ExpressionSpecification;
 }
 
@@ -182,12 +256,35 @@ function buildColorExpression(
   voteData: VoteData,
   senatorId: string,
   metric: Metric,
-  year: number | null
+  year: number | null,
+  swingMap?: Map<string, SwingEntry> | null
 ): maplibregl.ExpressionSpecification {
-  const valueExpr = buildMatchExpression(voteData, senatorId, metric);
+  const valueExpr = buildMatchExpression(voteData, senatorId, metric, swingMap);
   // Wrap with case: sentinel → NO_DATA_COLOR, otherwise → interpolated color
   const noDataGuard = (colorExpr: unknown) =>
     ['case', ['==', valueExpr, NO_DATA_SENTINEL], NO_DATA_COLOR, colorExpr] as unknown as maplibregl.ExpressionSpecification;
+
+  if (metric === 'swing') {
+    if (!swingMap || swingMap.size === 0) return NO_DATA_COLOR as unknown as maplibregl.ExpressionSpecification;
+    const maxAbs = swingMaxAbs(swingMap);
+    if (maxAbs === 0) return SWING_ZERO_COLOR as unknown as maplibregl.ExpressionSpecification;
+    // 6 discrete bands, boundaries at each side's own tercile (quantile) rather than even
+    // thirds of the value range — most swings cluster near zero, so equal-width bands left
+    // the two "mild" buckets absorbing nearly every municipality. Quantile boundaries instead
+    // put roughly equal counts of municipalities in each bucket.
+    const { lossBounds, gainBounds } = swingQuantileBounds(swingMap, maxAbs);
+    const stepExpr = [
+      'step', valueExpr,
+      SWING_BUCKET_COLORS[0],
+      lossBounds[0], SWING_BUCKET_COLORS[1],
+      lossBounds[1], SWING_BUCKET_COLORS[2],
+      0,             SWING_BUCKET_COLORS[3],
+      gainBounds[0], SWING_BUCKET_COLORS[4],
+      gainBounds[1], SWING_BUCKET_COLORS[5],
+    ];
+    // Exact zero gets its own neutral color instead of falling into the lightest gain bucket.
+    return noDataGuard(['case', ['==', valueExpr, 0], SWING_ZERO_COLOR, stepExpr]);
+  }
 
   const rampColors = sequentialStops(yearColor(year ?? 0));
 
@@ -217,20 +314,35 @@ function buildColorExpression(
   return noDataGuard(['interpolate', ['linear'], valueExpr, ...stops]);
 }
 
-function buildTooltipHtml(props: Record<string, unknown>, voteData: VoteData | null, senatorId: string | null, metric: Metric): string {
+function buildTooltipHtml(
+  props: Record<string, unknown>,
+  voteData: VoteData | null,
+  senatorId: string | null,
+  metric: Metric,
+  swingMap?: Map<string, SwingEntry> | null
+): string {
   const name     = (props.adm3_en ?? props.name ?? '') as string;
   const psgc     = props.adm3_psgc as string;
   const mun      = voteData?.municipalities[psgc];
   const province = mun?.adm2_en ?? '';
-  const c        = mun?.candidates.find(c => c.senator_id === senatorId);
 
   let detail = '';
-  if (c) {
-    if (metric === 'vote_share') detail = `${(c.vote_share * 100).toFixed(1)}% vote share`;
-    else if (metric === 'rank')  detail = `Rank #${c.rank}`;
-    else                         detail = `${c.votes.toLocaleString()} votes`;
-  } else if (senatorId) {
-    detail = 'No data';
+  if (metric === 'swing') {
+    const entry = swingMap?.get(psgc);
+    if (entry) {
+      detail = `${formatSwingPt(entry.delta)} swing`;
+    } else if (senatorId) {
+      detail = 'No data';
+    }
+  } else {
+    const c = mun?.candidates.find(c => c.senator_id === senatorId);
+    if (c) {
+      if (metric === 'vote_share') detail = `${(c.vote_share * 100).toFixed(1)}% vote share`;
+      else if (metric === 'rank')  detail = `Rank #${c.rank}`;
+      else                         detail = `${c.votes.toLocaleString()} votes`;
+    } else if (senatorId) {
+      detail = 'No data';
+    }
   }
 
   return `
@@ -245,20 +357,44 @@ const METRIC_LABEL: Record<Metric, string> = {
   rank: 'Rank by municipality',
   vote_share: 'Vote share',
   votes: 'Raw votes',
+  swing: 'Swing',
 };
 
 function formatLegendValue(metric: Metric, v: number): string {
   if (metric === 'rank') return `#${Math.round(v)}`;
-  if (metric === 'vote_share') return `${(v * 100).toFixed(0)}%`;
+  if (metric === 'vote_share' || metric === 'swing') return `${v >= 0 ? '+' : ''}${(v * 100).toFixed(0)}%`;
   if (v >= 1000) return `${(v / 1000).toFixed(0)}K`;
   return `${Math.round(v)}`;
 }
 
 // Legend gradient + min/max labels for the currently selected senator/metric.
 // Mirrors the color logic in buildColorExpression so the legend always matches what's painted.
-function buildLegend(voteData: VoteData | null, senatorId: string | null, metric: Metric, year: number | null) {
-  if (!voteData || !senatorId) return null;
+function buildLegend(
+  voteData: VoteData | null,
+  senatorId: string | null,
+  metric: Metric,
+  year: number | null,
+  swingMap?: Map<string, SwingEntry> | null
+) {
+  if (!senatorId) return null;
 
+  if (metric === 'swing') {
+    if (!swingMap || swingMap.size === 0) return null;
+    const maxAbs = swingMaxAbs(swingMap);
+    if (maxAbs === 0) return null;
+    return {
+      colors: SWING_BUCKET_COLORS,
+      minLabel: `−${(maxAbs * 100).toFixed(0)}pt`,
+      maxLabel: `+${(maxAbs * 100).toFixed(0)}pt`,
+      bestFirst: false,
+      // Swing paints in 6 discrete step buckets, not a continuous ramp — the legend must
+      // render as separate solid chips, not a blended gradient, or it misrepresents the
+      // scale as smooth when adjacent municipalities can jump a whole bucket at once.
+      discrete: true,
+    };
+  }
+
+  if (!voteData) return null;
   const values = Object.values(voteData.municipalities).flatMap(m => {
     const c = m.candidates.find(c => c.senator_id === senatorId);
     return c ? [metric === 'vote_share' ? c.vote_share : metric === 'rank' ? c.rank : c.votes] : [];
@@ -287,14 +423,23 @@ function buildLegend(voteData: VoteData | null, senatorId: string | null, metric
   };
 }
 
-function applyPaint(map: maplibregl.Map, voteData: VoteData, senatorId: string, metric: Metric, year: number | null) {
+function applyPaint(
+  map: maplibregl.Map,
+  voteData: VoteData,
+  senatorId: string,
+  metric: Metric,
+  year: number | null,
+  swingMap?: Map<string, SwingEntry> | null
+) {
   map.setPaintProperty('municipalities-fill', 'fill-color',
-    buildColorExpression(voteData, senatorId, metric, year));
+    buildColorExpression(voteData, senatorId, metric, year, swingMap));
 
-  // Show hatch only on features where this senator has no data
-  const psgcsWithData = Object.entries(voteData.municipalities)
-    .filter(([, mun]) => mun.candidates.some(c => c.senator_id === senatorId))
-    .map(([psgc]) => psgc);
+  // Show hatch only on features where this senator has no data for the active metric
+  const psgcsWithData = metric === 'swing'
+    ? Array.from(swingMap?.keys() ?? [])
+    : Object.entries(voteData.municipalities)
+        .filter(([, mun]) => mun.candidates.some(c => c.senator_id === senatorId))
+        .map(([psgc]) => psgc);
 
   // filter: psgc NOT in the with-data set → show hatch
   map.setFilter('municipalities-nodata',
@@ -304,17 +449,21 @@ function applyPaint(map: maplibregl.Map, voteData: VoteData, senatorId: string, 
   );
 }
 
-export default function ChoroplethMap({ voteData, senatorId, senatorName, year, metric, onNavigateToProfile }: Props) {
+export default function ChoroplethMap({ voteData, senatorId, senatorName, year, metric, swingMap, swingYears, onNavigateToProfile }: Props) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const mapRef        = useRef<maplibregl.Map | null>(null);
   const loadedRef     = useRef(false);
   const topoRef = useRef<{ topo: Topology; municitiesObj: GeometryCollection<{ adm1_pcode: string; adm2_pcode: string }> } | null>(null);
   const labelsBuiltRef  = useRef(false);
   // Keep latest props accessible inside stable event handlers
-  const propsRef      = useRef({ voteData, senatorId, metric, year });
-  propsRef.current    = { voteData, senatorId, metric, year };
+  const propsRef      = useRef({ voteData, senatorId, metric, year, swingMap });
+  propsRef.current    = { voteData, senatorId, metric, year, swingMap };
   // Drives the "reset view" button — only shown once the user has actually panned/zoomed away
   const [showResetButton, setShowResetButton] = useState(false);
+  // Tracks "first interaction per candidate+year view" so map_interact fires once per view,
+  // not on every pixel of pan — otherwise it's unusable for funnel analysis.
+  const hasInteractedRef = useRef(false);
+  const lastHoverTrackRef = useRef(0);
 
   // Init map + load topojson once
   useEffect(() => {
@@ -365,6 +514,23 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
         Math.abs(center.lat - PH_CENTER[1]) > 0.01 ||
         Math.abs(map.getZoom() - DEFAULT_ZOOM) > 0.01;
       setShowResetButton(moved);
+    });
+
+    // First interaction per candidate+year view — reset by the effect below whenever
+    // senatorId/year changes, so repeated pans within the same view don't spam events.
+    function trackFirstInteraction(interactionType: 'pan' | 'zoom' | 'drag') {
+      if (hasInteractedRef.current) return;
+      hasInteractedRef.current = true;
+      const { senatorId, year } = propsRef.current;
+      if (!senatorId || year === null) return;
+      trackEvent('map_interact', { interaction_type: interactionType, candidate_id: senatorId, year });
+    }
+    map.on('dragstart', () => trackFirstInteraction('drag'));
+    map.on('zoomstart', e => {
+      // MapLibre fires zoomstart for both scroll-wheel/pinch zoom and the +/- button
+      // clicks below; both count as "zoom" for this event's purposes.
+      if (!e.originalEvent) return; // ignore programmatic zooms (e.g. reset-view flyTo)
+      trackFirstInteraction('zoom');
     });
 
     map.on('load', async () => {
@@ -418,6 +584,9 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
       map.addImage('no-data-hatch', { width: patternSize, height: patternSize, data: ctx.getImageData(0, 0, patternSize, patternSize).data });
 
       const res  = await fetch('/data/ph_municipalities.json');
+      if (!res.ok) {
+        trackEvent('data_fetch_error', { resource: 'municipalities_geo', error_type: `http_${res.status}` });
+      }
       const topo: Topology = await res.json();
       const municitiesObj = topo.objects.municities as GeometryCollection<{ adm1_pcode: string; adm2_pcode: string }>;
       const geojson = feature(topo, municitiesObj);
@@ -547,18 +716,34 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
       });
 
       // Override MapLibre popup background via inline style on the element
+      const HOVER_TRACK_THROTTLE_MS = 2000;
       map.on('mousemove', 'municipalities-fill', e => {
         if (!e.features?.length) return;
         map.getCanvas().style.cursor = 'pointer';
-        const { voteData, senatorId, metric } = propsRef.current;
+        const { voteData, senatorId, metric, swingMap } = propsRef.current;
         const props = e.features[0].properties as Record<string, unknown>;
 
         // Drive the hover-outline layer to this feature
         map.setFilter('municipalities-hover', ['==', ['get', 'adm3_psgc'], String(props.adm3_psgc ?? '')]);
 
+        // Throttled — mousemove fires continuously, so this samples at most once every
+        // HOVER_TRACK_THROTTLE_MS rather than tracking every pixel of cursor movement.
+        const now = Date.now();
+        if (senatorId && now - lastHoverTrackRef.current > HOVER_TRACK_THROTTLE_MS) {
+          lastHoverTrackRef.current = now;
+          const psgc = props.adm3_psgc as string | undefined;
+          const hasData = metric === 'swing'
+            ? !!(psgc && swingMap?.has(psgc))
+            : !!(psgc && voteData?.municipalities[psgc]?.candidates.some(c => c.senator_id === senatorId));
+          const municipalityName = (props.adm3_en ?? props.name ?? 'unknown') as string;
+          trackEvent('map_hover_municipality', {
+            has_data: hasData, metric, candidate_id: senatorId, municipality: municipalityName,
+          });
+        }
+
         popup
           .setLngLat(e.lngLat)
-          .setHTML(buildTooltipHtml(props, voteData, senatorId, metric))
+          .setHTML(buildTooltipHtml(props, voteData, senatorId, metric, swingMap))
           .addTo(map);
 
         // Force dark background after DOM insertion
@@ -586,9 +771,9 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
       loadedRef.current = true;
 
       // Apply paint if data already loaded
-      const { voteData, senatorId, metric, year } = propsRef.current;
+      const { voteData, senatorId, metric, year, swingMap } = propsRef.current;
       if (voteData && senatorId) {
-        applyPaint(map, voteData, senatorId, metric, year);
+        applyPaint(map, voteData, senatorId, metric, year, swingMap);
       }
     });
 
@@ -596,13 +781,18 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-paint when senator / metric / voteData / year changes
+  // Re-paint when senator / metric / voteData / year / swingMap changes
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current || !voteData || !senatorId) return;
     if (!map.getLayer('municipalities-fill')) return;
-    applyPaint(map, voteData, senatorId, metric, year);
-  }, [voteData, senatorId, metric, year]);
+    applyPaint(map, voteData, senatorId, metric, year, swingMap);
+  }, [voteData, senatorId, metric, year, swingMap]);
+
+  // New candidate+year view — allow map_interact to fire again for it.
+  useEffect(() => {
+    hasInteractedRef.current = false;
+  }, [senatorId, year]);
 
   // Province labels don't depend on a selected candidate, only on voteData being loaded
   // (it supplies adm2_en names) — build them once, as soon as both are ready, independent
@@ -617,7 +807,10 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
     labelsBuiltRef.current = true;
   }, [voteData]);
 
-  const legend = buildLegend(voteData, senatorId, metric, year);
+  const legend = buildLegend(voteData, senatorId, metric, year, swingMap);
+  const contextValue = metric === 'swing' && swingYears
+    ? `${swingYears[0]} → ${swingYears[1]} · Swing`
+    : `${year ?? '—'} · ${METRIC_LABEL[metric]}`;
 
   return (
     <div className="relative w-full h-full">
@@ -639,7 +832,7 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
                 {senatorName ?? senatorId}
               </p>
               <p className="text-xs text-zinc-500 leading-tight mt-0.5">
-                {year ?? '—'} · {METRIC_LABEL[metric]}
+                {contextValue}
               </p>
             </span>
           </button>
@@ -649,7 +842,7 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
               {senatorName ?? senatorId}
             </p>
             <p className="text-xs text-zinc-500 leading-tight mt-0.5">
-              {year ?? '—'} · {METRIC_LABEL[metric]}
+              {contextValue}
             </p>
           </div>
         )
@@ -678,7 +871,10 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
           <>
             <div className="h-px bg-zinc-200" />
             <button
-              onClick={() => mapRef.current?.flyTo({ center: PH_CENTER, zoom: DEFAULT_ZOOM })}
+              onClick={() => {
+                trackEvent('map_reset_view', {});
+                mapRef.current?.flyTo({ center: PH_CENTER, zoom: DEFAULT_ZOOM });
+              }}
               title="Reset map view"
               aria-label="Reset map view"
               className="flex items-center justify-center w-9 h-9 text-zinc-700 hover:bg-zinc-100 transition-colors"
@@ -693,10 +889,18 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
       {legend && (
         <div className="absolute bottom-3 left-3 z-10 bg-white/95 text-zinc-700 border border-zinc-200 shadow-sm rounded-lg px-3 py-2 space-y-1.5">
           <div className="flex items-center gap-2">
-            <div
-              className="w-24 h-2.5 rounded-full"
-              style={{ background: `linear-gradient(to right, ${legend.colors.join(', ')})` }}
-            />
+            {legend.discrete ? (
+              <div className="flex w-24 h-2.5 rounded-full overflow-hidden gap-px">
+                {legend.colors.map((c, i) => (
+                  <div key={i} className="flex-1 h-full" style={{ background: c }} />
+                ))}
+              </div>
+            ) : (
+              <div
+                className="w-24 h-2.5 rounded-full"
+                style={{ background: `linear-gradient(to right, ${legend.colors.join(', ')})` }}
+              />
+            )}
           </div>
           <div className="flex items-center justify-between w-24 text-[10px] text-zinc-500 leading-none">
             <span>{legend.minLabel}</span>
@@ -704,6 +908,12 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
           </div>
           {legend.bestFirst && (
             <p className="text-[10px] text-zinc-400 leading-tight">Left = best rank</p>
+          )}
+          {legend.discrete && (
+            <div className="flex items-center gap-1.5 pt-1 border-t border-zinc-200">
+              <div className="w-3 h-3 rounded-sm shrink-0" style={{ background: SWING_ZERO_COLOR }} />
+              <span className="text-[10px] text-zinc-500 leading-none">No swing</span>
+            </div>
           )}
           <div className="flex items-center gap-1.5 pt-1 border-t border-zinc-200">
             <div
@@ -722,6 +932,14 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <p className="text-sm bg-white/90 text-zinc-600 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm">
             Select a candidate to see the choropleth
+          </p>
+        </div>
+      )}
+
+      {senatorId && metric === 'swing' && (!swingMap || swingMap.size === 0) && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-6">
+          <p className="text-sm text-center bg-white/90 text-zinc-600 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm max-w-xs">
+            Swing values are only available for candidates who ran in 2 or more elections.
           </p>
         </div>
       )}
