@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -21,7 +21,7 @@ type ProfileTab = 'swing' | 'trends';
 
 import {
   loadVotes, loadCandidateIndex, buildSenatorList, topMunicipalities, topProvinces, trendData,
-  nationwideMunicipalitySwing,
+  nationwideMunicipalitySwing, provinceList, provinceShareTrend, provinceSwing, municipalitySwing,
 } from '@/lib/data';
 import {
   ELECTION_YEARS, type ElectionYear, type Metric, type Senator, type VoteData,
@@ -163,6 +163,35 @@ function ExplorerPageInner() {
 
   const didRunSelectedYear = !!(currentVoteData && selectedSenator && currentVoteData.national[selectedSenator.senator_id]);
 
+  // Reduce voteCache down to just this senator's province-level numbers before handing off to
+  // SwingSection, same shape the static senator page precomputes server-side — see that page's
+  // comment for why SwingSection never takes the raw voteCache directly.
+  const swingProps = useMemo(() => {
+    if (!selectedSenator || voteCache.size !== ELECTION_YEARS.length) return null;
+    const latestVoteData = voteCache.get(Math.max(...selectedSenator.years)) ?? null;
+    const allProvinces = latestVoteData ? provinceList(latestVoteData) : [];
+    const provinceTrends = allProvinces.map(adm2_en => ({
+      adm2_en,
+      trend: provinceShareTrend(voteCache, selectedSenator.senator_id, adm2_en),
+    }));
+    const topProvinceNames = latestVoteData
+      ? topProvinces(latestVoteData, selectedSenator.senator_id, 4).map(p => p.adm2_en)
+      : [];
+    const [yearA, yearB] = swingYearPair ?? [undefined, undefined];
+    const voteDataA = yearA !== undefined ? voteCache.get(yearA) : undefined;
+    const voteDataB = yearB !== undefined ? voteCache.get(yearB) : undefined;
+    const provinceRows = (voteDataA && voteDataB)
+      ? provinceSwing(voteDataA, voteDataB, selectedSenator.senator_id)
+      : [];
+    const muniRowsByProvince: Record<string, ReturnType<typeof municipalitySwing>> = {};
+    if (voteDataA && voteDataB) {
+      for (const adm2_en of allProvinces) {
+        muniRowsByProvince[adm2_en] = municipalitySwing(voteDataA, voteDataB, selectedSenator.senator_id, adm2_en);
+      }
+    }
+    return { provinceTrends, topProvinceNames, provinceRows, muniRowsByProvince };
+  }, [selectedSenator, voteCache, swingYearPair]);
+
   // Track "did not run this year" as a friction event — fires once per candidate+year
   // combo that lands in this state, not on every render.
   useEffect(() => {
@@ -216,12 +245,12 @@ function ExplorerPageInner() {
       {selectedSenator ? (
         <>
           <div className="sticky top-0 z-20 bg-background -mx-4 px-4 pt-4 pb-3">
-            <CandidateHeader senator={selectedSenator} voteData={currentVoteData} />
+            <CandidateHeader senator={selectedSenator} national={currentVoteData?.national[selectedSenator.senator_id] ?? null} />
           </div>
 
           <CandidateCard
             senator={selectedSenator}
-            voteData={currentVoteData}
+            national={currentVoteData?.national[selectedSenator.senator_id] ?? null}
             year={year}
             onSelectYear={y => handleYearChange(y, 'candidate_pill')}
           />
@@ -307,11 +336,13 @@ function ExplorerPageInner() {
 
           {didRunSelectedYear ? (
             <>
-              {profileTab === 'swing' && voteCache.size === ELECTION_YEARS.length && (
+              {profileTab === 'swing' && swingProps && (
                 <SwingSection
                   senator={selectedSenator}
-                  voteCache={voteCache}
-                  latestVoteData={voteCache.get(Math.max(...selectedSenator.years)) ?? null}
+                  provinceTrends={swingProps.provinceTrends}
+                  topProvinceNames={swingProps.topProvinceNames}
+                  provinceRows={swingProps.provinceRows}
+                  muniRowsByProvince={swingProps.muniRowsByProvince}
                   yearPair={swingYearPair}
                 />
               )}

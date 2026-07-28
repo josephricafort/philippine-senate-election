@@ -5,56 +5,60 @@ import ProvinceSelect from '@/components/ProvinceSelect';
 import ProvinceSwingChart from '@/components/ProvinceSwingChart';
 import ProvinceSwingBarChart from '@/components/ProvinceSwingBarChart';
 import MunicipalitySwingChart from '@/components/MunicipalitySwingChart';
-import { provinceList, provinceShareTrend, provinceSwing, municipalitySwing, topProvinces } from '@/lib/data';
 import { formatSwingPt, type YearPair } from '@/lib/swing';
-import type { Senator, VoteData } from '@/lib/types';
+import type { Senator } from '@/lib/types';
+
+type Point = { year: number; vote_share: number; national_share: number };
 
 type Props = {
   senator: Senator;
-  voteCache: Map<number, VoteData>;
-  latestVoteData: VoteData | null;
+  /** Every province the senator has ever appeared in, each with its full multi-year trend —
+   *  precomputed server-side (page.tsx) so this client component never has to receive the raw,
+   *  all-candidates municipality-level voteCache just to derive one senator's numbers. */
+  provinceTrends: { adm2_en: string; trend: Point[] }[];
+  /** This senator's top provinces in their most recent year, most-voted first — used to pick
+   *  the default selected province and the two dimmed context lines. */
+  topProvinceNames: string[];
+  /** Province-level swing rows for the selected year pair (one row per province). */
+  provinceRows: { adm2_en: string; share_a: number; share_b: number; delta: number }[];
+  /** Municipality-level swing rows for the selected year pair, keyed by province — only the
+   *  provinces the senator actually contested, not every municipality nationwide. */
+  muniRowsByProvince: Record<string, { psgc: string; adm3_en: string; share_a: number; share_b: number; delta: number }[]>;
   /** Which consecutive pair of runs to compare — selected via SwingYearPairSelector in page.tsx. */
   yearPair: YearPair | null;
 };
 
 // Reads ?province= from the URL so a specific province's swing view is shareable/linkable
 // (e.g. /senator/go_bong?province=Cavite) without minting a static page per province.
-export default function SwingSection({ senator, voteCache, latestVoteData, yearPair }: Props) {
+export default function SwingSection({ senator, provinceTrends, topProvinceNames, provinceRows, muniRowsByProvince, yearPair }: Props) {
   const searchParams = useSearchParams();
   const provinceParam = searchParams.get('province');
-  const provinces = latestVoteData ? provinceList(latestVoteData) : [];
+  const provinces = useMemo(() => provinceTrends.map(p => p.adm2_en).sort(), [provinceTrends]);
+  const trendByProvince = useMemo(() => new Map(provinceTrends.map(p => [p.adm2_en, p.trend])), [provinceTrends]);
 
   // Default to the ?province= URL param if valid, else the candidate's #1 province in their
   // most recent year — computed once as the initial state so static HTML already shows real
   // data, no effect needed.
   const [province, setProvince] = useState<string | null>(() => {
     if (provinceParam && provinces.includes(provinceParam)) return provinceParam;
-    return latestVoteData ? topProvinces(latestVoteData, senator.senator_id, 1)[0]?.adm2_en ?? null : null;
+    return topProvinceNames[0] ?? null;
   });
 
   // Two other top provinces (excluding the selected one) as dim context lines.
   const contextTrends = useMemo(() => {
-    if (!latestVoteData || !province) return [];
-    return topProvinces(latestVoteData, senator.senator_id, 4)
-      .filter(p => p.adm2_en !== province)
+    if (!province) return [];
+    return topProvinceNames
+      .filter(p => p !== province)
       .slice(0, 2)
-      .map(p => ({ adm2_en: p.adm2_en, trend: provinceShareTrend(voteCache, senator.senator_id, p.adm2_en) }));
-  }, [latestVoteData, province, senator.senator_id, voteCache]);
+      .map(adm2_en => ({ adm2_en, trend: trendByProvince.get(adm2_en) ?? [] }));
+  }, [province, topProvinceNames, trendByProvince]);
 
-  const provinceTrend = province ? provinceShareTrend(voteCache, senator.senator_id, province) : [];
+  const provinceTrend = province ? trendByProvince.get(province) ?? [] : [];
 
   // Province/municipality swing compares whichever pair the year-pair selector chose.
   const [yearA, yearB] = yearPair ?? [undefined, undefined];
-  const voteDataA = yearA !== undefined ? voteCache.get(yearA) : undefined;
-  const voteDataB = yearB !== undefined ? voteCache.get(yearB) : undefined;
 
-  const muniRows = (province && voteDataA && voteDataB)
-    ? municipalitySwing(voteDataA, voteDataB, senator.senator_id, province)
-    : [];
-
-  const provinceRows = (voteDataA && voteDataB)
-    ? provinceSwing(voteDataA, voteDataB, senator.senator_id)
-    : [];
+  const muniRows = province ? muniRowsByProvince[province] ?? [] : [];
 
   // Swing needs at least two runs to mean anything — keep the section (so its place in the
   // page layout stays predictable) but swap the charts for an explanation instead of just

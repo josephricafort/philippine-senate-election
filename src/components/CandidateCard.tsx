@@ -2,11 +2,15 @@
 import { AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import YearSelector from '@/components/YearSelector';
-import type { ElectionYear, Senator, VoteData } from '@/lib/types';
+import type { ElectionYear, NationalTotals, Senator } from '@/lib/types';
 
 type Props = {
   senator: Senator;
-  voteData: VoteData | null;
+  /** Just this senator's national totals for `year`, not the full VoteData — that dataset
+   *  covers every municipality and every candidate who ran, and passing the whole object into
+   *  this (client) component would serialize all of it into the page's RSC payload for a
+   *  single-object lookup. */
+  national: NationalTotals | null;
   year: ElectionYear;
   onSelectYear?: (year: ElectionYear) => void;
 };
@@ -22,9 +26,7 @@ function formatVotes(n: number) {
   return n.toLocaleString();
 }
 
-export function CandidateHeader({ senator, voteData }: { senator: Senator; voteData: VoteData | null }) {
-  const national = voteData?.national[senator.senator_id];
-
+export function CandidateHeader({ senator, national }: { senator: Senator; national: NationalTotals | null }) {
   return (
     <div className="flex items-center gap-3 md:gap-5">
       <div className={`w-9 h-9 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-sm md:text-base shrink-0 select-none ${national ? 'bg-primary text-primary-foreground' : 'bg-destructive/20 text-destructive'}`}>
@@ -35,9 +37,7 @@ export function CandidateHeader({ senator, voteData }: { senator: Senator; voteD
   );
 }
 
-export default function CandidateCard({ senator, voteData, year, onSelectYear }: Props) {
-  const national = voteData?.national[senator.senator_id];
-
+export default function CandidateCard({ senator, national, year, onSelectYear }: Props) {
   return (
     <div className={national ? '' : 'p-3 md:p-6 rounded-xl border bg-destructive/10 border-destructive/30'}>
       {national ? (

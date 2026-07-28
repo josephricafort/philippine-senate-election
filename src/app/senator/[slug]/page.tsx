@@ -12,9 +12,14 @@ import SwingSection from '@/components/SwingSection';
 import ShareButton from '@/components/ShareButton';
 import SectionIntro from '@/components/SectionIntro';
 import { loadCandidateIndexServer, loadVotesForYearsServer } from '@/lib/data-server';
-import { buildSenatorList, topMunicipalities, topProvinces, trendData } from '@/lib/data';
+import {
+  buildSenatorList, topMunicipalities, topProvinces, trendData,
+  provinceList, provinceShareTrend, provinceSwing, municipalitySwing,
+} from '@/lib/data';
 import { yearColor } from '@/lib/year-colors';
 import { netSwing, consecutivePairs, type YearPair } from '@/lib/swing';
+import { headlineName } from '@/lib/display-name';
+import { SITE_URL } from '@/lib/site';
 import type { ElectionYear, Senator } from '@/lib/types';
 
 type Props = { params: Promise<{ slug: string }> };
@@ -63,6 +68,32 @@ export default async function SenatorPage({ params }: Props) {
   const topProvs = latestVoteData ? topProvinces(latestVoteData, senator.senator_id, 7) : [];
   const trend = trendData(voteCache, senator.senator_id);
 
+  // SwingSection needs per-senator, per-province numbers, not the raw multi-year, all-candidates
+  // voteCache — passing voteCache itself into that (client) component would serialize the full
+  // municipality-level dataset into the page's RSC payload, which is what blew several senator
+  // pages past Vercel's 19MB static-page size limit. Reduce everything down here instead.
+  const allProvinces = latestVoteData ? provinceList(latestVoteData) : [];
+  const provinceTrends = allProvinces.map(adm2_en => ({
+    adm2_en,
+    trend: provinceShareTrend(voteCache, senator.senator_id, adm2_en),
+  }));
+  const topProvinceNames = latestVoteData
+    ? topProvinces(latestVoteData, senator.senator_id, 4).map(p => p.adm2_en)
+    : [];
+
+  const [swingYearA, swingYearB] = swingYearPair ?? [undefined, undefined];
+  const swingVoteDataA = swingYearA !== undefined ? voteCache.get(swingYearA) : undefined;
+  const swingVoteDataB = swingYearB !== undefined ? voteCache.get(swingYearB) : undefined;
+  const swingProvinceRows = (swingVoteDataA && swingVoteDataB)
+    ? provinceSwing(swingVoteDataA, swingVoteDataB, senator.senator_id)
+    : [];
+  const muniRowsByProvince: Record<string, ReturnType<typeof municipalitySwing>> = {};
+  if (swingVoteDataA && swingVoteDataB) {
+    for (const adm2_en of allProvinces) {
+      muniRowsByProvince[adm2_en] = municipalitySwing(swingVoteDataA, swingVoteDataB, senator.senator_id, adm2_en);
+    }
+  }
+
   // One-sentence takeaways stating what each section's numbers actually show, computed from
   // the same data the chart/table below it renders — not a generic description of chart type.
   const trendSwing = netSwing(trend);
@@ -80,8 +111,22 @@ export default async function SenatorPage({ params }: Props) {
     ? `Best single town was ${topMunis[0].adm3_en}, ${topMunis[0].adm2_en}, at ${(topMunis[0].vote_share * 100).toFixed(1)}% of the vote in ${latestYear}.`
     : null;
 
+  const personJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: headlineName(senator.senator_name),
+    alternateName: senator.senator_name,
+    url: `${SITE_URL}/senator/${senator.senator_id}`,
+    jobTitle: 'Philippine senatorial candidate',
+    description: `Senatorial candidate in the Philippine Senate election${senator.years.length > 1 ? 's' : ''} of ${senator.years.join(', ')}.`,
+  };
+
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+      />
       <header className="border-b px-4 md:px-6 py-3 flex items-center gap-3">
         <Link
           href="/"
@@ -101,8 +146,8 @@ export default async function SenatorPage({ params }: Props) {
 
       <main className="max-w-2xl mx-auto px-4 md:px-6 py-10 space-y-10">
         <div className="space-y-4 md:space-y-6">
-          <CandidateHeader senator={senator} voteData={latestVoteData} />
-          <CandidateCard senator={senator} voteData={latestVoteData} year={latestYear} />
+          <CandidateHeader senator={senator} national={latestVoteData?.national[senator.senator_id] ?? null} />
+          <CandidateCard senator={senator} national={latestVoteData?.national[senator.senator_id] ?? null} year={latestYear} />
         </div>
 
         {senator.years.length > 1 && (
@@ -126,7 +171,14 @@ export default async function SenatorPage({ params }: Props) {
         )}
 
         <Suspense fallback={null}>
-          <SwingSection senator={senator} voteCache={voteCache} latestVoteData={latestVoteData} yearPair={swingYearPair} />
+          <SwingSection
+            senator={senator}
+            provinceTrends={provinceTrends}
+            topProvinceNames={topProvinceNames}
+            provinceRows={swingProvinceRows}
+            muniRowsByProvince={muniRowsByProvince}
+            yearPair={swingYearPair}
+          />
         </Suspense>
 
         {trendTakeaway && (
