@@ -294,16 +294,32 @@ export type ProvinceSwingHeadline = {
 // happened to include one outlier. This mirrors how outlets like the NYT/AP/ABC reported the
 // 2024 US election's county-level swing ("Republicans gained in 2,778 of 3,112 counties") —
 // a real count over the full set, not an extrapolation from a handful of examples.
+// Resolves which year pair a province-swing share view should compare: honors an explicit
+// ?yearA=&yearB= query (so a share link reproduces whichever pair the user had selected via
+// SwingYearPairSelector when they clicked Share) as long as both years are ones the candidate
+// actually ran in, falling back to their most recent consecutive pair otherwise — e.g. for
+// direct/organic visits with no query, or a query naming years the candidate didn't run in.
+export function resolveShareYearPair(
+  senator: Senator,
+  query: { yearA?: string; yearB?: string }
+): [number, number] | null {
+  const runs = [...senator.years].sort((a, b) => a - b);
+  if (runs.length < 2) return null;
+  const queryA = query.yearA ? parseInt(query.yearA, 10) : undefined;
+  const queryB = query.yearB ? parseInt(query.yearB, 10) : undefined;
+  if (queryA !== undefined && queryB !== undefined && runs.includes(queryA) && runs.includes(queryB)) {
+    return [queryA, queryB];
+  }
+  return [runs[runs.length - 2], runs[runs.length - 1]];
+}
+
 export function provinceSwingHeadline(
   voteDataA: VoteData,
   voteDataB: VoteData,
-  senator: Senator
+  senator: Senator,
+  yearA: number,
+  yearB: number
 ): ProvinceSwingHeadline | null {
-  const runs = [...senator.years].sort((a, b) => a - b);
-  if (runs.length < 2) return null;
-  const yearA = runs[runs.length - 2];
-  const yearB = runs[runs.length - 1];
-
   const rows = provinceSwing(voteDataA, voteDataB, senator.senator_id)
     .filter(r => r.share_a >= 0.03 || r.share_b >= 0.03); // ignore places they barely competed in either year
   if (rows.length === 0) return null;
