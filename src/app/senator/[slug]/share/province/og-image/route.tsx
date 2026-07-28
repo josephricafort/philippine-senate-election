@@ -1,21 +1,20 @@
+import { NextRequest } from 'next/server';
 import { ImageResponse } from 'next/og';
 import { loadCandidateIndexServer, loadAllVotesServer } from '@/lib/data-server';
 import { buildSenatorList, provinceSwingHeadline, resolveShareYearPair } from '@/lib/data';
 import { GAIN, LOSS, formatSwingPt } from '@/lib/swing';
 
-export const alt = 'Philippine Senate Election Explorer — Province swing';
-export const size = { width: 1080, height: 1350 };
-export const contentType = 'image/png';
+// A Route Handler rather than the opengraph-image.tsx file convention — that convention's
+// Image() function only receives `params` (dynamic route segments) in this Next.js version, not
+// `searchParams`, so it can't see which year pair the user selected via SwingYearPairSelector
+// before clicking Share. A plain Request gives full access to the query string.
+const SIZE = { width: 1080, height: 1350 };
 
-export default async function Image({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ slug: string }>;
-  searchParams?: Promise<{ yearA?: string; yearB?: string }>;
-}) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const query = (await searchParams) ?? {};
+  const yearA = request.nextUrl.searchParams.get('yearA') ?? undefined;
+  const yearB = request.nextUrl.searchParams.get('yearB') ?? undefined;
+
   const index = await loadCandidateIndexServer();
   const senator = buildSenatorList(index).find(s => s.senator_id === slug);
 
@@ -30,18 +29,18 @@ export default async function Image({
     </div>
   );
 
-  if (!senator) return new ImageResponse(fallback, size);
+  if (!senator) return new ImageResponse(fallback, SIZE);
 
   const voteCache = await loadAllVotesServer();
-  const pair = resolveShareYearPair(senator, query);
-  if (!pair) return new ImageResponse(fallback, size);
-  const [yearA, yearB] = pair;
-  const voteDataA = voteCache.get(yearA);
-  const voteDataB = voteCache.get(yearB);
-  if (!voteDataA || !voteDataB) return new ImageResponse(fallback, size);
+  const pair = resolveShareYearPair(senator, { yearA, yearB });
+  if (!pair) return new ImageResponse(fallback, SIZE);
+  const [resolvedYearA, resolvedYearB] = pair;
+  const voteDataA = voteCache.get(resolvedYearA);
+  const voteDataB = voteCache.get(resolvedYearB);
+  if (!voteDataA || !voteDataB) return new ImageResponse(fallback, SIZE);
 
-  const result = provinceSwingHeadline(voteDataA, voteDataB, senator, yearA, yearB);
-  if (!result) return new ImageResponse(fallback, size);
+  const result = provinceSwingHeadline(voteDataA, voteDataB, senator, resolvedYearA, resolvedYearB);
+  if (!result) return new ImageResponse(fallback, SIZE);
 
   const maxAbsDelta = Math.max(...result.sample.map(s => Math.abs(s.delta)), 0.01);
 
@@ -63,7 +62,7 @@ export default async function Image({
           {result.headlineParts.flatMap((part, i) =>
             part.text.split(' ').map((word, j) => (
               <span key={`${i}-${j}`} style={{ display: 'flex', whiteSpace: 'pre', color: part.emphasis === 'loss' ? LOSS : part.emphasis === 'gain' ? GAIN : '#fafafa' }}>
-                {word === '' ? ' ' : `${word} `}
+                {word === '' ? ' ' : `${word} `}
               </span>
             ))
           )}
@@ -142,6 +141,6 @@ export default async function Image({
         </div>
       </div>
     ),
-    size
+    SIZE
   );
 }

@@ -62,12 +62,27 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
   const title = `${senator.senator_name} — Province swing, ${result.yearA} → ${result.yearB}`;
   const description = result.headline;
+  // og-image is a plain Route Handler, not the opengraph-image.tsx file convention (that
+  // convention's Image() only receives `params`, not `searchParams`, in this Next.js version,
+  // so it can't see which year pair was selected) — meaning og:image/twitter:image tags aren't
+  // auto-populated and need to be set explicitly here.
+  const imageUrl = `/senator/${senator.senator_id}/share/province/og-image?yearA=${result.yearA}&yearB=${result.yearB}`;
+  const imageAlt = 'Philippine Senate Election Explorer — Province swing';
 
   return {
     title,
     description,
-    openGraph: { title, description },
-    twitter: { card: 'summary_large_image', title, description },
+    openGraph: {
+      title,
+      description,
+      images: [{ url: imageUrl, width: 1080, height: 1350, alt: imageAlt }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: [imageUrl],
+    },
   };
 }
 
@@ -100,7 +115,7 @@ export default async function ProvinceSwingSharePage({ params, searchParams }: P
         <div className="rounded-2xl overflow-hidden border">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`/senator/${senator.senator_id}/share/province/opengraph-image${shareQuery}`}
+            src={`/senator/${senator.senator_id}/share/province/og-image${shareQuery}`}
             alt={result.headline}
             className="w-full block"
           />
