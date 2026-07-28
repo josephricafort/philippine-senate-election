@@ -1,4 +1,6 @@
 import type { VoteData, CandidateIndex, Senator } from './types';
+import { quartileSample } from './swing';
+import { headlineName } from './display-name';
 
 export async function loadVotes(year: number): Promise<VoteData> {
   const res = await fetch(`/data/votes_${year}.json`);
@@ -130,6 +132,46 @@ export function provinceShareTrend(
   return result.sort((a, b) => a.year - b.year);
 }
 
+// Per-province vote-share swing for a senator across ALL provinces, between two years —
+// same shape as municipalitySwing, one level up (province instead of town), sorted by delta
+// ascending (biggest drop first).
+export function provinceSwing(
+  voteDataA: VoteData,
+  voteDataB: VoteData,
+  senatorId: string
+): { adm2_en: string; share_a: number; share_b: number; delta: number }[] {
+  const provinceShares = (data: VoteData) => {
+    const byProvince = new Map<string, { candidateVotes: number; totalVotes: number }>();
+    for (const mun of Object.values(data.municipalities)) {
+      let agg = byProvince.get(mun.adm2_en);
+      if (!agg) {
+        agg = { candidateVotes: 0, totalVotes: 0 };
+        byProvince.set(mun.adm2_en, agg);
+      }
+      agg.totalVotes += mun.candidates.reduce((s, c) => s + c.votes, 0);
+      agg.candidateVotes += mun.candidates.find(c => c.senator_id === senatorId)?.votes ?? 0;
+    }
+    const shares = new Map<string, number>();
+    for (const [adm2_en, agg] of byProvince) {
+      shares.set(adm2_en, agg.totalVotes > 0 ? agg.candidateVotes / agg.totalVotes : 0);
+    }
+    return shares;
+  };
+
+  const sharesA = provinceShares(voteDataA);
+  const sharesB = provinceShares(voteDataB);
+
+  return Array.from(sharesA.entries())
+    .flatMap(([adm2_en, shareA]) => {
+      const shareB = sharesB.get(adm2_en);
+      if (shareB === undefined) return [];
+      // Round to 0.01pt so near-zero float noise collapses to an exact 0 (see nationwideMunicipalitySwing).
+      const delta = Math.round((shareB - shareA) * 10000) / 10000;
+      return [{ adm2_en, share_a: shareA, share_b: shareB, delta }];
+    })
+    .sort((a, b) => a.delta - b.delta);
+}
+
 // Per-municipality vote-share swing for a senator within one province, between two years —
 // sorted by delta ascending (biggest drop first), matching the diverging-bar chart's default sort.
 export function municipalitySwing(
@@ -155,7 +197,153 @@ export function municipalitySwing(
       const total = mun.candidates.reduce((s, c) => s + c.votes, 0);
       const votes = mun.candidates.find(c => c.senator_id === senatorId)?.votes ?? 0;
       const shareA = total > 0 ? votes / total : 0;
-      return [{ psgc, adm3_en: mun.adm3_en, share_a: shareA, share_b: shareB, delta: shareB - shareA }];
+      // Round to 0.01pt so near-zero float noise collapses to an exact 0 (see nationwideMunicipalitySwing).
+      const delta = Math.round((shareB - shareA) * 10000) / 10000;
+      return [{ psgc, adm3_en: mun.adm3_en, share_a: shareA, share_b: shareB, delta }];
     })
     .sort((a, b) => a.delta - b.delta);
+}
+
+// Vote-share swing for a senator across EVERY municipality nationwide, between two years —
+// the map-wide counterpart to municipalitySwing (which is scoped to one province). Powers the
+// choropleth's "Swing" metric, keyed by psgc for direct lookup per map feature.
+export function nationwideMunicipalitySwing(
+  voteDataA: VoteData,
+  voteDataB: VoteData,
+  senatorId: string
+): Map<string, { share_a: number; share_b: number; delta: number }> {
+  const sharesB = new Map<string, number>();
+  for (const [psgc, mun] of Object.entries(voteDataB.municipalities)) {
+    const total = mun.candidates.reduce((s, c) => s + c.votes, 0);
+    const votes = mun.candidates.find(c => c.senator_id === senatorId)?.votes ?? 0;
+    sharesB.set(psgc, total > 0 ? votes / total : 0);
+  }
+
+  const result = new Map<string, { share_a: number; share_b: number; delta: number }>();
+  for (const [psgc, mun] of Object.entries(voteDataA.municipalities)) {
+    const shareB = sharesB.get(psgc);
+    if (shareB === undefined) continue;
+    const total = mun.candidates.reduce((s, c) => s + c.votes, 0);
+    const votes = mun.candidates.find(c => c.senator_id === senatorId)?.votes ?? 0;
+    const shareA = total > 0 ? votes / total : 0;
+    // Round to 0.01pt (4 decimal places of share) so near-zero float noise from two
+    // independent divisions — e.g. -0.00000000003 — collapses to an exact 0 rather than
+    // displaying as "-0.0pt" and missing the `=== 0` neutral-color check downstream.
+    const delta = Math.round((shareB - shareA) * 10000) / 10000;
+    result.set(psgc, { share_a: shareA, share_b: shareB, delta });
+  }
+  return result;
+}
+
+export type ProvinceSwingHeadline = {
+  senatorName: string;
+  yearA: number;
+  yearB: number;
+  /** Top-7 sample (same quartileSample used by ProvinceSwingBarChart), so the share graphic
+   *  shows exactly the same bars the user saw on the chart they clicked Share from. */
+  sample: { adm2_en: string; delta: number; label: string }[];
+  /** Plain-text headline for metadata/alt text (og:title, twitter:description, img alt) — no
+   *  markup, since those contexts can't render highlighted spans. */
+  headline: string;
+  /** Same claim as `headline`, split into segments so renderers (ImageResponse, JSX) can
+   *  highlight the verb + count in the swing's color without re-deriving the copy logic or
+   *  duplicating the lose/gain/mixed branching. Concatenating all `text` fields in order
+   *  reproduces `headline`. */
+  headlineParts: { text: string; emphasis?: 'gain' | 'loss' }[];
+  /** Full-dataset breakdown (not just the 7-item sample) — this is what the headline's
+   *  count/percentage claim is actually measured against, so "111 out of 113" is a real
+   *  count across every province/city the candidate meaningfully contested, not the sample. */
+  breadth: { total: number; losing: number; gaining: number; direction: 'loss' | 'gain' | 'mixed' };
+  /** The single biggest mover in the full (unsampled) province list — may differ from
+   *  sample[0] only in edge cases where quartileSample's dedup shifts the picks; in practice
+   *  these agree because biggest-drop is always sample position 0. */
+  biggestMove: { adm2_en: string; shareA: number; shareB: number; delta: number };
+};
+
+// Builds the programmatic "province swing" headline for a candidate's two most recent runs —
+// works identically for any candidate with 2+ runs and at least one province where they earned
+// a real vote share, well-known or not. Returns null when the candidate doesn't qualify (single
+// run, or no province crossed a non-trivial share in either year) — callers must not fabricate
+// a story when this returns null.
+//
+// The breadth claim ("lost support in 111 out of 113 provinces") is counted across the full
+// province list, not just the 7-item chart sample — an earlier version judged "did support move
+// the same way everywhere" from the sample alone, which could call a candidate's swing "mixed"
+// even when 98% of their full province list agreed, just because the 7 sampled quantile points
+// happened to include one outlier. This mirrors how outlets like the NYT/AP/ABC reported the
+// 2024 US election's county-level swing ("Republicans gained in 2,778 of 3,112 counties") —
+// a real count over the full set, not an extrapolation from a handful of examples.
+export function provinceSwingHeadline(
+  voteDataA: VoteData,
+  voteDataB: VoteData,
+  senator: Senator
+): ProvinceSwingHeadline | null {
+  const runs = [...senator.years].sort((a, b) => a - b);
+  if (runs.length < 2) return null;
+  const yearA = runs[runs.length - 2];
+  const yearB = runs[runs.length - 1];
+
+  const rows = provinceSwing(voteDataA, voteDataB, senator.senator_id)
+    .filter(r => r.share_a >= 0.03 || r.share_b >= 0.03); // ignore places they barely competed in either year
+  if (rows.length === 0) return null;
+
+  const sample = quartileSample(rows, r => r.adm2_en, 7).map(({ row, label }) => ({
+    adm2_en: row.adm2_en,
+    delta: row.delta,
+    label,
+  }));
+
+  const biggestRow = rows[0].delta < 0 || Math.abs(rows[0].delta) >= Math.abs(rows[rows.length - 1].delta)
+    ? rows[0]
+    : rows[rows.length - 1];
+  const biggestMove = {
+    adm2_en: biggestRow.adm2_en,
+    shareA: biggestRow.share_a,
+    shareB: biggestRow.share_b,
+    delta: biggestRow.delta,
+  };
+
+  const name = headlineName(senator.senator_name);
+  const total = rows.length;
+  const losing = rows.filter(r => r.delta < 0).length;
+  const gaining = total - losing;
+  const losingPct = losing / total;
+
+  // >50% one way or the other reads as a real trend; anywhere closer than that is genuinely
+  // split and shouldn't be flattened into a one-sided claim (see the mixed-swing question this
+  // threshold answers — a 55/45 split isn't "lost support", it's "support was mixed").
+  const direction: 'loss' | 'gain' | 'mixed' =
+    losingPct > 0.5 ? 'loss' : losingPct < 0.5 ? 'gain' : 'mixed';
+
+  let headlineParts: { text: string; emphasis?: 'gain' | 'loss' }[];
+  if (direction === 'mixed') {
+    headlineParts = [
+      { text: `${name}'s support was mixed` },
+      { text: ` — falling in ${losing} and rising in ${gaining} of ${total} provinces/cities` },
+      { text: ` between ${yearA} and ${yearB}.` },
+    ];
+  } else {
+    const count = direction === 'loss' ? losing : gaining;
+    const pct = Math.round((count / total) * 100);
+    const verb = direction === 'loss' ? 'lost' : 'gained';
+    headlineParts = [
+      { text: `${name} ` },
+      { text: verb, emphasis: direction },
+      { text: ' support from ' },
+      { text: `${count} out of ${total} (${pct}%)`, emphasis: direction },
+      { text: ` provinces/cities between ${yearA} and ${yearB} elections.` },
+    ];
+  }
+  const headline = headlineParts.map(p => p.text).join('');
+
+  return {
+    senatorName: senator.senator_name,
+    yearA,
+    yearB,
+    sample,
+    headline,
+    headlineParts,
+    breadth: { total, losing, gaining, direction },
+    biggestMove,
+  };
 }
