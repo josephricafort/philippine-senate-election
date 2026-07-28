@@ -1,7 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ChevronRight, Map as MapIcon, Share2, Vote } from 'lucide-react';
 
 import SearchSelect from '@/components/SearchSelect';
@@ -13,36 +14,59 @@ import TopProvincesTable from '@/components/TopProvincesTable';
 import LeaderboardTable from '@/components/LeaderboardTable';
 import InfoMenu from '@/components/InfoMenu';
 import SwingSection from '@/components/SwingSection';
+import SwingYearPairSelector from '@/components/SwingYearPairSelector';
 
 type MobileTab = 'leaderboard' | 'profile' | 'map';
+type ProfileTab = 'swing' | 'trends';
 
 import {
   loadVotes, loadCandidateIndex, buildSenatorList, topMunicipalities, topProvinces, trendData,
+  nationwideMunicipalitySwing,
 } from '@/lib/data';
 import {
   ELECTION_YEARS, type ElectionYear, type Metric, type Senator, type VoteData,
 } from '@/lib/types';
+import { trackEvent } from '@/lib/analytics';
+import { consecutivePairs, type YearPair } from '@/lib/swing';
 
 // Browser-only components — SSR-disabled to avoid DOM/ResizeObserver errors
 const ChoroplethMap = dynamic(() => import('@/components/ChoroplethMap'), { ssr: false });
 const TrendChart = dynamic(() => import('@/components/TrendChart'), { ssr: false });
 
 export default function ExplorerPage() {
+  return (
+    <Suspense fallback={null}>
+      <ExplorerPageInner />
+    </Suspense>
+  );
+}
+
+function ExplorerPageInner() {
+  const searchParams = useSearchParams();
+  const candidateParam = searchParams.get('candidate');
   const [senators, setSenators] = useState<Senator[]>([]);
   const [selectedSenator, setSelectedSenator] = useState<Senator | null>(null);
   const [year, setYear] = useState<ElectionYear>(2025);
-  const [metric, setMetric] = useState<Metric>('rank');
+  const [metric, setMetric] = useState<Metric>('swing');
   const [mobileTab, setMobileTab] = useState<MobileTab>('leaderboard');
+  const [profileTab, setProfileTab] = useState<ProfileTab>('swing');
+  // Which consecutive pair of runs the Swing view compares — independent of `year`, since a
+  // swing pair spans two elections. Defaults to the candidate's most recent pair; reset whenever
+  // the selected candidate changes (a stale pair from a previous candidate has no meaning here).
+  const [swingYearPair, setSwingYearPair] = useState<YearPair | null>(null);
 
   function handleSelectFromLeaderboard(s: Senator) {
-    handleSelectSenator(s);
+    handleSelectSenator(s, 'leaderboard_row');
     setMobileTab('profile');
   }
 
   // When a senator is selected, auto-switch to their most recent year if current year unavailable
-  function handleSelectSenator(s: Senator | null) {
+  function handleSelectSenator(s: Senator | null, source: 'search' | 'leaderboard_row' | 'year_pill' | 'suggestion_chip' | 'url_param' = 'search') {
     setSelectedSenator(s);
-    if (!s) return;
+    if (!s) { setSwingYearPair(null); return; }
+    trackEvent('select_candidate', {
+      candidate_id: s.senator_id, candidate_name: s.senator_name, selection_source: source, year,
+    });
     const senatorYears = s.years.map(Number);
     if (!senatorYears.includes(year)) {
       // Pick their most recent year, or closest to current
@@ -51,23 +75,62 @@ export default function ExplorerPage() {
       );
       setYear(best as ElectionYear);
     }
+    const pairs = consecutivePairs(senatorYears);
+    setSwingYearPair(pairs.length > 0 ? pairs[pairs.length - 1] : null);
+  }
+
+  function handleSwingYearPairChange(pair: YearPair) {
+    trackEvent('select_swing_year_pair', { year_a: pair[0], year_b: pair[1], candidate_id: selectedSenator?.senator_id });
+    setSwingYearPair(pair);
+  }
+
+  function handleYearChange(y: ElectionYear, source: 'year_selector' | 'candidate_pill' = 'year_selector') {
+    if (y === year) return;
+    trackEvent('select_year', { year: y, previous_year: year, source, candidate_id: selectedSenator?.senator_id });
+    setYear(y);
+  }
+
+  function handleMetricChange(m: Metric) {
+    if (m === metric) return;
+    trackEvent('select_metric', { metric: m, previous_metric: metric, candidate_id: selectedSenator?.senator_id });
+    setMetric(m);
+  }
+
+  function handleMobileTabChange(tab: MobileTab) {
+    trackEvent('switch_mobile_tab', { tab_name: tab });
+    setMobileTab(tab);
+  }
+
+  function handleProfileTabChange(tab: ProfileTab) {
+    trackEvent('switch_profile_tab', { tab_name: tab });
+    setProfileTab(tab);
   }
 
   // Vote data cache keyed by year
   const [voteCache, setVoteCache] = useState<Map<number, VoteData>>(new Map());
   const [loading, setLoading] = useState(false);
 
-  // Load candidate index once and default to Bong Go
+  // Load candidate index once, then select whichever candidate ?candidate= names (e.g. a link
+  // from a candidate's static profile or a shared swing card), falling back to Bong Go by default.
   useEffect(() => {
     loadCandidateIndex().then(idx => {
       const list = buildSenatorList(idx);
       setSenators(list);
-      const bongGo = list.find(s => s.senator_id === 'go_bong');
-      if (bongGo) {
-        setSelectedSenator(bongGo);
+      const fromParam = candidateParam ? list.find(s => s.senator_id === candidateParam) : undefined;
+      const defaultSenator = fromParam ?? list.find(s => s.senator_id === 'go_bong');
+      if (defaultSenator) {
         setYear(2025);
+        // Routed through handleSelectSenator (not a bare setSelectedSenator) so the
+        // default candidate gets the same side effects as any other selection —
+        // notably computing swingYearPair, which otherwise stayed null until the
+        // user picked a different candidate and the map/swing charts never
+        // rendered on first load.
+        handleSelectSenator(defaultSenator, fromParam ? 'url_param' : 'search');
       }
     });
+  // Mount-only: intentionally omitting handleSelectSenator (redefined every render) to avoid
+  // re-running this fetch-and-default-select on every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -100,6 +163,39 @@ export default function ExplorerPage() {
 
   const didRunSelectedYear = !!(currentVoteData && selectedSenator && currentVoteData.national[selectedSenator.senator_id]);
 
+  // Track "did not run this year" as a friction event — fires once per candidate+year
+  // combo that lands in this state, not on every render.
+  useEffect(() => {
+    if (!currentVoteData || !selectedSenator || didRunSelectedYear) return;
+    trackEvent('no_data_for_candidate', { candidate_id: selectedSenator.senator_id, year });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSenator?.senator_id, year, didRunSelectedYear, !!currentVoteData]);
+
+  // Track trend chart + top-table views once per newly selected candidate (not per render) —
+  // these only mean something once real data is behind them.
+  useEffect(() => {
+    if (!selectedSenator || !currentVoteData) return;
+    if (selectedSenator.years.length > 1) {
+      trackEvent('view_candidate_trend', { candidate_id: selectedSenator.senator_id, years_shown: selectedSenator.years.length });
+    }
+    trackEvent('view_top_table', { table_type: 'provinces', candidate_id: selectedSenator.senator_id, year });
+    trackEvent('view_top_table', { table_type: 'municipalities', candidate_id: selectedSenator.senator_id, year });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSenator?.senator_id, !!currentVoteData]);
+
+  // Swing metric compares whichever consecutive pair of runs is selected via
+  // swingYearPair — independent of the currently-selected single `year`.
+  const swingPairs = selectedSenator ? consecutivePairs(selectedSenator.years) : [];
+  const [swingYearA, swingYearB] = swingYearPair ?? [undefined, undefined];
+  const swingVoteDataA = swingYearA !== undefined ? voteCache.get(swingYearA) : undefined;
+  const swingVoteDataB = swingYearB !== undefined ? voteCache.get(swingYearB) : undefined;
+  const swingMap = (selectedSenator && swingVoteDataA && swingVoteDataB)
+    ? nationwideMunicipalitySwing(swingVoteDataA, swingVoteDataB, selectedSenator.senator_id)
+    : null;
+  const swingYears: [number, number] | null = (swingYearA !== undefined && swingYearB !== undefined)
+    ? [swingYearA, swingYearB]
+    : null;
+
   // Top 3 candidates who did run this year — offered as a way out of the dead end
   // when the selected senator didn't run in `year`
   const topCandidatesThisYear = (!didRunSelectedYear && currentVoteData && selectedSenator)
@@ -123,35 +219,77 @@ export default function ExplorerPage() {
             senator={selectedSenator}
             voteData={currentVoteData}
             year={year}
-            onSelectYear={setYear}
+            onSelectYear={y => handleYearChange(y, 'candidate_pill')}
           />
 
-          <div className="flex items-center gap-3 -mt-3">
+          <div className="sticky top-0 z-10 bg-background -mx-4 px-4 pt-0 pb-2 -mt-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              {didRunSelectedYear && (
+                <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit shrink-0">
+                  <button
+                    onClick={() => handleProfileTabChange('swing')}
+                    className={`h-7 px-3 text-xs font-medium rounded-md transition-colors ${
+                      profileTab === 'swing'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    Swing
+                  </button>
+                  <button
+                    onClick={() => handleProfileTabChange('trends')}
+                    className={`h-7 px-3 text-xs font-medium rounded-md transition-colors ${
+                      profileTab === 'trends'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    National Trends
+                  </button>
+                </div>
+              )}
+
+              <Link
+                href={`/senator/${selectedSenator.senator_id}`}
+                title="View shareable profile page"
+                aria-label="View shareable profile page"
+                className="ml-auto flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5 shadow-sm hover:opacity-90 active:scale-95 transition-all shrink-0"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                Share
+              </Link>
+            </div>
+
             {didRunSelectedYear && (
-              /* Compact shortcut to the years this candidate ran in — updates the shared year state */
-              <>
-                <span className="text-xs text-muted-foreground font-medium shrink-0">Years Ran</span>
-                <YearSelector
-                  value={year}
-                  onChange={setYear}
-                  availableYears={selectedSenator.years}
-                  filterToAvailable
-                />
-              </>
+              <div className="mt-3 pt-3 border-t">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {profileTab === 'swing' ? (
+                    <>
+                      <span className="text-xs text-muted-foreground font-medium shrink-0">Comparing</span>
+                      <SwingYearPairSelector
+                        pairs={swingPairs}
+                        value={swingYearPair}
+                        onChange={handleSwingYearPairChange}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-xs text-muted-foreground font-medium shrink-0">Years Ran</span>
+                      <YearSelector
+                        value={year}
+                        onChange={y => handleYearChange(y, 'candidate_pill')}
+                        availableYears={selectedSenator.years}
+                        filterToAvailable
+                      />
+                    </>
+                  )}
+                </div>
+              </div>
             )}
-            <Link
-              href={`/senator/${selectedSenator.senator_id}`}
-              title="View shareable profile page"
-              aria-label="View shareable profile page"
-              className="ml-auto flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5 shadow-sm hover:opacity-90 active:scale-95 transition-all shrink-0"
-            >
-              <Share2 className="w-3.5 h-3.5" />
-              Share
-            </Link>
           </div>
 
           <button
-            onClick={() => setMobileTab('map')}
+            onClick={() => handleMobileTabChange('map')}
             className="w-full flex items-center gap-3 rounded-xl border bg-card p-4 text-left hover:bg-accent transition-colors md:hidden"
           >
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -165,34 +303,63 @@ export default function ExplorerPage() {
 
           {didRunSelectedYear ? (
             <>
-              {voteCache.size === ELECTION_YEARS.length && (
+              {profileTab === 'swing' && voteCache.size === ELECTION_YEARS.length && (
                 <SwingSection
                   senator={selectedSenator}
                   voteCache={voteCache}
                   latestVoteData={voteCache.get(Math.max(...selectedSenator.years)) ?? null}
+                  yearPair={swingYearPair}
                 />
               )}
 
-              {/* Vote share trend — only meaningful with 2+ runs; hidden for one-time candidates */}
-              {selectedSenator.years.length > 1 && (
-                <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3 font-medium">
-                    National vote trends
-                  </p>
-                  <TrendChart data={trend} />
-                </div>
-              )}
+              {/* Vote share trend, Top provinces, and Top municipalities all live under the
+                  National Trends tab — they're separate from the Swing tab's own province/
+                  municipality breakdowns, so both shouldn't be visible at once. */}
+              {profileTab === 'trends' && (
+                <>
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-medium">
+                      National vote trends
+                    </p>
+                    {selectedSenator.years.length > 1 ? (
+                      <>
+                        <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                          Vote share earned nationwide in each election this candidate ran in.
+                          Shows whether their overall support grew or shrank over time.
+                        </p>
+                        <TrendChart data={trend} />
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        Needs at least two runs to show a trend — this candidate has only run once.
+                      </p>
+                    )}
+                  </div>
 
-              {currentVoteData ? (
-                <TopProvincesTable rows={topProvs} metric={metric} year={year} />
-              ) : (
-                <p className="text-muted-foreground text-sm">Loading…</p>
-              )}
+                  <div>
+                    <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+                      The provinces where this candidate earned their highest vote share in {year},
+                      ranked against every other candidate in the same province.
+                    </p>
+                    {currentVoteData ? (
+                      <TopProvincesTable rows={topProvs} metric={metric} year={year} />
+                    ) : (
+                      <p className="text-muted-foreground text-sm">Loading…</p>
+                    )}
+                  </div>
 
-              {currentVoteData ? (
-                <TopMunicipalitiesTable rows={topMunis} metric={metric} year={year} />
-              ) : (
-                <p className="text-muted-foreground text-sm">Loading…</p>
+                  <div>
+                    <p className="text-sm text-muted-foreground leading-relaxed mb-3">
+                      The individual towns and cities where this candidate performed best in {year},
+                      down to the municipality level.
+                    </p>
+                    {currentVoteData ? (
+                      <TopMunicipalitiesTable rows={topMunis} metric={metric} year={year} />
+                    ) : (
+                      <p className="text-muted-foreground text-sm">Loading…</p>
+                    )}
+                  </div>
+                </>
               )}
             </>
           ) : (
@@ -205,7 +372,7 @@ export default function ExplorerPage() {
                   {topCandidatesThisYear.map(s => (
                     <button
                       key={s.senator_id}
-                      onClick={() => handleSelectSenator(s)}
+                      onClick={() => handleSelectSenator(s, 'suggestion_chip')}
                       className="px-2 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground transition-colors"
                     >
                       #{currentVoteData!.national[s.senator_id].national_rank} {s.senator_name}
@@ -237,18 +404,18 @@ export default function ExplorerPage() {
   const mobileMapPanel = (
     <div className="flex-1 flex flex-col overflow-hidden h-full">
       {selectedSenator && selectedSenator.years.length > 1 && (
-        <div className="shrink-0 border-b px-4 py-2 overflow-x-auto">
+        <div className={`shrink-0 border-b px-4 py-2 overflow-x-auto ${metric === 'swing' ? 'opacity-40 pointer-events-none' : ''}`}>
           <YearSelector
             value={year}
-            onChange={setYear}
+            onChange={y => handleYearChange(y, 'candidate_pill')}
             availableYears={selectedSenator.years}
             filterToAvailable
           />
         </div>
       )}
-      <div className="shrink-0 border-b px-4 py-2 flex items-center gap-3">
-        <span className="text-xs text-muted-foreground font-medium shrink-0">View By</span>
-        <MetricToggle value={metric} onChange={setMetric} />
+      <div className="shrink-0 px-4 py-2 flex items-center gap-3 bg-white border-b border-zinc-200">
+        <span className="text-xs text-zinc-500 font-medium shrink-0">View By</span>
+        <MetricToggle value={metric} onChange={handleMetricChange} />
       </div>
       <div className="flex-1 overflow-hidden">
         <ChoroplethMap
@@ -257,7 +424,9 @@ export default function ExplorerPage() {
           senatorName={selectedSenator?.senator_name ?? null}
           year={year}
           metric={metric}
-          onNavigateToProfile={() => setMobileTab('profile')}
+          swingMap={swingMap}
+          swingYears={swingYears}
+          onNavigateToProfile={() => handleMobileTabChange('profile')}
         />
       </div>
     </div>
@@ -267,7 +436,7 @@ export default function ExplorerPage() {
   const mobileLeaderboardPanel = (
     <div className="flex-1 flex flex-col overflow-hidden h-full">
       <div className="shrink-0 border-b px-4 py-2 flex items-center gap-2">
-        <YearSelector value={year} onChange={setYear} />
+        <YearSelector value={year} onChange={handleYearChange} />
       </div>
       <div className="flex-1 overflow-hidden">
         {currentVoteData ? (
@@ -310,7 +479,7 @@ export default function ExplorerPage() {
             toggle bar in column 3 */}
         <div className="shrink-0 border-b px-4 py-3 flex items-center gap-3">
           <span className="text-xs text-muted-foreground font-medium shrink-0">Election Years</span>
-          <YearSelector value={year} onChange={setYear} />
+          <YearSelector value={year} onChange={handleYearChange} />
         </div>
 
         <div className="flex flex-1 overflow-hidden">
@@ -335,9 +504,14 @@ export default function ExplorerPage() {
 
           {/* Column 3: metric toggle + map */}
           <main className="flex-1 flex flex-col overflow-hidden">
-            <div className="shrink-0 border-b px-4 py-2 flex items-center gap-3">
-              <span className="text-xs text-muted-foreground font-medium shrink-0">View By</span>
-              <MetricToggle value={metric} onChange={setMetric} />
+            <div className="shrink-0 px-4 py-2 flex items-center gap-3 bg-white border-b border-zinc-200">
+              <span className="text-xs text-zinc-500 font-medium shrink-0">View By</span>
+              <MetricToggle value={metric} onChange={handleMetricChange} />
+              {metric === 'swing' && swingYears && (
+                <span className="text-xs text-zinc-500 ml-auto">
+                  Comparing {swingYears[0]} → {swingYears[1]} — Election Years selector doesn&rsquo;t apply
+                </span>
+              )}
             </div>
             <div className="flex-1 overflow-hidden">
               <ChoroplethMap
@@ -346,6 +520,8 @@ export default function ExplorerPage() {
                 senatorName={selectedSenator?.senator_name ?? null}
                 year={year}
                 metric={metric}
+                swingMap={swingMap}
+                swingYears={swingYears}
               />
             </div>
           </main>
@@ -365,7 +541,7 @@ export default function ExplorerPage() {
         <nav className="shrink-0 border-t bg-background flex items-stretch">
           <button
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-xs font-medium transition-colors ${mobileTab === 'leaderboard' ? 'text-primary' : 'text-muted-foreground'}`}
-            onClick={() => setMobileTab('leaderboard')}
+            onClick={() => handleMobileTabChange('leaderboard')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -376,7 +552,7 @@ export default function ExplorerPage() {
 
           <button
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-xs font-medium transition-colors ${mobileTab === 'profile' ? 'text-primary' : 'text-muted-foreground'}`}
-            onClick={() => setMobileTab('profile')}
+            onClick={() => handleMobileTabChange('profile')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -387,7 +563,7 @@ export default function ExplorerPage() {
 
           <button
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-xs font-medium transition-colors ${mobileTab === 'map' ? 'text-primary' : 'text-muted-foreground'}`}
-            onClick={() => setMobileTab('map')}
+            onClick={() => handleMobileTabChange('map')}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
