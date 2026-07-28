@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, IBM_Plex_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
+import ConsentBanner from "@/components/ConsentBanner";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -29,7 +31,28 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${ibmPlexMono.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <head>
+        {/* Consent Mode v2 default — must run before gtag.js (loaded later by
+            ConsentBanner once the user opts in) so no analytics cookies are set
+            until consent is explicitly granted. */}
+        <Script id="consent-default" strategy="beforeInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){window.dataLayer.push(arguments);}
+            window.gtag = gtag;
+            gtag('consent', 'default', {
+              analytics_storage: 'denied',
+              ad_storage: 'denied',
+              ad_user_data: 'denied',
+              ad_personalization: 'denied',
+            });
+          `}
+        </Script>
+      </head>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <ConsentBanner />
+      </body>
     </html>
   );
 }

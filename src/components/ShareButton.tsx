@@ -1,13 +1,15 @@
 'use client';
 import { useState } from 'react';
 import { Share2, Check } from 'lucide-react';
+import { trackEvent } from '@/lib/analytics';
 
 type Props = {
   title: string;
   text: string;
+  candidateId?: string;
 };
 
-export default function ShareButton({ title, text }: Props) {
+export default function ShareButton({ title, text, candidateId }: Props) {
   const [copied, setCopied] = useState(false);
 
   async function handleShare() {
@@ -15,12 +17,14 @@ export default function ShareButton({ title, text }: Props) {
     if (navigator.share) {
       try {
         await navigator.share({ title, text, url });
+        trackEvent('click_share', { candidate_id: candidateId ?? 'unknown', method: 'web_share' });
       } catch {
         // User cancelled the share sheet — no-op.
       }
       return;
     }
     await navigator.clipboard.writeText(url);
+    trackEvent('click_share', { candidate_id: candidateId ?? 'unknown', method: 'copy_link' });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }

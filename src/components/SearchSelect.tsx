@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronsUpDown, X } from 'lucide-react';
 import {
   Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
@@ -7,6 +7,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import type { Senator } from '@/lib/types';
+import { trackEvent } from '@/lib/analytics';
 
 type Props = {
   senators: Senator[];
@@ -15,13 +16,37 @@ type Props = {
   placeholder?: string;
 };
 
+const SEARCH_TRACK_DEBOUNCE_MS = 400;
+
 export default function SearchSelect({ senators, value, onChange, placeholder = 'Search candidate…' }: Props) {
   const [open, setOpen] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function select(s: Senator) {
     onChange(s);
     setOpen(false);
   }
+
+  // Debounced search tracking — fires once typing pauses, not per keystroke, to avoid
+  // flooding GA4 with an event on every character.
+  function handleSearchChange(query: string) {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!query) return;
+    debounceRef.current = setTimeout(() => {
+      const resultCount = senators.filter(s =>
+        s.senator_name.toLowerCase().includes(query.toLowerCase())
+      ).length;
+      if (resultCount === 0) {
+        trackEvent('search_no_results', { query_length: query.length });
+      } else {
+        trackEvent('search_candidate', { query_length: query.length, result_count: resultCount });
+      }
+    }, SEARCH_TRACK_DEBOUNCE_MS);
+  }
+
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, []);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -51,7 +76,7 @@ export default function SearchSelect({ senators, value, onChange, placeholder = 
       {/* w-(--radix-popover-trigger-width) matches the trigger width exactly */}
       <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
         <Command>
-          <CommandInput placeholder="Type a name…" />
+          <CommandInput placeholder="Type a name…" onValueChange={handleSearchChange} />
           <CommandList>
             <CommandEmpty>No candidates found.</CommandEmpty>
             <CommandGroup>
