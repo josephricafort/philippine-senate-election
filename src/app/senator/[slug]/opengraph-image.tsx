@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og';
-import { loadCandidateIndexServer, loadVotesForYearsServer } from '@/lib/data-server';
-import { buildSenatorList, topProvinces, trendData } from '@/lib/data';
+import { loadCandidateIndexServer, loadCandidateDataServer, loadNationalYearServer } from '@/lib/data-server';
+import { buildSenatorList, nationalTotalVotes, candidateTopProvinces, candidateTrendData } from '@/lib/data';
 import { yearColor } from '@/lib/year-colors';
 import type { ElectionYear } from '@/lib/types';
 
@@ -35,12 +35,21 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     );
   }
 
-  const voteCache = await loadVotesForYearsServer(senator.years);
+  const candidate = await loadCandidateDataServer(senator.senator_id);
   const latestYear = Math.max(...senator.years) as ElectionYear;
-  const latestVoteData = voteCache.get(latestYear) ?? null;
-  const national = latestVoteData?.national[senator.senator_id];
-  const topProvince = latestVoteData ? topProvinces(latestVoteData, senator.senator_id, 1)[0] : null;
-  const trend = trendData(voteCache, senator.senator_id);
+  const latestYearData = candidate.years[String(latestYear)] ?? null;
+  const national = latestYearData
+    ? { national_votes: latestYearData.national_votes, national_rank: latestYearData.national_rank }
+    : undefined;
+  const topProvince = candidateTopProvinces(candidate, latestYear, 1)[0] ?? null;
+
+  const nationalYearResults = await Promise.all(
+    senator.years.map(y => loadNationalYearServer(y).then(data => [y, data] as const))
+  );
+  const nationalTotalsByYear = new Map<number, number>(
+    nationalYearResults.map(([y, data]) => [y, nationalTotalVotes(data)])
+  );
+  const trend = candidateTrendData(candidate, nationalTotalsByYear);
 
   const maxShare = Math.max(...trend.map(t => t.vote_share), 0.01);
 

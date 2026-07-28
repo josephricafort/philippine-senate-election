@@ -1,13 +1,11 @@
 import type { MetadataRoute } from 'next';
 import { SITE_URL } from '@/lib/site';
-import { loadCandidateIndexServer, loadVotesForYearsServer } from '@/lib/data-server';
-import { buildSenatorList, provinceSwingHeadline } from '@/lib/data';
-import { ELECTION_YEARS } from '@/lib/types';
+import { loadCandidateIndexServer, loadCandidateDataServer } from '@/lib/data-server';
+import { buildSenatorList, candidateProvinceSwingHeadline } from '@/lib/data';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const index = await loadCandidateIndexServer();
   const senators = buildSenatorList(index);
-  const voteCache = await loadVotesForYearsServer([...ELECTION_YEARS]);
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: SITE_URL, changeFrequency: 'weekly', priority: 1 },
@@ -23,16 +21,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Same eligibility rule as share/province's generateStaticParams: needs at least
   // two runs, and a computable swing headline for the most recent consecutive pair.
+  // One candidate-file read per eligible senator — cheap relative to the old
+  // "load all 7 years upfront" approach, and shares data-server's module-scope promise
+  // cache with generateStaticParams if the same build/worker already warmed it.
   const shareRoutes: MetadataRoute.Sitemap = [];
   for (const senator of senators) {
     const runs = [...senator.years].sort((a, b) => a - b);
     if (runs.length < 2) continue;
     const yearA = runs[runs.length - 2];
     const yearB = runs[runs.length - 1];
-    const voteDataA = voteCache.get(yearA);
-    const voteDataB = voteCache.get(yearB);
-    if (!voteDataA || !voteDataB) continue;
-    if (provinceSwingHeadline(voteDataA, voteDataB, senator, yearA, yearB)) {
+    const candidate = await loadCandidateDataServer(senator.senator_id);
+    if (!candidate.years[String(yearA)] || !candidate.years[String(yearB)]) continue;
+    if (candidateProvinceSwingHeadline(candidate, senator, yearA, yearB)) {
       shareRoutes.push({
         url: `${SITE_URL}/senator/${senator.senator_id}/share/province`,
         changeFrequency: 'yearly',

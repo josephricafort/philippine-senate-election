@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { ImageResponse } from 'next/og';
-import { loadCandidateIndexServer, loadVotesForYearsServer } from '@/lib/data-server';
-import { buildSenatorList, provinceSwingHeadline, resolveShareYearPair } from '@/lib/data';
+import { loadCandidateIndexServer, loadCandidateDataServer } from '@/lib/data-server';
+import { buildSenatorList, candidateProvinceSwingHeadline, resolveShareYearPair } from '@/lib/data';
 import { GAIN, LOSS, formatSwingPt } from '@/lib/swing';
 
 // A Route Handler rather than the opengraph-image.tsx file convention — that convention's
@@ -34,12 +34,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const pair = resolveShareYearPair(senator, { yearA, yearB });
   if (!pair) return new ImageResponse(fallback, SIZE);
   const [resolvedYearA, resolvedYearB] = pair;
-  const voteCache = await loadVotesForYearsServer([resolvedYearA, resolvedYearB]);
-  const voteDataA = voteCache.get(resolvedYearA);
-  const voteDataB = voteCache.get(resolvedYearB);
-  if (!voteDataA || !voteDataB) return new ImageResponse(fallback, SIZE);
+  const candidate = await loadCandidateDataServer(senator.senator_id);
+  if (!candidate.years[String(resolvedYearA)] || !candidate.years[String(resolvedYearB)]) {
+    return new ImageResponse(fallback, SIZE);
+  }
 
-  const result = provinceSwingHeadline(voteDataA, voteDataB, senator, resolvedYearA, resolvedYearB);
+  const result = candidateProvinceSwingHeadline(candidate, senator, resolvedYearA, resolvedYearB);
   if (!result) return new ImageResponse(fallback, SIZE);
 
   const maxAbsDelta = Math.max(...result.sample.map(s => Math.abs(s.delta)), 0.01);

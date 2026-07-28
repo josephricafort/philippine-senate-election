@@ -197,6 +197,9 @@ const GEO_COLS = new Set(['adm3_psgc', 'adm2_psgc', 'adm1_psgc', 'adm3_en', 'geo
 const csvPsgc = new Set<string>();
 // psgc → adm3_en for topojson miss reporting
 const psgcName = new Map<string, string>();
+// psgc → adm2_en, accumulated across years for municipality_names.json (candidate-independent
+// name lookup used by the map's province labels / no-data tooltips — see ChoroplethMap)
+const psgcProvince = new Map<string, string>();
 
 for (const year of YEARS) {
   console.log(`\nProcessing ${year}…`);
@@ -224,6 +227,7 @@ for (const year of YEARS) {
     seenAdm2.add(row.adm2_psgc);
 
     const adm2_en = PROVINCE_NAMES[row.adm2_psgc] ?? '';
+    if (adm2_en) psgcProvince.set(psgc, adm2_en);
 
     const votesMap: Record<string, number> = {};
     let munTotal = 0;
@@ -326,5 +330,18 @@ for (const g of geoms) {
 
 fs.writeFileSync(path.join(OUT_DIR, 'ph_municipalities.json'), JSON.stringify(topo));
 console.log('  ✓ ph_municipalities.json written to public/data/');
+
+// ── 6. Municipality names — candidate-independent psgc → {adm3_en, adm2_en} lookup ──────────
+// Used by the map's province labels and "no data" tooltips, which need a name for every
+// municipality regardless of whether the currently selected candidate has a data entry for it
+// (per-candidate vote files only include municipalities that candidate actually has votes in).
+
+const municipalityNames: Record<string, { adm3_en: string; adm2_en: string }> = {};
+for (const [psgc, adm3_en] of psgcName) {
+  const adm2_en = psgcProvince.get(psgc);
+  if (adm2_en) municipalityNames[psgc] = { adm3_en, adm2_en };
+}
+fs.writeFileSync(path.join(OUT_DIR, 'municipality_names.json'), JSON.stringify(municipalityNames));
+console.log(`  ✓ municipality_names.json — ${Object.keys(municipalityNames).length} municipalities`);
 
 console.log('\nDone.');

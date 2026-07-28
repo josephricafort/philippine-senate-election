@@ -5,8 +5,8 @@ import { ArrowLeft } from 'lucide-react';
 
 import ShareButton from '@/components/ShareButton';
 import PlatformShareLinks from '@/components/PlatformShareLinks';
-import { loadCandidateIndexServer, loadVotesForYearsServer } from '@/lib/data-server';
-import { buildSenatorList, provinceSwingHeadline, resolveShareYearPair } from '@/lib/data';
+import { loadCandidateIndexServer, loadCandidateDataServer } from '@/lib/data-server';
+import { buildSenatorList, candidateProvinceSwingHeadline, resolveShareYearPair } from '@/lib/data';
 import type { Senator } from '@/lib/types';
 
 type Props = {
@@ -24,11 +24,9 @@ async function getHeadline(senator: Senator, query: { yearA?: string; yearB?: st
   const pair = resolveShareYearPair(senator, query);
   if (!pair) return null;
   const [yearA, yearB] = pair;
-  const voteCache = await loadVotesForYearsServer([yearA, yearB]);
-  const voteDataA = voteCache.get(yearA);
-  const voteDataB = voteCache.get(yearB);
-  if (!voteDataA || !voteDataB) return null;
-  return provinceSwingHeadline(voteDataA, voteDataB, senator, yearA, yearB);
+  const candidate = await loadCandidateDataServer(senator.senator_id);
+  if (!candidate.years[String(yearA)] || !candidate.years[String(yearB)]) return null;
+  return candidateProvinceSwingHeadline(candidate, senator, yearA, yearB);
 }
 
 export async function generateStaticParams() {
@@ -40,11 +38,9 @@ export async function generateStaticParams() {
     if (runs.length < 2) continue;
     const yearA = runs[runs.length - 2];
     const yearB = runs[runs.length - 1];
-    const voteCache = await loadVotesForYearsServer([yearA, yearB]);
-    const voteDataA = voteCache.get(yearA);
-    const voteDataB = voteCache.get(yearB);
-    if (!voteDataA || !voteDataB) continue;
-    if (provinceSwingHeadline(voteDataA, voteDataB, senator, yearA, yearB)) {
+    const candidate = await loadCandidateDataServer(senator.senator_id);
+    if (!candidate.years[String(yearA)] || !candidate.years[String(yearB)]) continue;
+    if (candidateProvinceSwingHeadline(candidate, senator, yearA, yearB)) {
       eligible.push({ slug: senator.senator_id });
     }
   }

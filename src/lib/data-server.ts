@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import type { VoteData, CandidateIndex } from './types';
+import type { VoteData, CandidateIndex, CandidateData, NationalYearData, MunicipalityNames } from './types';
 
 // Server-only counterparts to lib/data.ts's fetch-based loaders — these read
 // straight off disk so they work in generateStaticParams, opengraph-image,
@@ -44,4 +44,40 @@ export async function loadVotesForYearsServer(years: number[]): Promise<Map<numb
   const map = new Map<number, VoteData>();
   uniqueYears.forEach((y, i) => map.set(y, results[i]));
   return map;
+}
+
+// ── New per-candidate server loaders ─────────────────────────────────────────────────────────
+// Server-side counterparts of data.ts's loadCandidateData/loadNationalYear/loadMunicipalityNames
+// — read straight off disk, same module-scope promise-cache pattern as the loaders above, so
+// generateStaticParams' 260+ parallel workers never re-parse the same file twice.
+
+const candidatePromiseCache = new Map<string, Promise<CandidateData>>();
+export function loadCandidateDataServer(senatorId: string): Promise<CandidateData> {
+  let promise = candidatePromiseCache.get(senatorId);
+  if (!promise) {
+    promise = readFile(path.join(dataDir, 'candidates', `${senatorId}.json`), 'utf-8')
+      .then(raw => JSON.parse(raw));
+    candidatePromiseCache.set(senatorId, promise);
+  }
+  return promise;
+}
+
+const nationalYearPromiseCache = new Map<number, Promise<NationalYearData>>();
+export function loadNationalYearServer(year: number): Promise<NationalYearData> {
+  let promise = nationalYearPromiseCache.get(year);
+  if (!promise) {
+    promise = readFile(path.join(dataDir, `national_${year}.json`), 'utf-8')
+      .then(raw => JSON.parse(raw));
+    nationalYearPromiseCache.set(year, promise);
+  }
+  return promise;
+}
+
+let municipalityNamesPromise: Promise<MunicipalityNames> | undefined;
+export function loadMunicipalityNamesServer(): Promise<MunicipalityNames> {
+  if (!municipalityNamesPromise) {
+    municipalityNamesPromise = readFile(path.join(dataDir, 'municipality_names.json'), 'utf-8')
+      .then(raw => JSON.parse(raw));
+  }
+  return municipalityNamesPromise;
 }

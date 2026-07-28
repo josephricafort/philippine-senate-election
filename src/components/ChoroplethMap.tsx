@@ -5,14 +5,18 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { feature, mesh, merge } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import { ChevronLeft, Home, Plus, Minus } from 'lucide-react';
-import type { VoteData, Metric } from '@/lib/types';
+import type { CandidateData, CandidateYearData, MunicipalityNames, Metric } from '@/lib/types';
 import { yearColor } from '@/lib/year-colors';
 import { formatSwingPt } from '@/lib/swing';
 import { trackEvent } from '@/lib/analytics';
 type SwingEntry = { delta: number };
 
 type Props = {
-  voteData: VoteData | null;
+  candidate: CandidateData | null;
+  /** Candidate-independent psgc -> {adm3_en, adm2_en} lookup — used for province labels and
+   *  "no data" tooltips, which need a name even for municipalities the selected candidate has
+   *  no entry for (per-candidate files only include municipalities that candidate has votes in). */
+  municipalityNames: MunicipalityNames;
   senatorId: string | null;
   senatorName: string | null;
   year: number | null;
@@ -112,13 +116,15 @@ const NCR_LABEL = 'Metro Manila';
 // placed at the centroid of the dissolved shape of all its municipalities merged into one
 // polygon — not derived from any single municipality, which previously placed labels off
 // toward wherever one municipality's landmass happened to sit rather than the visual middle
-// of the whole shape. Names come from voteData (already resolved adm2_en per municipality
-// by the data pipeline) rather than duplicating the PSGC→name lookup table client-side;
-// adm3_psgc is the join key shared between the topojson and voteData.
+// of the whole shape. Names come from municipalityNames — a candidate-independent lookup — so
+// labels always resolve regardless of which candidate is selected or whether that candidate
+// has a data entry for every municipality in the province (per-candidate files only include
+// municipalities that candidate has votes in). adm3_psgc is the join key shared between the
+// topojson and municipalityNames.
 function buildProvinceLabelPoints(
   topo: Topology,
   municitiesObj: GeometryCollection<{ adm1_pcode: string; adm2_pcode: string }>,
-  voteData: VoteData
+  municipalityNames: MunicipalityNames
 ): GeoJSON.FeatureCollection<GeoJSON.Point, { name: string }> {
   const byGroup = new Map<string, typeof municitiesObj.geometries>();
   const nameByGroup = new Map<string, string>();
@@ -133,7 +139,7 @@ function buildProvinceLabelPoints(
     if (!groupKey) continue;
 
     if (!nameByGroup.has(groupKey)) {
-      const name = isNcr ? NCR_LABEL : voteData.municipalities[psgc]?.adm2_en;
+      const name = isNcr ? NCR_LABEL : municipalityNames[psgc]?.adm2_en;
       if (name) nameByGroup.set(groupKey, name);
     }
     const list = byGroup.get(groupKey);
@@ -225,8 +231,7 @@ function swingQuantileBounds(swingMap: Map<string, SwingEntry>, maxAbs: number):
 }
 
 function buildMatchExpression(
-  voteData: VoteData,
-  senatorId: string,
+  yearData: CandidateYearData,
   metric: Metric,
   swingMap?: Map<string, SwingEntry> | null
 ): maplibregl.ExpressionSpecification {
@@ -236,13 +241,11 @@ function buildMatchExpression(
       pairs.push(psgc, entry.delta);
     }
   } else {
-    for (const [psgc, mun] of Object.entries(voteData.municipalities)) {
-      const c = mun.candidates.find(c => c.senator_id === senatorId);
-      if (!c) continue;
+    for (const [psgc, m] of Object.entries(yearData.municipalities)) {
       let val: number;
-      if (metric === 'vote_share') val = Math.min(c.vote_share, VOTE_SHARE_CAP);
-      else if (metric === 'rank')  val = c.rank;
-      else                         val = Math.min(c.votes, RAW_VOTES_CAP);
+      if (metric === 'vote_share') val = Math.min(m.vote_share, VOTE_SHARE_CAP);
+      else if (metric === 'rank')  val = m.rank;
+      else                         val = Math.min(m.votes, RAW_VOTES_CAP);
       pairs.push(psgc, val);
     }
   }
@@ -253,13 +256,12 @@ function buildMatchExpression(
 }
 
 function buildColorExpression(
-  voteData: VoteData,
-  senatorId: string,
+  yearData: CandidateYearData,
   metric: Metric,
   year: number | null,
   swingMap?: Map<string, SwingEntry> | null
 ): maplibregl.ExpressionSpecification {
-  const valueExpr = buildMatchExpression(voteData, senatorId, metric, swingMap);
+  const valueExpr = buildMatchExpression(yearData, metric, swingMap);
   // Wrap with case: sentinel → NO_DATA_COLOR, otherwise → interpolated color
   const noDataGuard = (colorExpr: unknown) =>
     ['case', ['==', valueExpr, NO_DATA_SENTINEL], NO_DATA_COLOR, colorExpr] as unknown as maplibregl.ExpressionSpecification;
@@ -289,9 +291,7 @@ function buildColorExpression(
   const rampColors = sequentialStops(yearColor(year ?? 0));
 
   if (metric === 'rank') {
-    const ranks = Object.values(voteData.municipalities).flatMap(m =>
-      m.candidates.find(c => c.senator_id === senatorId)?.rank ?? []
-    );
+    const ranks = Object.values(yearData.municipalities).map(m => m.rank);
     if (ranks.length === 0) return NO_DATA_COLOR as unknown as maplibregl.ExpressionSpecification;
     const maxRank = Math.max(...ranks);
     // Best rank (#1) = darkest step, worst = lightest — same ramp direction reversed
@@ -316,15 +316,15 @@ function buildColorExpression(
 
 function buildTooltipHtml(
   props: Record<string, unknown>,
-  voteData: VoteData | null,
+  municipalityNames: MunicipalityNames,
+  yearData: CandidateYearData | null,
   senatorId: string | null,
   metric: Metric,
   swingMap?: Map<string, SwingEntry> | null
 ): string {
   const name     = (props.adm3_en ?? props.name ?? '') as string;
   const psgc     = props.adm3_psgc as string;
-  const mun      = voteData?.municipalities[psgc];
-  const province = mun?.adm2_en ?? '';
+  const province = municipalityNames[psgc]?.adm2_en ?? '';
 
   let detail = '';
   if (metric === 'swing') {
@@ -335,11 +335,11 @@ function buildTooltipHtml(
       detail = 'No data';
     }
   } else {
-    const c = mun?.candidates.find(c => c.senator_id === senatorId);
-    if (c) {
-      if (metric === 'vote_share') detail = `${(c.vote_share * 100).toFixed(1)}% vote share`;
-      else if (metric === 'rank')  detail = `Rank #${c.rank}`;
-      else                         detail = `${c.votes.toLocaleString()} votes`;
+    const m = yearData?.municipalities[psgc];
+    if (m) {
+      if (metric === 'vote_share') detail = `${(m.vote_share * 100).toFixed(1)}% vote share`;
+      else if (metric === 'rank')  detail = `Rank #${m.rank}`;
+      else                         detail = `${m.votes.toLocaleString()} votes`;
     } else if (senatorId) {
       detail = 'No data';
     }
@@ -370,7 +370,7 @@ function formatLegendValue(metric: Metric, v: number): string {
 // Legend gradient + min/max labels for the currently selected senator/metric.
 // Mirrors the color logic in buildColorExpression so the legend always matches what's painted.
 function buildLegend(
-  voteData: VoteData | null,
+  yearData: CandidateYearData | null,
   senatorId: string | null,
   metric: Metric,
   year: number | null,
@@ -394,11 +394,10 @@ function buildLegend(
     };
   }
 
-  if (!voteData) return null;
-  const values = Object.values(voteData.municipalities).flatMap(m => {
-    const c = m.candidates.find(c => c.senator_id === senatorId);
-    return c ? [metric === 'vote_share' ? c.vote_share : metric === 'rank' ? c.rank : c.votes] : [];
-  });
+  if (!yearData) return null;
+  const values = Object.values(yearData.municipalities).map(m =>
+    metric === 'vote_share' ? m.vote_share : metric === 'rank' ? m.rank : m.votes
+  );
   if (values.length === 0) return null;
 
   const rampColors = sequentialStops(yearColor(year ?? 0));
@@ -425,21 +424,18 @@ function buildLegend(
 
 function applyPaint(
   map: maplibregl.Map,
-  voteData: VoteData,
-  senatorId: string,
+  yearData: CandidateYearData,
   metric: Metric,
   year: number | null,
   swingMap?: Map<string, SwingEntry> | null
 ) {
   map.setPaintProperty('municipalities-fill', 'fill-color',
-    buildColorExpression(voteData, senatorId, metric, year, swingMap));
+    buildColorExpression(yearData, metric, year, swingMap));
 
   // Show hatch only on features where this senator has no data for the active metric
   const psgcsWithData = metric === 'swing'
     ? Array.from(swingMap?.keys() ?? [])
-    : Object.entries(voteData.municipalities)
-        .filter(([, mun]) => mun.candidates.some(c => c.senator_id === senatorId))
-        .map(([psgc]) => psgc);
+    : Object.keys(yearData.municipalities);
 
   // filter: psgc NOT in the with-data set → show hatch
   map.setFilter('municipalities-nodata',
@@ -449,15 +445,16 @@ function applyPaint(
   );
 }
 
-export default function ChoroplethMap({ voteData, senatorId, senatorName, year, metric, swingMap, swingYears, onNavigateToProfile }: Props) {
+export default function ChoroplethMap({ candidate, municipalityNames, senatorId, senatorName, year, metric, swingMap, swingYears, onNavigateToProfile }: Props) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const mapRef        = useRef<maplibregl.Map | null>(null);
   const loadedRef     = useRef(false);
   const topoRef = useRef<{ topo: Topology; municitiesObj: GeometryCollection<{ adm1_pcode: string; adm2_pcode: string }> } | null>(null);
   const labelsBuiltRef  = useRef(false);
+  const yearData = candidate && year !== null ? candidate.years[String(year)] ?? null : null;
   // Keep latest props accessible inside stable event handlers
-  const propsRef      = useRef({ voteData, senatorId, metric, year, swingMap });
-  propsRef.current    = { voteData, senatorId, metric, year, swingMap };
+  const propsRef      = useRef({ yearData, municipalityNames, senatorId, metric, year, swingMap });
+  propsRef.current    = { yearData, municipalityNames, senatorId, metric, year, swingMap };
   // Drives the "reset view" button — only shown once the user has actually panned/zoomed away
   const [showResetButton, setShowResetButton] = useState(false);
   // Tracks "first interaction per candidate+year view" so map_interact fires once per view,
@@ -610,17 +607,14 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
 
       map.addSource('ph-provinces', { type: 'geojson', data: provinceMesh });
 
-      // Topology + geometry collection kept for building province labels once voteData
-      // (which supplies adm2_en names) is available — may not be loaded yet on first mount.
+      // Topology + geometry collection kept in case labels need rebuilding later (they don't,
+      // since municipalityNames is available from mount — kept for parity/safety).
       topoRef.current = { topo, municitiesObj };
 
-      const initialVoteData = propsRef.current.voteData;
-      if (initialVoteData) labelsBuiltRef.current = true;
+      labelsBuiltRef.current = true;
       map.addSource('ph-province-labels', {
         type: 'geojson',
-        data: initialVoteData
-          ? buildProvinceLabelPoints(topo, municitiesObj, initialVoteData)
-          : { type: 'FeatureCollection', features: [] },
+        data: buildProvinceLabelPoints(topo, municitiesObj, propsRef.current.municipalityNames),
       });
 
       map.addLayer({
@@ -720,7 +714,7 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
       map.on('mousemove', 'municipalities-fill', e => {
         if (!e.features?.length) return;
         map.getCanvas().style.cursor = 'pointer';
-        const { voteData, senatorId, metric, swingMap } = propsRef.current;
+        const { yearData, municipalityNames, senatorId, metric, swingMap } = propsRef.current;
         const props = e.features[0].properties as Record<string, unknown>;
 
         // Drive the hover-outline layer to this feature
@@ -734,7 +728,7 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
           const psgc = props.adm3_psgc as string | undefined;
           const hasData = metric === 'swing'
             ? !!(psgc && swingMap?.has(psgc))
-            : !!(psgc && voteData?.municipalities[psgc]?.candidates.some(c => c.senator_id === senatorId));
+            : !!(psgc && yearData?.municipalities[psgc]);
           const municipalityName = (props.adm3_en ?? props.name ?? 'unknown') as string;
           trackEvent('map_hover_municipality', {
             has_data: hasData, metric, candidate_id: senatorId, municipality: municipalityName,
@@ -743,7 +737,7 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
 
         popup
           .setLngLat(e.lngLat)
-          .setHTML(buildTooltipHtml(props, voteData, senatorId, metric, swingMap))
+          .setHTML(buildTooltipHtml(props, municipalityNames, yearData, senatorId, metric, swingMap))
           .addTo(map);
 
         // Force dark background after DOM insertion
@@ -771,9 +765,9 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
       loadedRef.current = true;
 
       // Apply paint if data already loaded
-      const { voteData, senatorId, metric, year, swingMap } = propsRef.current;
-      if (voteData && senatorId) {
-        applyPaint(map, voteData, senatorId, metric, year, swingMap);
+      const { yearData, senatorId, metric, year, swingMap } = propsRef.current;
+      if (yearData && senatorId) {
+        applyPaint(map, yearData, metric, year, swingMap);
       }
     });
 
@@ -781,33 +775,20 @@ export default function ChoroplethMap({ voteData, senatorId, senatorName, year, 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-paint when senator / metric / voteData / year / swingMap changes
+  // Re-paint when senator / metric / yearData / year / swingMap changes
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !loadedRef.current || !voteData || !senatorId) return;
+    if (!map || !loadedRef.current || !yearData || !senatorId) return;
     if (!map.getLayer('municipalities-fill')) return;
-    applyPaint(map, voteData, senatorId, metric, year, swingMap);
-  }, [voteData, senatorId, metric, year, swingMap]);
+    applyPaint(map, yearData, metric, year, swingMap);
+  }, [yearData, senatorId, metric, year, swingMap]);
 
   // New candidate+year view — allow map_interact to fire again for it.
   useEffect(() => {
     hasInteractedRef.current = false;
   }, [senatorId, year]);
 
-  // Province labels don't depend on a selected candidate, only on voteData being loaded
-  // (it supplies adm2_en names) — build them once, as soon as both are ready, independent
-  // of whether the map or voteData finished loading first.
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !loadedRef.current || !voteData || labelsBuiltRef.current) return;
-    const source = map.getSource('ph-province-labels') as maplibregl.GeoJSONSource | undefined;
-    const loaded = topoRef.current;
-    if (!source || !loaded) return;
-    source.setData(buildProvinceLabelPoints(loaded.topo, loaded.municitiesObj, voteData));
-    labelsBuiltRef.current = true;
-  }, [voteData]);
-
-  const legend = buildLegend(voteData, senatorId, metric, year, swingMap);
+  const legend = buildLegend(yearData, senatorId, metric, year, swingMap);
   const contextValue = metric === 'swing' && swingYears
     ? `${swingYears[0]} → ${swingYears[1]} · Swing`
     : `${year ?? '—'} · ${METRIC_LABEL[metric]}`;

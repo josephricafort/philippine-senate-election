@@ -4,10 +4,10 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { VoteData, Senator } from '@/lib/types';
+import type { NationalYearData, Senator } from '@/lib/types';
 
 type Props = {
-  voteData: VoteData;
+  nationalData: NationalYearData;
   senators: Senator[];
   highlightId: string | null;
   onSelectSenator?: (senator: Senator) => void;
@@ -22,16 +22,16 @@ const MEDAL_STYLES: Record<number, { background: string; color: string }> = {
 
 // National rank, independent of the Rank/Vote share/Raw votes metric used
 // by the Profile and Map columns — the leaderboard always ranks everyone nationally.
-export default function LeaderboardTable({ voteData, senators, highlightId, onSelectSenator }: Props) {
+export default function LeaderboardTable({ nationalData, senators, highlightId, onSelectSenator }: Props) {
   const [highlightVisible, setHighlightVisible] = useState(true);
   const highlightRef = useRef<HTMLTableRowElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const rows = senators
-    .filter(s => voteData.national[s.senator_id])
+    .filter(s => nationalData[s.senator_id])
     .map(s => ({
       senator: s,
-      national: voteData.national[s.senator_id],
+      national: nationalData[s.senator_id],
     }))
     .sort((a, b) => a.national.national_rank - b.national.national_rank);
 

@@ -20,11 +20,15 @@ type MobileTab = 'leaderboard' | 'profile' | 'map';
 type ProfileTab = 'swing' | 'trends';
 
 import {
-  loadVotes, loadCandidateIndex, buildSenatorList, topMunicipalities, topProvinces, trendData,
-  nationwideMunicipalitySwing, provinceList, provinceShareTrend, provinceSwing, municipalitySwing,
+  loadCandidateData, loadNationalYear, loadMunicipalityNames, loadCandidateIndex,
+  buildSenatorList, nationalTotalVotes,
+  candidateTopMunicipalities, candidateTopProvinces, candidateTrendData,
+  candidateNationwideMunicipalitySwing, candidateProvinceList, candidateProvinceShareTrend,
+  candidateProvinceSwing, candidateMunicipalitySwing,
 } from '@/lib/data';
 import {
-  ELECTION_YEARS, type ElectionYear, type Metric, type Senator, type VoteData,
+  type ElectionYear, type Metric, type Senator,
+  type CandidateData, type NationalYearData, type MunicipalityNames,
 } from '@/lib/types';
 import { trackEvent } from '@/lib/analytics';
 import { consecutivePairs, type YearPair } from '@/lib/swing';
@@ -106,8 +110,14 @@ function ExplorerPageInner() {
     setProfileTab(tab);
   }
 
-  // Vote data cache keyed by year
-  const [voteCache, setVoteCache] = useState<Map<number, VoteData>>(new Map());
+  // Per-candidate data, fetched on demand and cached by senator_id — replaces the old
+  // "fetch every year up front" voteCache, which downloaded ~44MB before anything rendered.
+  const [candidateCache, setCandidateCache] = useState<Map<string, CandidateData>>(new Map());
+  // Nationwide totals cache, keyed by year — small (~2-4KB) per-year files, fetched only for
+  // the years actually needed (current year, for the leaderboard; selected candidate's run
+  // years, for the trend chart's national-share denominator).
+  const [nationalCache, setNationalCache] = useState<Map<number, NationalYearData>>(new Map());
+  const [municipalityNames, setMunicipalityNames] = useState<MunicipalityNames | null>(null);
   const [loading, setLoading] = useState(false);
 
   // Load candidate index once, then select whichever candidate ?candidate= names (e.g. a link
@@ -133,93 +143,124 @@ function ExplorerPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-
-  // Pre-load all years on mount
+  // Municipality names (candidate-independent, needed by the map regardless of selection) —
+  // small file, load once on mount.
   useEffect(() => {
-    setLoading(true);
-    Promise.all(ELECTION_YEARS.map(y => loadVotes(y)))
-      .then(results => {
-        const map = new Map<number, VoteData>();
-        ELECTION_YEARS.forEach((y, i) => map.set(y, results[i]));
-        setVoteCache(map);
-      })
-      .finally(() => setLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadMunicipalityNames().then(setMunicipalityNames);
   }, []);
 
-  const currentVoteData = voteCache.get(year) ?? null;
+  // Fetch the selected candidate's data file once, on selection — replaces the old eager
+  // all-years preload. A candidate's file already covers every year they ran, so this is the
+  // only per-candidate fetch needed regardless of how many years are involved.
+  useEffect(() => {
+    if (!selectedSenator) return;
+    if (candidateCache.has(selectedSenator.senator_id)) return;
+    setLoading(true);
+    loadCandidateData(selectedSenator.senator_id)
+      .then(data => {
+        setCandidateCache(prev => new Map(prev).set(selectedSenator.senator_id, data));
+      })
+      .finally(() => setLoading(false));
+  }, [selectedSenator, candidateCache]);
 
-  const topMunis = selectedSenator && currentVoteData
-    ? topMunicipalities(currentVoteData, selectedSenator.senator_id, 7)
+  // Fetch national totals for the currently selected year (leaderboard) and for every year the
+  // selected candidate ran (trend chart's national-share denominator) — small files, cached by
+  // year so switching years/candidates doesn't refetch what's already loaded.
+  useEffect(() => {
+    const neededYears = new Set<number>([year, ...(selectedSenator?.years ?? [])]);
+    const missing = Array.from(neededYears).filter(y => !nationalCache.has(y));
+    if (missing.length === 0) return;
+    Promise.all(missing.map(y => loadNationalYear(y).then(data => [y, data] as const)))
+      .then(pairs => {
+        setNationalCache(prev => {
+          const next = new Map(prev);
+          for (const [y, data] of pairs) next.set(y, data);
+          return next;
+        });
+      });
+  }, [year, selectedSenator, nationalCache]);
+
+  const currentCandidateData = selectedSenator ? candidateCache.get(selectedSenator.senator_id) ?? null : null;
+  const currentNationalData = nationalCache.get(year) ?? null;
+
+  const topMunis = currentCandidateData
+    ? candidateTopMunicipalities(currentCandidateData, year, 7)
     : [];
 
-  const topProvs = selectedSenator && currentVoteData
-    ? topProvinces(currentVoteData, selectedSenator.senator_id, 7)
+  const topProvs = currentCandidateData
+    ? candidateTopProvinces(currentCandidateData, year, 7)
     : [];
 
-  const trend = selectedSenator
-    ? trendData(voteCache, selectedSenator.senator_id)
+  // Nationwide total votes cast per year, for the years the selected candidate ran — the
+  // denominator trendData/provinceShareTrend need for national vote-share figures.
+  const nationalTotalsByYear = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const y of selectedSenator?.years ?? []) {
+      const nd = nationalCache.get(y);
+      if (nd) map.set(y, nationalTotalVotes(nd));
+    }
+    return map;
+  }, [selectedSenator, nationalCache]);
+
+  const trend = currentCandidateData
+    ? candidateTrendData(currentCandidateData, nationalTotalsByYear)
     : [];
 
-  const didRunSelectedYear = !!(currentVoteData && selectedSenator && currentVoteData.national[selectedSenator.senator_id]);
+  const didRunSelectedYear = !!(currentNationalData && selectedSenator && currentNationalData[selectedSenator.senator_id]);
 
-  // Reduce voteCache down to just this senator's province-level numbers before handing off to
-  // SwingSection, same shape the static senator page precomputes server-side — see that page's
-  // comment for why SwingSection never takes the raw voteCache directly.
+  // Reduce the selected candidate's data down to just their province-level numbers before
+  // handing off to SwingSection, same shape the static senator page precomputes server-side —
+  // see that page's comment for why SwingSection never takes the raw candidate data directly.
+  // Gated on just currentCandidateData existing (one file) rather than the old "every year
+  // loaded" guard, so this renders as soon as the candidate's own data arrives.
   const swingProps = useMemo(() => {
-    if (!selectedSenator || voteCache.size !== ELECTION_YEARS.length) return null;
-    const latestVoteData = voteCache.get(Math.max(...selectedSenator.years)) ?? null;
-    const allProvinces = latestVoteData ? provinceList(latestVoteData) : [];
+    if (!selectedSenator || !currentCandidateData) return null;
+    const latestYear = Math.max(...selectedSenator.years);
+    const allProvinces = candidateProvinceList(currentCandidateData, latestYear);
     const provinceTrends = allProvinces.map(adm2_en => ({
       adm2_en,
-      trend: provinceShareTrend(voteCache, selectedSenator.senator_id, adm2_en),
+      trend: candidateProvinceShareTrend(currentCandidateData, nationalTotalsByYear, adm2_en),
     }));
-    const topProvinceNames = latestVoteData
-      ? topProvinces(latestVoteData, selectedSenator.senator_id, 4).map(p => p.adm2_en)
-      : [];
+    const topProvinceNames = candidateTopProvinces(currentCandidateData, latestYear, 4).map(p => p.adm2_en);
     const [yearA, yearB] = swingYearPair ?? [undefined, undefined];
-    const voteDataA = yearA !== undefined ? voteCache.get(yearA) : undefined;
-    const voteDataB = yearB !== undefined ? voteCache.get(yearB) : undefined;
-    const provinceRows = (voteDataA && voteDataB)
-      ? provinceSwing(voteDataA, voteDataB, selectedSenator.senator_id)
+    const provinceRows = (yearA !== undefined && yearB !== undefined)
+      ? candidateProvinceSwing(currentCandidateData, yearA, yearB)
       : [];
-    const muniRowsByProvince: Record<string, ReturnType<typeof municipalitySwing>> = {};
-    if (voteDataA && voteDataB) {
+    const muniRowsByProvince: Record<string, ReturnType<typeof candidateMunicipalitySwing>> = {};
+    if (yearA !== undefined && yearB !== undefined) {
       for (const adm2_en of allProvinces) {
-        muniRowsByProvince[adm2_en] = municipalitySwing(voteDataA, voteDataB, selectedSenator.senator_id, adm2_en);
+        muniRowsByProvince[adm2_en] = candidateMunicipalitySwing(currentCandidateData, yearA, yearB, adm2_en);
       }
     }
     return { provinceTrends, topProvinceNames, provinceRows, muniRowsByProvince };
-  }, [selectedSenator, voteCache, swingYearPair]);
+  }, [selectedSenator, currentCandidateData, nationalTotalsByYear, swingYearPair]);
 
   // Track "did not run this year" as a friction event — fires once per candidate+year
   // combo that lands in this state, not on every render.
   useEffect(() => {
-    if (!currentVoteData || !selectedSenator || didRunSelectedYear) return;
+    if (!currentNationalData || !selectedSenator || didRunSelectedYear) return;
     trackEvent('no_data_for_candidate', { candidate_id: selectedSenator.senator_id, year });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSenator?.senator_id, year, didRunSelectedYear, !!currentVoteData]);
+  }, [selectedSenator?.senator_id, year, didRunSelectedYear, !!currentNationalData]);
 
   // Track trend chart + top-table views once per newly selected candidate (not per render) —
   // these only mean something once real data is behind them.
   useEffect(() => {
-    if (!selectedSenator || !currentVoteData) return;
+    if (!selectedSenator || !currentCandidateData) return;
     if (selectedSenator.years.length > 1) {
       trackEvent('view_candidate_trend', { candidate_id: selectedSenator.senator_id, years_shown: selectedSenator.years.length });
     }
     trackEvent('view_top_table', { table_type: 'provinces', candidate_id: selectedSenator.senator_id, year });
     trackEvent('view_top_table', { table_type: 'municipalities', candidate_id: selectedSenator.senator_id, year });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSenator?.senator_id, !!currentVoteData]);
+  }, [selectedSenator?.senator_id, !!currentCandidateData]);
 
   // Swing metric compares whichever consecutive pair of runs is selected via
   // swingYearPair — independent of the currently-selected single `year`.
   const swingPairs = selectedSenator ? consecutivePairs(selectedSenator.years) : [];
   const [swingYearA, swingYearB] = swingYearPair ?? [undefined, undefined];
-  const swingVoteDataA = swingYearA !== undefined ? voteCache.get(swingYearA) : undefined;
-  const swingVoteDataB = swingYearB !== undefined ? voteCache.get(swingYearB) : undefined;
-  const swingMap = (selectedSenator && swingVoteDataA && swingVoteDataB)
-    ? nationwideMunicipalitySwing(swingVoteDataA, swingVoteDataB, selectedSenator.senator_id)
+  const swingMap = (selectedSenator && currentCandidateData && swingYearA !== undefined && swingYearB !== undefined)
+    ? candidateNationwideMunicipalitySwing(currentCandidateData, swingYearA, swingYearB)
     : null;
   const swingYears: [number, number] | null = (swingYearA !== undefined && swingYearB !== undefined)
     ? [swingYearA, swingYearB]
@@ -227,10 +268,10 @@ function ExplorerPageInner() {
 
   // Top 3 candidates who did run this year — offered as a way out of the dead end
   // when the selected senator didn't run in `year`
-  const topCandidatesThisYear = (!didRunSelectedYear && currentVoteData && selectedSenator)
+  const topCandidatesThisYear = (!didRunSelectedYear && currentNationalData && selectedSenator)
     ? senators
-        .filter(s => currentVoteData.national[s.senator_id])
-        .sort((a, b) => currentVoteData.national[a.senator_id].national_rank - currentVoteData.national[b.senator_id].national_rank)
+        .filter(s => currentNationalData[s.senator_id])
+        .sort((a, b) => currentNationalData[a.senator_id].national_rank - currentNationalData[b.senator_id].national_rank)
         .slice(0, 3)
     : [];
 
@@ -245,12 +286,12 @@ function ExplorerPageInner() {
       {selectedSenator ? (
         <>
           <div className="sticky top-0 z-20 bg-background -mx-4 px-4 pt-4 pb-3">
-            <CandidateHeader senator={selectedSenator} national={currentVoteData?.national[selectedSenator.senator_id] ?? null} />
+            <CandidateHeader senator={selectedSenator} national={currentNationalData?.[selectedSenator.senator_id] ?? null} />
           </div>
 
           <CandidateCard
             senator={selectedSenator}
-            national={currentVoteData?.national[selectedSenator.senator_id] ?? null}
+            national={currentNationalData?.[selectedSenator.senator_id] ?? null}
             year={year}
             onSelectYear={y => handleYearChange(y, 'candidate_pill')}
           />
@@ -376,7 +417,7 @@ function ExplorerPageInner() {
                       The provinces where this candidate earned their highest vote share in {year},
                       ranked against every other candidate in the same province.
                     </p>
-                    {currentVoteData ? (
+                    {currentCandidateData ? (
                       <TopProvincesTable rows={topProvs} metric={metric} year={year} />
                     ) : (
                       <p className="text-muted-foreground text-sm">Loading…</p>
@@ -388,7 +429,7 @@ function ExplorerPageInner() {
                       The individual towns and cities where this candidate performed best in {year},
                       down to the municipality level.
                     </p>
-                    {currentVoteData ? (
+                    {currentCandidateData ? (
                       <TopMunicipalitiesTable rows={topMunis} metric={metric} year={year} />
                     ) : (
                       <p className="text-muted-foreground text-sm">Loading…</p>
@@ -410,7 +451,7 @@ function ExplorerPageInner() {
                       onClick={() => handleSelectSenator(s, 'suggestion_chip')}
                       className="px-2 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground transition-colors"
                     >
-                      #{currentVoteData!.national[s.senator_id].national_rank} {s.senator_name}
+                      #{currentNationalData![s.senator_id].national_rank} {s.senator_name}
                     </button>
                   ))}
                 </div>
@@ -454,7 +495,8 @@ function ExplorerPageInner() {
       </div>
       <div className="flex-1 overflow-hidden">
         <ChoroplethMap
-          voteData={currentVoteData}
+          candidate={currentCandidateData}
+          municipalityNames={municipalityNames ?? {}}
           senatorId={selectedSenator?.senator_id ?? null}
           senatorName={selectedSenator?.senator_name ?? null}
           year={year}
@@ -474,9 +516,9 @@ function ExplorerPageInner() {
         <YearSelector value={year} onChange={handleYearChange} />
       </div>
       <div className="flex-1 overflow-hidden">
-        {currentVoteData ? (
+        {currentNationalData ? (
           <LeaderboardTable
-            voteData={currentVoteData}
+            nationalData={currentNationalData}
             senators={senators}
             highlightId={selectedSenator?.senator_id ?? null}
             onSelectSenator={handleSelectFromLeaderboard}
@@ -520,9 +562,9 @@ function ExplorerPageInner() {
         <div className="flex flex-1 overflow-hidden">
           {/* Column 1: leaderboard */}
           <section className="w-96 shrink-0 border-r flex flex-col overflow-hidden">
-            {currentVoteData ? (
+            {currentNationalData ? (
               <LeaderboardTable
-                voteData={currentVoteData}
+                nationalData={currentNationalData}
                 senators={senators}
                 highlightId={selectedSenator?.senator_id ?? null}
                 onSelectSenator={handleSelectFromLeaderboard}
@@ -550,7 +592,8 @@ function ExplorerPageInner() {
             </div>
             <div className="flex-1 overflow-hidden">
               <ChoroplethMap
-                voteData={currentVoteData}
+                candidate={currentCandidateData}
+                municipalityNames={municipalityNames ?? {}}
                 senatorId={selectedSenator?.senator_id ?? null}
                 senatorName={selectedSenator?.senator_name ?? null}
                 year={year}
