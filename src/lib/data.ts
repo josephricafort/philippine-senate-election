@@ -1,17 +1,38 @@
 import type { VoteData, CandidateIndex, Senator } from './types';
 import { quartileSample } from './swing';
 import { headlineName } from './display-name';
+import { trackEvent } from './analytics';
 
 export async function loadVotes(year: number): Promise<VoteData> {
-  const res = await fetch(`/data/votes_${year}.json`);
-  if (!res.ok) throw new Error(`Failed to load votes for ${year}`);
-  return res.json();
+  try {
+    const res = await fetch(`/data/votes_${year}.json`);
+    if (!res.ok) {
+      trackEvent('data_fetch_error', { resource: `votes_${year}`, error_type: `http_${res.status}` });
+      throw new Error(`Failed to load votes for ${year}`);
+    }
+    return await res.json();
+  } catch (err) {
+    if (!(err instanceof Error && err.message.startsWith('Failed to load votes'))) {
+      trackEvent('data_fetch_error', { resource: `votes_${year}`, error_type: 'network_error' });
+    }
+    throw err;
+  }
 }
 
 export async function loadCandidateIndex(): Promise<CandidateIndex> {
-  const res = await fetch('/data/candidate_index.json');
-  if (!res.ok) throw new Error('Failed to load candidate index');
-  return res.json();
+  try {
+    const res = await fetch('/data/candidate_index.json');
+    if (!res.ok) {
+      trackEvent('data_fetch_error', { resource: 'candidate_index', error_type: `http_${res.status}` });
+      throw new Error('Failed to load candidate index');
+    }
+    return await res.json();
+  } catch (err) {
+    if (!(err instanceof Error && err.message === 'Failed to load candidate index')) {
+      trackEvent('data_fetch_error', { resource: 'candidate_index', error_type: 'network_error' });
+    }
+    throw err;
+  }
 }
 
 export function buildSenatorList(index: CandidateIndex): Senator[] {
