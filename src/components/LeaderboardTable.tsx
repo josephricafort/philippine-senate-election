@@ -80,7 +80,10 @@ export default function LeaderboardTable({ voteData, senators, highlightId, onSe
 
   return (
     <div ref={scrollRef} className="relative h-full overflow-y-auto">
-      <Table>
+      {/* containerClassName overrides Table's default overflow-x-auto wrapper — that wrapper
+          is itself a scroll container, which breaks `sticky` on the header below because it
+          sits between the header and the actual scrolling ancestor (this div). */}
+      <Table containerClassName="overflow-visible">
         <TableHeader className="sticky top-0 bg-background z-10">
           <TableRow>
             <TableHead>Nat. rank</TableHead>

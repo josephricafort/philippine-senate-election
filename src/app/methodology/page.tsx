@@ -62,6 +62,26 @@ export default function MethodologyPage() {
             columns, and how missing or special entries were recorded were not consistent
             across files.
           </p>
+          <p>
+            Provenance also differed by year:
+          </p>
+          <ul className="list-disc list-outside pl-5 space-y-1.5">
+            <li>
+              <span className="text-foreground">2022 and 2025</span> — Publicly available
+              official results.
+            </li>
+            <li>
+              <span className="text-foreground">2019 and 2016</span> — Manually scraped from
+              source.
+            </li>
+            <li>
+              <span className="text-foreground">2013 and 2007</span> — Sourced from NAMFREL
+              archives. These were already tabulated but required manual cleaning before use.
+            </li>
+            <li>
+              <span className="text-foreground">2010</span> — Sourced from COMELEC archives.
+            </li>
+          </ul>
         </Section>
 
         <Section n={2} title="Standardizing the format">

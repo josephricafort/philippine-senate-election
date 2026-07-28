@@ -26,13 +26,13 @@ export default function CandidateCard({ senator, voteData, year, onSelectYear }:
   const national = voteData?.national[senator.senator_id];
 
   return (
-    <div className={`flex items-start gap-3 md:gap-5 p-3 md:p-6 rounded-xl border ${national ? 'bg-card' : 'bg-destructive/10 border-destructive/30'}`}>
+    <div className={`flex items-start gap-3 md:gap-5 ${national ? '' : 'p-3 md:p-6 rounded-xl border bg-destructive/10 border-destructive/30'}`}>
       <div className={`w-9 h-9 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-sm md:text-base shrink-0 select-none ${national ? 'bg-primary text-primary-foreground' : 'bg-destructive/20 text-destructive'}`}>
         {initials(senator.senator_name)}
       </div>
 
       <div className="flex-1 min-w-0">
-        <h2 className="font-bold text-base md:text-lg leading-tight truncate">{senator.senator_name}</h2>
+        <h2 className="font-bold text-xl md:text-2xl leading-tight truncate">{senator.senator_name}</h2>
 
         {national ? (
           <div className="flex gap-4 md:gap-8 mt-2 md:mt-6 flex-wrap">
