@@ -3,6 +3,7 @@ import { Inter, IBM_Plex_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import ConsentBanner from "@/components/ConsentBanner";
+import { SITE_URL } from "@/lib/site";
 
 const inter = Inter({
   variable: "--font-sans",
@@ -16,9 +17,32 @@ const ibmPlexMono = IBM_Plex_Mono({
   weight: ["400", "500"],
 });
 
+const title = "Philippine Senate Election Explorer";
+const description = "Explore every Philippine senatorial election from 2007–2025, broken down to the municipality level. Look up any candidate's vote share, rank, strongholds, and trend over time.";
+
 export const metadata: Metadata = {
-  title: "Philippine Senate Election Explorer",
-  description: "Explore Philippine senate election results by municipality, 2007–2025",
+  metadataBase: new URL(SITE_URL),
+  title,
+  description,
+  applicationName: title,
+  manifest: "/manifest.json",
+  openGraph: {
+    title,
+    description,
+    url: SITE_URL,
+    siteName: title,
+    locale: "en_PH",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title,
+    description,
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
@@ -48,6 +72,27 @@ export default function RootLayout({
             });
           `}
         </Script>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'WebSite',
+              name: title,
+              description,
+              url: SITE_URL,
+              inLanguage: 'en-PH',
+              potentialAction: {
+                '@type': 'SearchAction',
+                target: {
+                  '@type': 'EntryPoint',
+                  urlTemplate: `${SITE_URL}/?candidate={search_term_string}`,
+                },
+                'query-input': 'required name=search_term_string',
+              },
+            }),
+          }}
+        />
       </head>
       <body className="min-h-full flex flex-col">
         {children}

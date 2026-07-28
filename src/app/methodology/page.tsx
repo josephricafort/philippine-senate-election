@@ -1,10 +1,62 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+import { SITE_URL } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'Data & Methodology — Philippine Senate Election Explorer',
   description: 'How Senate election results from 2007–2025 were standardized, corrected, verified, and combined.',
+};
+
+const faqs = [
+  {
+    question: 'Is this official COMELEC data?',
+    answer: 'No. This is an independent, unofficial project, not affiliated with or verified by COMELEC. The dataset was compiled municipality by municipality from individually sourced files, and results from some municipalities are missing, so rankings, tallies, and vote counts shown can diverge from official COMELEC results.',
+  },
+  {
+    question: 'Which election years are covered?',
+    answer: 'Seven Philippine senatorial election years: 2007, 2010, 2013, 2016, 2019, 2022, and 2025, each broken down to the municipality level.',
+  },
+  {
+    question: 'Where did the source data come from?',
+    answer: '2022 and 2025 results come from publicly available official results. 2019 and 2016 were manually scraped from source. 2013 and 2007 were sourced from NAMFREL archives. 2010 was sourced from COMELEC archives.',
+  },
+  {
+    question: 'Why might a candidate’s numbers here differ from other sources?',
+    answer: 'Some municipalities are missing from the underlying source files. Where a municipality is missing, its votes are absent from every total, rank, and vote share computed from this dataset, including national and provincial figures, so outcomes shown can diverge from the official count.',
+  },
+];
+
+const datasetJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Dataset',
+  name: 'Philippine Senate Election Results, 2007–2025 (Municipality-level)',
+  description: 'Vote counts per senatorial candidate per city or municipality across seven Philippine senatorial election years (2007, 2010, 2013, 2016, 2019, 2022, 2025), standardized, corrected, and verified from individually sourced files.',
+  url: `${SITE_URL}/methodology`,
+  temporalCoverage: '2007/2025',
+  spatialCoverage: {
+    '@type': 'Place',
+    name: 'Philippines',
+  },
+  creator: {
+    '@type': 'Organization',
+    name: 'Philippine Senate Election Explorer',
+    url: SITE_URL,
+  },
+  isAccessibleForFree: true,
+};
+
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqs.map(faq => ({
+    '@type': 'Question',
+    name: faq.question,
+    acceptedAnswer: {
+      '@type': 'Answer',
+      text: faq.answer,
+    },
+  })),
 };
 
 function Section({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
@@ -24,6 +76,14 @@ function Section({ n, title, children }: { n: number; title: string; children: R
 export default function MethodologyPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(datasetJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
       <header className="border-b px-4 md:px-6 py-3 flex items-center gap-3">
         <Link
           href="/"
@@ -220,6 +280,18 @@ export default function MethodologyPage() {
             incorporated following the same procedure to maintain consistency.
           </p>
         </Section>
+
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">Frequently asked questions</h2>
+          <div className="space-y-4">
+            {faqs.map(faq => (
+              <div key={faq.question} className="space-y-1">
+                <p className="text-sm font-medium">{faq.question}</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">{faq.answer}</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-1.5">
           <p className="text-sm font-medium text-destructive">Rankings and totals will not match official results</p>
