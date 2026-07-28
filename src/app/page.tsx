@@ -6,7 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { ChevronRight, Map as MapIcon, Share2, Vote } from 'lucide-react';
 
 import SearchSelect from '@/components/SearchSelect';
-import CandidateCard from '@/components/CandidateCard';
+import CandidateCard, { CandidateHeader } from '@/components/CandidateCard';
 import YearSelector from '@/components/YearSelector';
 import MetricToggle from '@/components/MetricToggle';
 import TopMunicipalitiesTable from '@/components/TopMunicipalitiesTable';
@@ -215,6 +215,10 @@ function ExplorerPageInner() {
 
       {selectedSenator ? (
         <>
+          <div className="sticky top-0 z-20 bg-background -mx-4 px-4 pt-4 pb-3">
+            <CandidateHeader senator={selectedSenator} voteData={currentVoteData} />
+          </div>
+
           <CandidateCard
             senator={selectedSenator}
             voteData={currentVoteData}
@@ -222,7 +226,7 @@ function ExplorerPageInner() {
             onSelectYear={y => handleYearChange(y, 'candidate_pill')}
           />
 
-          <div className="sticky top-0 z-10 bg-background -mx-4 px-4 pt-0 pb-2 -mt-3">
+          <div className="sticky top-16 md:top-19 z-10 bg-background -mx-4 px-4 pt-0 pb-2 -mt-3">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               {didRunSelectedYear && (
                 <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit shrink-0">

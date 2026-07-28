@@ -22,54 +22,59 @@ function formatVotes(n: number) {
   return n.toLocaleString();
 }
 
+export function CandidateHeader({ senator, voteData }: { senator: Senator; voteData: VoteData | null }) {
+  const national = voteData?.national[senator.senator_id];
+
+  return (
+    <div className="flex items-center gap-3 md:gap-5">
+      <div className={`w-9 h-9 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-sm md:text-base shrink-0 select-none ${national ? 'bg-primary text-primary-foreground' : 'bg-destructive/20 text-destructive'}`}>
+        {initials(senator.senator_name)}
+      </div>
+      <h2 className="flex-1 min-w-0 font-bold text-xl md:text-2xl leading-tight truncate">{senator.senator_name}</h2>
+    </div>
+  );
+}
+
 export default function CandidateCard({ senator, voteData, year, onSelectYear }: Props) {
   const national = voteData?.national[senator.senator_id];
 
   return (
-    <div className={`flex items-start gap-3 md:gap-5 ${national ? '' : 'p-3 md:p-6 rounded-xl border bg-destructive/10 border-destructive/30'}`}>
-      <div className={`w-9 h-9 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-sm md:text-base shrink-0 select-none ${national ? 'bg-primary text-primary-foreground' : 'bg-destructive/20 text-destructive'}`}>
-        {initials(senator.senator_name)}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <h2 className="font-bold text-xl md:text-2xl leading-tight truncate">{senator.senator_name}</h2>
-
-        {national ? (
-          <div className="flex gap-4 md:gap-8 mt-2 md:mt-6 flex-wrap">
-            <div>
-              <p className="text-muted-foreground text-[10px] md:text-xs uppercase tracking-wide">National votes</p>
-              <p className="text-sm md:text-base font-semibold mt-0.5 md:mt-1.5">{formatVotes(national.national_votes)}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-[10px] md:text-xs uppercase tracking-wide">National rank</p>
-              <Badge variant="secondary" className="mt-0.5 md:mt-1.5 text-xs md:text-sm px-1.5 md:px-2 py-0 md:py-0.5">
-                #{national.national_rank}
-              </Badge>
-            </div>
-            <div>
-              <p className="text-muted-foreground text-[10px] md:text-xs uppercase tracking-wide">Year</p>
-              <p className="text-sm md:text-base font-semibold mt-0.5 md:mt-1.5">{year}</p>
-            </div>
+    <div className={national ? '' : 'p-3 md:p-6 rounded-xl border bg-destructive/10 border-destructive/30'}>
+      {national ? (
+        <div className="flex gap-4 md:gap-8 flex-wrap">
+          <div>
+            <p className="text-muted-foreground text-[10px] md:text-xs uppercase tracking-wide">National votes</p>
+            <p className="text-sm md:text-base font-semibold mt-0.5 md:mt-1.5">{formatVotes(national.national_votes)}</p>
           </div>
-        ) : (
-          <div className="mt-1 md:mt-2">
-            <p className="text-destructive text-xs md:text-sm font-semibold flex items-center gap-1.5">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              Did not run in {year}
-            </p>
-            {onSelectYear && (
-              <div className="mt-2 md:mt-3 overflow-x-auto">
-                <YearSelector
-                  value={year}
-                  onChange={onSelectYear}
-                  availableYears={senator.years}
-                  filterToAvailable
-                />
-              </div>
-            )}
+          <div>
+            <p className="text-muted-foreground text-[10px] md:text-xs uppercase tracking-wide">National rank</p>
+            <Badge variant="secondary" className="mt-0.5 md:mt-1.5 text-xs md:text-sm px-1.5 md:px-2 py-0 md:py-0.5">
+              #{national.national_rank}
+            </Badge>
           </div>
-        )}
-      </div>
+          <div>
+            <p className="text-muted-foreground text-[10px] md:text-xs uppercase tracking-wide">Year</p>
+            <p className="text-sm md:text-base font-semibold mt-0.5 md:mt-1.5">{year}</p>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <p className="text-destructive text-xs md:text-sm font-semibold flex items-center gap-1.5">
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+            Did not run in {year}
+          </p>
+          {onSelectYear && (
+            <div className="mt-2 md:mt-3 overflow-x-auto">
+              <YearSelector
+                value={year}
+                onChange={onSelectYear}
+                availableYears={senator.years}
+                filterToAvailable
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
