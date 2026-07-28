@@ -52,7 +52,7 @@ export default function ConsentBanner() {
         <div
           role="dialog"
           aria-label="Cookie consent"
-          className="fixed bottom-0 inset-x-0 z-50 border-t bg-background/95 backdrop-blur-sm px-4 py-3 flex flex-col sm:flex-row items-center gap-3"
+          className="fixed bottom-0 inset-x-0 z-50 border-t bg-card/95 backdrop-blur-sm px-4 py-3 flex flex-col sm:flex-row items-center gap-3 shadow-[0_-4px_16px_rgba(0,0,0,0.25)]"
         >
           <p className="text-xs text-muted-foreground flex-1 leading-relaxed">
             We use Google Analytics to understand how this site is used — no ads, no personal
