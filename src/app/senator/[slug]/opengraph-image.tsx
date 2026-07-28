@@ -1,5 +1,5 @@
 import { ImageResponse } from 'next/og';
-import { loadCandidateIndexServer, loadAllVotesServer } from '@/lib/data-server';
+import { loadCandidateIndexServer, loadVotesForYearsServer } from '@/lib/data-server';
 import { buildSenatorList, topProvinces, trendData } from '@/lib/data';
 import { yearColor } from '@/lib/year-colors';
 import type { ElectionYear } from '@/lib/types';
@@ -35,7 +35,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     );
   }
 
-  const voteCache = await loadAllVotesServer();
+  const voteCache = await loadVotesForYearsServer(senator.years);
   const latestYear = Math.max(...senator.years) as ElectionYear;
   const latestVoteData = voteCache.get(latestYear) ?? null;
   const national = latestVoteData?.national[senator.senator_id];

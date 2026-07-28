@@ -4,14 +4,14 @@ import { Suspense } from 'react';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, MapPinned } from 'lucide-react';
 
-import CandidateCard from '@/components/CandidateCard';
+import CandidateCard, { CandidateHeader } from '@/components/CandidateCard';
 import TrendChart from '@/components/TrendChart';
 import TopProvincesTable from '@/components/TopProvincesTable';
 import TopMunicipalitiesTable from '@/components/TopMunicipalitiesTable';
 import SwingSection from '@/components/SwingSection';
 import ShareButton from '@/components/ShareButton';
 import SectionIntro from '@/components/SectionIntro';
-import { loadCandidateIndexServer, loadAllVotesServer } from '@/lib/data-server';
+import { loadCandidateIndexServer, loadVotesForYearsServer } from '@/lib/data-server';
 import { buildSenatorList, topMunicipalities, topProvinces, trendData } from '@/lib/data';
 import { yearColor } from '@/lib/year-colors';
 import { netSwing, consecutivePairs, type YearPair } from '@/lib/swing';
@@ -52,7 +52,7 @@ export default async function SenatorPage({ params }: Props) {
   const senator = await getSenator(slug);
   if (!senator) notFound();
 
-  const voteCache = await loadAllVotesServer();
+  const voteCache = await loadVotesForYearsServer(senator.years);
   const latestYear = Math.max(...senator.years) as ElectionYear;
   const latestVoteData = voteCache.get(latestYear) ?? null;
   // Static share page has no interactive pair-picker — always shows the most recent pair.
@@ -100,7 +100,10 @@ export default async function SenatorPage({ params }: Props) {
       </header>
 
       <main className="max-w-2xl mx-auto px-4 md:px-6 py-10 space-y-10">
-        <CandidateCard senator={senator} voteData={latestVoteData} year={latestYear} />
+        <div className="space-y-4 md:space-y-6">
+          <CandidateHeader senator={senator} voteData={latestVoteData} />
+          <CandidateCard senator={senator} voteData={latestVoteData} year={latestYear} />
+        </div>
 
         {senator.years.length > 1 && (
           <div className="flex items-center gap-3">

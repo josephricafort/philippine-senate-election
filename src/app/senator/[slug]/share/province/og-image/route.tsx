@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { ImageResponse } from 'next/og';
-import { loadCandidateIndexServer, loadAllVotesServer } from '@/lib/data-server';
+import { loadCandidateIndexServer, loadVotesForYearsServer } from '@/lib/data-server';
 import { buildSenatorList, provinceSwingHeadline, resolveShareYearPair } from '@/lib/data';
 import { GAIN, LOSS, formatSwingPt } from '@/lib/swing';
 
@@ -31,10 +31,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   if (!senator) return new ImageResponse(fallback, SIZE);
 
-  const voteCache = await loadAllVotesServer();
   const pair = resolveShareYearPair(senator, { yearA, yearB });
   if (!pair) return new ImageResponse(fallback, SIZE);
   const [resolvedYearA, resolvedYearB] = pair;
+  const voteCache = await loadVotesForYearsServer([resolvedYearA, resolvedYearB]);
   const voteDataA = voteCache.get(resolvedYearA);
   const voteDataB = voteCache.get(resolvedYearB);
   if (!voteDataA || !voteDataB) return new ImageResponse(fallback, SIZE);

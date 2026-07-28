@@ -5,7 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 
 import ShareButton from '@/components/ShareButton';
 import PlatformShareLinks from '@/components/PlatformShareLinks';
-import { loadCandidateIndexServer, loadAllVotesServer } from '@/lib/data-server';
+import { loadCandidateIndexServer, loadVotesForYearsServer } from '@/lib/data-server';
 import { buildSenatorList, provinceSwingHeadline, resolveShareYearPair } from '@/lib/data';
 import type { Senator } from '@/lib/types';
 
@@ -21,10 +21,10 @@ async function getSenator(slug: string): Promise<Senator | null> {
 }
 
 async function getHeadline(senator: Senator, query: { yearA?: string; yearB?: string }) {
-  const voteCache = await loadAllVotesServer();
   const pair = resolveShareYearPair(senator, query);
   if (!pair) return null;
   const [yearA, yearB] = pair;
+  const voteCache = await loadVotesForYearsServer([yearA, yearB]);
   const voteDataA = voteCache.get(yearA);
   const voteDataB = voteCache.get(yearB);
   if (!voteDataA || !voteDataB) return null;
@@ -34,13 +34,13 @@ async function getHeadline(senator: Senator, query: { yearA?: string; yearB?: st
 export async function generateStaticParams() {
   const index = await loadCandidateIndexServer();
   const senators = buildSenatorList(index);
-  const voteCache = await loadAllVotesServer();
   const eligible: { slug: string }[] = [];
   for (const senator of senators) {
     const runs = [...senator.years].sort((a, b) => a - b);
     if (runs.length < 2) continue;
     const yearA = runs[runs.length - 2];
     const yearB = runs[runs.length - 1];
+    const voteCache = await loadVotesForYearsServer([yearA, yearB]);
     const voteDataA = voteCache.get(yearA);
     const voteDataB = voteCache.get(yearB);
     if (!voteDataA || !voteDataB) continue;

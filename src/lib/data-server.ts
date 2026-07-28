@@ -1,7 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { VoteData, CandidateIndex } from './types';
-import { ELECTION_YEARS } from './types';
 
 // Server-only counterparts to lib/data.ts's fetch-based loaders — these read
 // straight off disk so they work in generateStaticParams, opengraph-image,
@@ -9,9 +8,11 @@ import { ELECTION_YEARS } from './types';
 //
 // Cached at module scope (not React.cache(), which is request-scoped) because
 // generateStaticParams builds 260+ pages across parallel workers — without a
-// process-lifetime cache, every single page + its opengraph-image re-parses
-// all ~44MB of vote JSON from scratch, and under concurrent static export that
-// compounds into pages blowing past their build timeout.
+// process-lifetime cache, every page + its opengraph-image would re-parse the
+// same year's vote JSON from scratch. Callers only request the years a given
+// senator actually ran in (see loadVotesForYearsServer below) rather than all
+// ELECTION_YEARS, so a single worker never has to hold all ~44MB of vote JSON
+// in memory at once — that full-dataset load was blowing out build memory.
 
 const dataDir = path.join(process.cwd(), 'public', 'data');
 
@@ -34,14 +35,13 @@ export function loadVotesServer(year: number): Promise<VoteData> {
   return promise;
 }
 
-let allVotesPromise: Promise<Map<number, VoteData>> | undefined;
-export function loadAllVotesServer(): Promise<Map<number, VoteData>> {
-  if (!allVotesPromise) {
-    allVotesPromise = Promise.all(ELECTION_YEARS.map(y => loadVotesServer(y))).then(results => {
-      const map = new Map<number, VoteData>();
-      ELECTION_YEARS.forEach((y, i) => map.set(y, results[i]));
-      return map;
-    });
-  }
-  return allVotesPromise;
+// Loads only the requested years — callers pass a senator's own runs (or a resolved year
+// pair) so static generation never holds more of the ~44MB vote dataset in memory per
+// page/worker than that page actually needs.
+export async function loadVotesForYearsServer(years: number[]): Promise<Map<number, VoteData>> {
+  const uniqueYears = Array.from(new Set(years));
+  const results = await Promise.all(uniqueYears.map(y => loadVotesServer(y)));
+  const map = new Map<number, VoteData>();
+  uniqueYears.forEach((y, i) => map.set(y, results[i]));
+  return map;
 }
