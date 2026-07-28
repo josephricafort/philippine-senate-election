@@ -10,9 +10,11 @@ import TopProvincesTable from '@/components/TopProvincesTable';
 import TopMunicipalitiesTable from '@/components/TopMunicipalitiesTable';
 import SwingSection from '@/components/SwingSection';
 import ShareButton from '@/components/ShareButton';
+import SectionIntro from '@/components/SectionIntro';
 import { loadCandidateIndexServer, loadAllVotesServer } from '@/lib/data-server';
 import { buildSenatorList, topMunicipalities, topProvinces, trendData } from '@/lib/data';
 import { yearColor } from '@/lib/year-colors';
+import { netSwing, consecutivePairs, type YearPair } from '@/lib/swing';
 import type { ElectionYear, Senator } from '@/lib/types';
 
 type Props = { params: Promise<{ slug: string }> };
@@ -53,10 +55,30 @@ export default async function SenatorPage({ params }: Props) {
   const voteCache = await loadAllVotesServer();
   const latestYear = Math.max(...senator.years) as ElectionYear;
   const latestVoteData = voteCache.get(latestYear) ?? null;
+  // Static share page has no interactive pair-picker — always shows the most recent pair.
+  const pairs = consecutivePairs(senator.years);
+  const swingYearPair: YearPair | null = pairs.length > 0 ? pairs[pairs.length - 1] : null;
 
   const topMunis = latestVoteData ? topMunicipalities(latestVoteData, senator.senator_id, 7) : [];
   const topProvs = latestVoteData ? topProvinces(latestVoteData, senator.senator_id, 7) : [];
   const trend = trendData(voteCache, senator.senator_id);
+
+  // One-sentence takeaways stating what each section's numbers actually show, computed from
+  // the same data the chart/table below it renders — not a generic description of chart type.
+  const trendSwing = netSwing(trend);
+  const trendTakeaway = trend.length > 1
+    ? `National vote share ${trendSwing >= 0 ? 'rose' : 'fell'} ${Math.abs(trendSwing * 100).toFixed(1)}pt from ${trend[0].year} to ${trend[trend.length - 1].year}, landing at ${(trend[trend.length - 1].vote_share * 100).toFixed(1)}% in ${latestYear}.`
+    : trend.length === 1
+    ? `${senator.senator_name} has only run once (${trend[0].year}), earning ${(trend[0].vote_share * 100).toFixed(1)}% of the national vote share — no prior run to compare against yet.`
+    : null;
+
+  const topProvinceTakeaway = topProvs.length > 0
+    ? `Strongest in ${topProvs[0].adm2_en} in ${latestYear}, at ${(topProvs[0].vote_share * 100).toFixed(1)}% of the vote (rank #${topProvs[0].rank}).`
+    : null;
+
+  const topMuniTakeaway = topMunis.length > 0
+    ? `Best single town was ${topMunis[0].adm3_en}, ${topMunis[0].adm2_en}, at ${(topMunis[0].vote_share * 100).toFixed(1)}% of the vote in ${latestYear}.`
+    : null;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -72,6 +94,7 @@ export default async function SenatorPage({ params }: Props) {
           <ShareButton
             title={`${senator.senator_name} — Philippine Senate Election Results`}
             text={`${senator.senator_name}'s senate voting results, ${senator.years[0]}–${senator.years[senator.years.length - 1]}`}
+            candidateId={senator.senator_id}
           />
         </div>
       </header>
@@ -100,21 +123,29 @@ export default async function SenatorPage({ params }: Props) {
         )}
 
         <Suspense fallback={null}>
-          <SwingSection senator={senator} voteCache={voteCache} latestVoteData={latestVoteData} />
+          <SwingSection senator={senator} voteCache={voteCache} latestVoteData={latestVoteData} yearPair={swingYearPair} />
         </Suspense>
 
-        {senator.years.length > 1 && (
+        {trendTakeaway && (
           <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3 font-medium">
-              National vote trends
-            </p>
+            <SectionIntro label="National vote trends">{trendTakeaway}</SectionIntro>
             <TrendChart data={trend} />
           </div>
         )}
 
-        <TopProvincesTable rows={topProvs} metric="vote_share" year={latestYear} />
+        <div>
+          {topProvinceTakeaway && (
+            <p className="text-sm text-muted-foreground leading-relaxed mb-3">{topProvinceTakeaway}</p>
+          )}
+          <TopProvincesTable rows={topProvs} metric="vote_share" year={latestYear} />
+        </div>
 
-        <TopMunicipalitiesTable rows={topMunis} metric="vote_share" year={latestYear} />
+        <div>
+          {topMuniTakeaway && (
+            <p className="text-sm text-muted-foreground leading-relaxed mb-3">{topMuniTakeaway}</p>
+          )}
+          <TopMunicipalitiesTable rows={topMunis} metric="vote_share" year={latestYear} />
+        </div>
 
         <Link
           href={`/?candidate=${senator.senator_id}`}

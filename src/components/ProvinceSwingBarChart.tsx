@@ -45,7 +45,7 @@ export default function ProvinceSwingBarChart({ rows, senatorId, senatorName, ye
             biggest drop first
           </span>
           <Link
-            href={`/senator/${senatorId}/share/province`}
+            href={`/senator/${senatorId}/share/province?yearA=${yearA}&yearB=${yearB}`}
             title="Share this chart"
             aria-label="Share this chart"
             className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all"

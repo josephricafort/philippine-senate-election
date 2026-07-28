@@ -18,9 +18,11 @@ export type AnalyticsEvent =
   | { name: 'select_year'; params: {
       year: number; previous_year: number;
       source: 'year_selector' | 'candidate_pill';
+      candidate_id?: string;
     } }
   | { name: 'select_metric'; params: {
       metric: 'rank' | 'vote_share' | 'votes' | 'swing'; previous_metric: string;
+      candidate_id?: string;
     } }
   | { name: 'search_candidate'; params: { query_length: number; result_count: number } }
   | { name: 'search_no_results'; params: { query_length: number } }
@@ -28,7 +30,9 @@ export type AnalyticsEvent =
   | { name: 'map_interact'; params: {
       interaction_type: 'pan' | 'zoom' | 'drag'; candidate_id: string; year: number;
     } }
-  | { name: 'map_hover_municipality'; params: { has_data: boolean; metric: string } }
+  | { name: 'map_hover_municipality'; params: {
+      has_data: boolean; metric: string; candidate_id: string; municipality: string;
+    } }
   | { name: 'map_reset_view'; params: Record<string, never> }
   | { name: 'view_top_table'; params: {
       table_type: 'municipalities' | 'provinces'; candidate_id: string; year: number;
@@ -36,7 +40,7 @@ export type AnalyticsEvent =
   | { name: 'switch_mobile_tab'; params: { tab_name: string } }
   | { name: 'switch_profile_tab'; params: { tab_name: string } }
   | { name: 'select_swing_province'; params: { province: string; candidate_id: string } }
-  | { name: 'select_swing_year_pair'; params: { year_a: number; year_b: number } }
+  | { name: 'select_swing_year_pair'; params: { year_a: number; year_b: number; candidate_id?: string } }
   | { name: 'click_info_menu'; params: { link_target: string } }
   | { name: 'click_share'; params: { candidate_id: string; method: 'web_share' | 'copy_link' | 'platform_facebook' | 'platform_messenger' | 'platform_x' } }
   | { name: 'no_data_for_candidate'; params: { candidate_id: string; year: number } }
