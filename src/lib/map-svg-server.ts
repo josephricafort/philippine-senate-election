@@ -136,6 +136,15 @@ function geometryToPath(
     .join(' ');
 }
 
+// Keyed by width/height/fit — the projected+simplified path geometry only depends on those three
+// (never on which candidate/years the caller is rendering a swing map for), so every og-image
+// request for the same 360x534 'cover' box was redoing ~686k-point topology parsing + per-polygon
+// Douglas-Peucker simplification from scratch. That was measured at ~2.8-3s per request in
+// production, slow enough that X's link-preview crawler (unlike Facebook's, which is more
+// tolerant/retries) was timing out before the image populated. Module-level like topoPromise
+// above — persists for a warm serverless instance, not across cold starts.
+const pathSetCache = new Map<string, Promise<MunicipalityPathSet>>();
+
 // Renders every municipality polygon as an SVG path, projected against the `width` x `height`
 // box. `fit: 'contain'` (default) preserves the true lng/lat aspect ratio and letterboxes
 // inside the box (no distortion, some empty margin). `fit: 'cover'` instead scales UP until
@@ -146,6 +155,23 @@ export async function buildMunicipalityPaths(
   width: number,
   height: number,
   fit: 'contain' | 'cover' = 'contain'
+): Promise<MunicipalityPathSet> {
+  const cacheKey = `${width}x${height}:${fit}`;
+  const cached = pathSetCache.get(cacheKey);
+  if (cached) return cached;
+
+  const promise = buildMunicipalityPathsUncached(width, height, fit);
+  pathSetCache.set(cacheKey, promise);
+  // Don't leave a rejected promise cached — a transient failure (e.g. file read error) shouldn't
+  // permanently poison this key for the lifetime of the instance.
+  promise.catch(() => pathSetCache.delete(cacheKey));
+  return promise;
+}
+
+async function buildMunicipalityPathsUncached(
+  width: number,
+  height: number,
+  fit: 'contain' | 'cover'
 ): Promise<MunicipalityPathSet> {
   const topo = await loadMunicipalitiesTopology();
   const municitiesObj = topo.objects.municities as GeometryCollection<MunicipalityProps>;
