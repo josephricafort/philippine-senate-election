@@ -548,8 +548,10 @@ function ExplorerPageInner() {
           metric={metric}
           swingMap={swingMap}
           swingYears={swingYears}
+          senatorYears={selectedSenator?.years ?? null}
           onNavigateToProfile={() => handleMobileTabChange('profile')}
           onChangeMetric={handleMetricChange}
+          onChangeYear={y => handleYearChange(y as ElectionYear, 'candidate_pill')}
         />
       </div>
     </div>
@@ -659,7 +661,9 @@ function ExplorerPageInner() {
                 metric={metric}
                 swingMap={swingMap}
                 swingYears={swingYears}
+                senatorYears={selectedSenator?.years ?? null}
                 onChangeMetric={handleMetricChange}
+                onChangeYear={y => handleYearChange(y as ElectionYear, 'candidate_pill')}
               />
             </div>
           </main>

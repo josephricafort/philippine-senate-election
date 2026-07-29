@@ -37,10 +37,16 @@ type Props = {
   swingMap?: Map<string, SwingEntry> | null;
   /** The two years being compared for the swing metric, e.g. [2019, 2025]. */
   swingYears?: [number, number] | null;
+  /** Years the selected candidate actually ran in — drives the "didn't run this year"
+   *  overlay's suggested-year links for the rank/vote_share/votes metrics. */
+  senatorYears?: number[] | null;
   onNavigateToProfile?: () => void;
   /** Lets the "no swing data" overlay switch the map to another metric directly, without
    *  making the user find the View By toggle themselves. */
   onChangeMetric?: (metric: Metric) => void;
+  /** Lets the "didn't run this year" overlay jump straight to a year the candidate ran in,
+   *  without making the user find the year selector themselves. */
+  onChangeYear?: (year: number) => void;
 };
 
 const PH_CENTER: [number, number] = [122, 12.8];
@@ -466,7 +472,15 @@ function applyPaint(
   );
 }
 
-export default function ChoroplethMap({ candidate, municipalityNames, senatorId, senatorName, year, metric, swingMap, swingYears, onNavigateToProfile, onChangeMetric }: Props) {
+// Blanks the map to an all-hatched "no data" state — used when the selected candidate has no
+// entry at all for the active year (rank/vote_share/votes metrics), so a stale paint from a
+// previously-viewed year/candidate doesn't linger behind the "didn't run" overlay text.
+function clearPaint(map: maplibregl.Map) {
+  map.setPaintProperty('municipalities-fill', 'fill-color', NO_DATA_COLOR);
+  map.setFilter('municipalities-nodata', ['boolean', true]);
+}
+
+export default function ChoroplethMap({ candidate, municipalityNames, senatorId, senatorName, year, metric, swingMap, swingYears, senatorYears, onNavigateToProfile, onChangeMetric, onChangeYear }: Props) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const mapRef        = useRef<maplibregl.Map | null>(null);
   const loadedRef     = useRef(false);
@@ -787,8 +801,9 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
 
       // Apply paint if data already loaded
       const { yearData, senatorId, metric, year, swingMap } = propsRef.current;
-      if (yearData && senatorId) {
-        applyPaint(map, yearData, metric, year, swingMap);
+      if (senatorId) {
+        if (yearData) applyPaint(map, yearData, metric, year, swingMap);
+        else if (metric !== 'swing') clearPaint(map);
       }
     });
 
@@ -796,12 +811,15 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-paint when senator / metric / yearData / year / swingMap changes
+  // Re-paint when senator / metric / yearData / year / swingMap changes. When the candidate has
+  // no entry at all for the active year (metric !== 'swing'), blank the map instead of leaving
+  // whatever was painted for a previous candidate/year on screen behind the overlay below.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !loadedRef.current || !yearData || !senatorId) return;
+    if (!map || !loadedRef.current || !senatorId) return;
     if (!map.getLayer('municipalities-fill')) return;
-    applyPaint(map, yearData, metric, year, swingMap);
+    if (yearData) applyPaint(map, yearData, metric, year, swingMap);
+    else if (metric !== 'swing') clearPaint(map);
   }, [yearData, senatorId, metric, year, swingMap]);
 
   // New candidate+year view — allow map_interact to fire again for it.
@@ -973,6 +991,34 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
                   raw votes
                 </button>
                 {' '}view instead.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {senatorId && metric !== 'swing' && !yearData && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-6">
+          <div className="text-sm text-center bg-white/90 text-zinc-600 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm max-w-xs pointer-events-auto">
+            <p>{senatorName ?? 'This candidate'} did not run in {year ?? 'this year'}.</p>
+            {senatorYears && senatorYears.length > 0 && (
+              <p className="mt-1">
+                {onChangeYear ? (
+                  <>
+                    See{' '}
+                    {senatorYears.map((y, i) => (
+                      <span key={y}>
+                        {i > 0 && (i === senatorYears.length - 1 ? ' or ' : ', ')}
+                        <button type="button" onClick={() => onChangeYear(y)} className="text-blue-700 font-medium underline underline-offset-2 hover:no-underline">
+                          {y}
+                        </button>
+                      </span>
+                    ))}
+                    {' '}instead.
+                  </>
+                ) : (
+                  <>Ran in {senatorYears.join(', ')}.</>
+                )}
               </p>
             )}
           </div>
