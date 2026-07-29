@@ -380,23 +380,25 @@ function ExplorerPageInner() {
             )}
           </div>
 
-          <button
-            onClick={() => {
-              handleMetricChange(profileTab === 'swing' ? 'swing' : 'rank');
-              handleMobileTabChange('map');
-            }}
-            className="w-full flex items-center gap-3 rounded-xl border bg-card p-4 text-left hover:bg-accent transition-colors md:hidden"
-          >
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <MapIcon className="w-5 h-5 text-primary" />
-            </div>
-            <span className="flex-1 text-sm font-medium leading-snug">
-              {profileTab === 'swing'
-                ? `See swing votes per municipality for ${selectedSenator.senator_name}`
-                : `See rank of votes per municipality for ${selectedSenator.senator_name}`}
-            </span>
-            <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-          </button>
+          {(profileTab !== 'swing' || selectedSenator.years.length >= 2) && (
+            <button
+              onClick={() => {
+                handleMetricChange(profileTab === 'swing' ? 'swing' : 'rank');
+                handleMobileTabChange('map');
+              }}
+              className="w-full flex items-center gap-3 rounded-xl border bg-card p-4 text-left hover:bg-accent transition-colors md:hidden"
+            >
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <MapIcon className="w-5 h-5 text-primary" />
+              </div>
+              <span className="flex-1 text-sm font-medium leading-snug">
+                {profileTab === 'swing'
+                  ? `See swing votes per municipality for ${selectedSenator.senator_name}`
+                  : `See rank of votes per municipality for ${selectedSenator.senator_name}`}
+              </span>
+              <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+            </button>
+          )}
 
           {didRunSelectedYear ? (
             <>
