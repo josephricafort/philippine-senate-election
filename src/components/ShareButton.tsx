@@ -7,13 +7,19 @@ type Props = {
   title: string;
   text: string;
   candidateId?: string;
+  /** Absolute or root-relative URL to share — defaults to the current page (window.location.href).
+   *  Share pages pass the interactive-explorer deep link (/?candidate=...) here so every share
+   *  surface points back into the live map/profile rather than the static share-card page. */
+  url?: string;
 };
 
-export default function ShareButton({ title, text, candidateId }: Props) {
+export default function ShareButton({ title, text, candidateId, url: urlProp }: Props) {
   const [copied, setCopied] = useState(false);
 
   async function handleShare() {
-    const url = window.location.href;
+    const url = urlProp
+      ? (urlProp.startsWith('http') ? urlProp : `${window.location.origin}${urlProp}`)
+      : window.location.href;
     if (navigator.share) {
       try {
         await navigator.share({ title, text, url });

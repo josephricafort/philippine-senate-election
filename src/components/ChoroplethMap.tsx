@@ -7,7 +7,17 @@ import type { Topology, GeometryCollection } from 'topojson-specification';
 import { ChevronLeft, Home, Plus, Minus } from 'lucide-react';
 import type { CandidateData, CandidateYearData, MunicipalityNames, Metric } from '@/lib/types';
 import { yearColor } from '@/lib/year-colors';
-import { formatSwingPt, swingColor } from '@/lib/swing';
+import {
+  formatSwingPt,
+  swingColor,
+  SWING_LOSS_COLORS,
+  SWING_GAIN_COLORS,
+  SWING_BUCKET_COLORS,
+  SWING_ZERO_COLOR,
+  SWING_BUCKETS_PER_SIDE,
+  swingMaxAbs,
+  swingBucketBounds,
+} from '@/lib/swing';
 import { trackEvent } from '@/lib/analytics';
 type SwingEntry = { delta: number };
 
@@ -180,85 +190,28 @@ const RAW_VOTES_CAP  = 50_000;
 // Thresholds scale to each candidate's own min/max swing (same idea as the Rank metric
 // scaling to that candidate's maxRank) so the full color range is always used, rather than
 // a fixed cap leaving most candidates' maps mostly in the lightest bucket.
-const SWING_LOSS_COLORS = ['#fee2e2', '#fca5a5', '#ef4444', '#b91c1c', '#7f1d1d']; // mild -> strong loss
-const SWING_GAIN_COLORS = ['#bbf7d0', '#86efac', '#22c55e', '#15803d', '#14532d']; // mild -> strong gain
-const SWING_BUCKET_COLORS = [...[...SWING_LOSS_COLORS].reverse(), ...SWING_GAIN_COLORS];
-// Exact-zero swing gets its own subtle gray rather than falling into the lightest gain
-// bucket — a municipality with literally no measured change shouldn't read as "gained".
-const SWING_ZERO_COLOR = '#d4d4d8';
+// Colors/bounds themselves live in lib/swing.ts (shared with the static map-share OG image,
+// which must paint identical colors for identical data).
 
-// Largest absolute swing across all municipalities — used only for the legend's
-// min/max labels now; bucket boundaries themselves come from swingQuantileBounds.
-function swingMaxAbs(swingMap: Map<string, SwingEntry>): number {
-  let max = 0;
-  for (const entry of swingMap.values()) max = Math.max(max, Math.abs(entry.delta));
-  return max;
-}
-
-// Value at a given fraction through a sorted array (nearest-rank; good enough for a
-// 3-bucket map legend, no need for interpolated-percentile precision).
-function quantile(sorted: number[], frac: number): number {
-  const idx = Math.min(sorted.length - 1, Math.floor(frac * sorted.length));
-  return sorted[idx];
-}
-
-const SWING_BUCKETS_PER_SIDE = 5;
-
-// Losses and gains are quantiled separately (not the combined signed distribution) so each
-// side's 5 buckets split its own municipalities into even fifths — losses cluster differently
-// than gains, and quantiling them together would let one side dominate the bucket boundaries.
-// Falls back to even fifths of maxAbs when a side has too few municipalities to bucket meaningfully.
-function swingQuantileBounds(swingMap: Map<string, SwingEntry>, maxAbs: number): {
-  lossBounds: number[]; // [-4/5, -3/5, -2/5, -1/5] boundaries, all <= 0, ascending
-  gainBounds: number[]; // [+1/5, +2/5, +3/5, +4/5] boundaries, all >= 0, ascending
-} {
-  const losses: number[] = [];
-  const gains: number[] = [];
-  for (const { delta } of swingMap.values()) {
-    if (delta < 0) losses.push(-delta); // store as positive magnitude for quantiling
-    else if (delta > 0) gains.push(delta);
-  }
-  losses.sort((a, b) => a - b);
-  gains.sort((a, b) => a - b);
-
-  const n = SWING_BUCKETS_PER_SIDE;
-  const fifth = maxAbs / n;
-  const lossBounds = losses.length >= n
-    ? Array.from({ length: n - 1 }, (_, i) => -quantile(losses, (n - 1 - i) / n))
-    : Array.from({ length: n - 1 }, (_, i) => -fifth * (n - 1 - i));
-  const gainBounds = gains.length >= n
-    ? Array.from({ length: n - 1 }, (_, i) => quantile(gains, (i + 1) / n))
-    : Array.from({ length: n - 1 }, (_, i) => fifth * (i + 1));
-
-  return { lossBounds, gainBounds };
-}
-
-// Legend histogram bins, unlike the map's color buckets, are equal pt-width (linear) rather
-// than equal-population — a quantile split is by definition close to flat (each bin holds
-// ~1/5 of the municipalities), so it can't show the actual shape of the distribution. Linear
-// bins over the raw deltas reveal that shape (e.g. most municipalities clustered near zero),
-// while each bin is still tinted with whichever color-bucket its center falls into, so the
-// histogram stays visually tied to the quantile-based map colors it sits next to.
-function swingHistogramCounts(
+// Per-bucket municipality counts for the same 10 equal-width buckets swingBucketBounds carves
+// out (plus the exact-zero count) — this must bin by the identical bounds the map paints with,
+// or the legend's bar heights/colors stop corresponding to what's shaded on the map.
+function swingBucketCounts(
   swingMap: Map<string, SwingEntry>,
-  maxAbs: number,
   lossBounds: number[],
   gainBounds: number[]
 ): { lossCounts: number[]; gainCounts: number[]; zeroCount: number } {
   const n = SWING_BUCKETS_PER_SIDE;
-  const binWidth = maxAbs / n;
   const lossCounts = new Array(n).fill(0);
   const gainCounts = new Array(n).fill(0);
   let zeroCount = 0;
   for (const { delta } of swingMap.values()) {
     if (delta < 0) {
-      // Bin 0 = closest to zero (mildest), bin n-1 = furthest (strongest) — matches the
-      // mild->strong color ordering within SWING_LOSS_COLORS.
-      const bin = Math.min(n - 1, Math.floor(-delta / binWidth));
-      lossCounts[bin]++;
+      const idx = lossBounds.findIndex(b => delta < b);
+      lossCounts[idx === -1 ? n - 1 : idx]++;
     } else if (delta > 0) {
-      const bin = Math.min(n - 1, Math.floor(delta / binWidth));
-      gainCounts[bin]++;
+      const idx = gainBounds.findIndex(b => delta <= b);
+      gainCounts[idx === -1 ? n - 1 : idx]++;
     } else {
       zeroCount++;
     }
@@ -306,11 +259,9 @@ function buildColorExpression(
     if (!swingMap || swingMap.size === 0) return NO_DATA_COLOR as unknown as maplibregl.ExpressionSpecification;
     const maxAbs = swingMaxAbs(swingMap);
     if (maxAbs === 0) return SWING_ZERO_COLOR as unknown as maplibregl.ExpressionSpecification;
-    // 10 discrete bands, boundaries at each side's own quintile rather than even fifths of
-    // the value range — most swings cluster near zero, so equal-width bands left the "mild"
-    // buckets absorbing nearly every municipality. Quantile boundaries instead put roughly
-    // equal counts of municipalities in each bucket.
-    const { lossBounds, gainBounds } = swingQuantileBounds(swingMap, maxAbs);
+    // 10 discrete bands, both sides scaled against the same shared maxAbs (see swingBucketBounds)
+    // so a shade means the same swing magnitude on either side, not just within its own side.
+    const { lossBounds, gainBounds } = swingBucketBounds(maxAbs);
     const stepExpr: unknown[] = ['step', valueExpr, SWING_BUCKET_COLORS[0]];
     lossBounds.forEach((bound, i) => stepExpr.push(bound, SWING_BUCKET_COLORS[i + 1]));
     stepExpr.push(0, SWING_BUCKET_COLORS[SWING_BUCKETS_PER_SIDE]);
@@ -415,12 +366,16 @@ function buildLegend(
     if (!swingMap || swingMap.size === 0) return null;
     const maxAbs = swingMaxAbs(swingMap);
     if (maxAbs === 0) return null;
-    const { lossBounds, gainBounds } = swingQuantileBounds(swingMap, maxAbs);
+    const { lossBounds, gainBounds } = swingBucketBounds(maxAbs);
     const { lossCounts, gainCounts, zeroCount } = swingBucketCounts(swingMap, lossBounds, gainBounds);
     // Bar order matches SWING_BUCKET_COLORS (strong loss -> mild loss -> mild gain -> strong
     // gain), with the zero-swing count inserted as its own center bar between the two sides.
     const counts = [...lossCounts.slice().reverse(), zeroCount, ...gainCounts];
     const colors = [...SWING_LOSS_COLORS.slice().reverse(), SWING_ZERO_COLOR, ...SWING_GAIN_COLORS];
+    // Label shows the true shared maxAbs on both sides — honest now that both sides' buckets
+    // are actually scaled to it (see swingBucketBounds); a lopsided histogram (e.g. losses
+    // filling every bucket, gains only reaching the first one or two) is the correct picture
+    // when one side's real swings are much larger than the other's, not a display bug.
     return {
       colors: SWING_BUCKET_COLORS,
       histogram: { colors, counts },

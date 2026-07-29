@@ -66,19 +66,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         <div style={{ display: 'flex', flexDirection: 'column', width: 356, marginRight: 40 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', fontSize: 40, fontWeight: 700, lineHeight: 1.2, letterSpacing: -0.5 }}>
             {result.headlineParts.flatMap((part, i) =>
-              part.text.split(' ').map((word, j) => (
+              part.text.split(' ').filter(word => word !== '').map((word, j) => (
                 <span key={`${i}-${j}`} style={{ display: 'flex', whiteSpace: 'pre', color: part.emphasis === 'loss' ? LOSS : part.emphasis === 'gain' ? GAIN : '#fafafa' }}>
-                  {word === '' ? ' ' : `${word} `}
+                  {`${word} `}
                 </span>
               ))
             )}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', marginTop: 'auto', paddingTop: 24, borderTop: '2px solid rgba(255,255,255,0.1)', gap: 8 }}>
-            <span style={{ display: 'flex', fontSize: 20, color: '#fafafa', fontWeight: 600 }}>
+            <span style={{ display: 'flex', fontSize: 24, color: '#fafafa', fontWeight: 600 }}>
               Explore all senate election data since 2007 up to present —
             </span>
-            <span style={{ display: 'flex', fontFamily: 'monospace', fontSize: 20, color: '#a1a1aa' }}>
+            <span style={{ display: 'flex', fontFamily: 'monospace', fontSize: 24, color: '#a1a1aa' }}>
               {SITE_URL.replace(/^https?:\/\//, '')}
             </span>
           </div>

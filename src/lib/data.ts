@@ -382,8 +382,14 @@ export function provinceSwingHeadline(
   yearA: number,
   yearB: number
 ): ProvinceSwingHeadline | null {
-  const rows = provinceSwing(voteDataA, voteDataB, senator.senator_id)
-    .filter(r => r.share_a >= 0.03 || r.share_b >= 0.03); // ignore places they barely competed in either year
+  // Every province/city present in both years counts — no minimum vote-share cutoff. A prior
+  // version filtered out anywhere the candidate polled under 3% in both years as "didn't really
+  // compete there," but that silently shrank the denominator (e.g. 117 real provinces down to
+  // 64) without disclosing it anywhere in the card, which reads as missing data rather than a
+  // deliberate choice. It also wasn't doing what it claimed: a swing from a small base is still
+  // a real, verifiable swing — the "63 out of 64 (98%)" framing is only trustworthy if "64" is
+  // the true count of provinces with two-year data, not a pre-filtered subset.
+  const rows = provinceSwing(voteDataA, voteDataB, senator.senator_id);
   if (rows.length === 0) return null;
 
   const sample = quartileSample(rows, r => r.adm2_en, 7).map(({ row, label }) => ({
@@ -608,8 +614,10 @@ export function candidateProvinceSwingHeadline(
   yearA: number,
   yearB: number
 ): ProvinceSwingHeadline | null {
-  const rows = candidateProvinceSwing(candidate, yearA, yearB)
-    .filter(r => r.share_a >= 0.03 || r.share_b >= 0.03); // ignore places they barely competed in either year
+  // No minimum vote-share cutoff — see the comment in provinceSwingHeadline above for why a
+  // prior "ignore places they barely competed" filter was removed. Every province/city with
+  // two-year data counts, so the "N out of TOTAL" claim matches what a reader can verify.
+  const rows = candidateProvinceSwing(candidate, yearA, yearB);
   if (rows.length === 0) return null;
 
   // 15 rows fills the og-image's bar-chart column edge-to-edge at its current row height —
@@ -666,6 +674,99 @@ export function candidateProvinceSwingHeadline(
     yearA,
     yearB,
     sample,
+    headline,
+    headlineParts,
+    breadth: { total, losing, gaining, direction },
+    biggestMove,
+  };
+}
+
+export type MunicipalitySwingHeadline = {
+  senatorName: string;
+  yearA: number;
+  yearB: number;
+  /** Every municipality's swing, keyed by psgc — this is the map-share graphic's actual paint
+   *  data (colors every polygon), unlike the province version's bar-chart `sample`. */
+  swingByPsgc: Map<string, { delta: number }>;
+  headline: string;
+  headlineParts: { text: string; emphasis?: 'gain' | 'loss' }[];
+  breadth: { total: number; losing: number; gaining: number; direction: 'loss' | 'gain' | 'mixed' };
+  biggestMove: { adm3_en: string; adm2_en: string; shareA: number; shareB: number; delta: number };
+};
+
+// Builds the programmatic "municipality swing" headline for a candidate's two most recent
+// runs — the map-share counterpart of candidateProvinceSwingHeadline above, same headline/
+// breadth logic (including no minimum vote-share cutoff, for the same reason documented on
+// provinceSwingHeadline above) just counted over every municipality nationwide instead of
+// every province, since the map graphic shows municipality-level polygons.
+export function candidateMunicipalitySwingHeadline(
+  candidate: CandidateData,
+  senator: Senator,
+  yearA: number,
+  yearB: number
+): MunicipalitySwingHeadline | null {
+  const dataA = candidate.years[String(yearA)];
+  const dataB = candidate.years[String(yearB)];
+  if (!dataA || !dataB) return null;
+
+  const rows = Object.entries(dataA.municipalities)
+    .flatMap(([psgc, mA]) => {
+      const mB = dataB.municipalities[psgc];
+      if (!mB) return [];
+      const delta = Math.round((mB.vote_share - mA.vote_share) * 10000) / 10000;
+      return [{ psgc, adm3_en: mA.adm3_en, adm2_en: mA.adm2_en, share_a: mA.vote_share, share_b: mB.vote_share, delta }];
+    })
+    .sort((a, b) => a.delta - b.delta);
+  if (rows.length === 0) return null;
+
+  const swingByPsgc = new Map(rows.map(r => [r.psgc, { delta: r.delta }]));
+
+  const biggestRow = rows[0].delta < 0 || Math.abs(rows[0].delta) >= Math.abs(rows[rows.length - 1].delta)
+    ? rows[0]
+    : rows[rows.length - 1];
+  const biggestMove = {
+    adm3_en: biggestRow.adm3_en,
+    adm2_en: biggestRow.adm2_en,
+    shareA: biggestRow.share_a,
+    shareB: biggestRow.share_b,
+    delta: biggestRow.delta,
+  };
+
+  const name = headlineName(senator.senator_name);
+  const total = rows.length;
+  const losing = rows.filter(r => r.delta < 0).length;
+  const gaining = total - losing;
+  const losingPct = losing / total;
+
+  const direction: 'loss' | 'gain' | 'mixed' =
+    losingPct > 0.5 ? 'loss' : losingPct < 0.5 ? 'gain' : 'mixed';
+
+  let headlineParts: { text: string; emphasis?: 'gain' | 'loss' }[];
+  if (direction === 'mixed') {
+    headlineParts = [
+      { text: `${name}'s support was mixed` },
+      { text: ` — falling in ${losing} and rising in ${gaining} of ${total} municipalities/cities` },
+      { text: ` between ${yearA} and ${yearB}.` },
+    ];
+  } else {
+    const count = direction === 'loss' ? losing : gaining;
+    const pct = Math.round((count / total) * 100);
+    const verb = direction === 'loss' ? 'lost' : 'gained';
+    headlineParts = [
+      { text: `${name} ` },
+      { text: verb, emphasis: direction },
+      { text: ' support from ' },
+      { text: `${count} out of ${total} (${pct}%)`, emphasis: direction },
+      { text: ` municipalities/cities between ${yearA} and ${yearB} elections.` },
+    ];
+  }
+  const headline = headlineParts.map(p => p.text).join('');
+
+  return {
+    senatorName: senator.senator_name,
+    yearA,
+    yearB,
+    swingByPsgc,
     headline,
     headlineParts,
     breadth: { total, losing, gaining, direction },

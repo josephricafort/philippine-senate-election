@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { ChevronRight, Map as MapIcon, Share2, Vote } from 'lucide-react';
 
 import SearchSelect from '@/components/SearchSelect';
@@ -24,7 +24,7 @@ import {
   buildSenatorList, nationalTotalVotes,
   candidateTopMunicipalities, candidateTopProvinces, candidateTrendData,
   candidateNationwideMunicipalitySwing, candidateProvinceList, candidateProvinceShareTrend,
-  candidateProvinceSwing, candidateMunicipalitySwing,
+  candidateProvinceSwing, candidateMunicipalitySwing, resolveShareYearPair,
 } from '@/lib/data';
 import {
   type ElectionYear, type Metric, type Senator,
@@ -46,8 +46,14 @@ export default function ExplorerPage() {
 }
 
 function ExplorerPageInner() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const candidateParam = searchParams.get('candidate');
+  // Present on links shared from the map/province swing-share cards — reproduces the exact
+  // year pair those cards depicted, instead of defaulting to the candidate's most recent pair.
+  const yearAParam = searchParams.get('yearA');
+  const yearBParam = searchParams.get('yearB');
   const [senators, setSenators] = useState<Senator[]>([]);
   const [selectedSenator, setSelectedSenator] = useState<Senator | null>(null);
   const [year, setYear] = useState<ElectionYear>(2025);
@@ -67,6 +73,18 @@ function ExplorerPageInner() {
   // When a senator is selected, auto-switch to their most recent year if current year unavailable
   function handleSelectSenator(s: Senator | null, source: 'search' | 'leaderboard_row' | 'year_pill' | 'suggestion_chip' | 'url_param' = 'search') {
     setSelectedSenator(s);
+
+    // Keep ?candidate= in sync with the current selection (except when it's just replaying
+    // the param we were already given) so the explorer view is shareable/bookmarkable —
+    // replace (not push) so every candidate click doesn't pile up browser-history entries.
+    if (source !== 'url_param') {
+      const params = new URLSearchParams(searchParams.toString());
+      if (s) params.set('candidate', s.senator_id);
+      else params.delete('candidate');
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }
+
     if (!s) { setSwingYearPair(null); return; }
     trackEvent('select_candidate', {
       candidate_id: s.senator_id, candidate_name: s.senator_name, selection_source: source, year,
@@ -78,6 +96,13 @@ function ExplorerPageInner() {
         Math.abs(cur - year) < Math.abs(prev - year) ? cur : prev
       );
       setYear(best as ElectionYear);
+    }
+    // A link shared from a swing-share card carries ?yearA=&yearB= naming the exact pair that
+    // card depicted — honor it so landing here reproduces what was shared, not just the
+    // candidate's most recent pair (which resolveShareYearPair falls back to otherwise).
+    if (source === 'url_param' && (yearAParam || yearBParam)) {
+      const resolved = resolveShareYearPair(s, { yearA: yearAParam ?? undefined, yearB: yearBParam ?? undefined });
+      if (resolved) { setSwingYearPair(resolved); return; }
     }
     const pairs = consecutivePairs(senatorYears);
     setSwingYearPair(pairs.length > 0 ? pairs[pairs.length - 1] : null);
@@ -276,7 +301,7 @@ function ExplorerPageInner() {
     : [];
 
   const profilePanel = (
-    <div className="p-4 space-y-6 md:space-y-8">
+    <div className="p-4 space-y-4 md:space-y-6">
       <SearchSelect
         senators={senators}
         value={selectedSenator}
@@ -285,7 +310,7 @@ function ExplorerPageInner() {
 
       {selectedSenator ? (
         <>
-          <div className="sticky top-0 z-20 bg-background -mx-4 px-4 pt-4 pb-3">
+          <div className="sticky top-0 z-20 bg-background -mx-4 px-4 pt-2 pb-2">
             <CandidateHeader senator={selectedSenator} national={currentNationalData?.[selectedSenator.senator_id] ?? null} />
           </div>
 
@@ -296,7 +321,7 @@ function ExplorerPageInner() {
             onSelectYear={y => handleYearChange(y, 'candidate_pill')}
           />
 
-          <div className="sticky top-16 md:top-19 z-10 bg-background -mx-4 px-4 pt-0 pb-2 -mt-3">
+          <div className="sticky top-16 md:top-19 z-10 bg-background -mx-4 px-4 pt-0 pb-2 -mt-1">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               {didRunSelectedYear && (
                 <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit shrink-0">
@@ -492,6 +517,17 @@ function ExplorerPageInner() {
       <div className="shrink-0 px-4 py-2 flex items-center gap-3 bg-white border-b border-zinc-200">
         <span className="text-xs text-zinc-500 font-medium shrink-0">View By</span>
         <MetricToggle value={metric} onChange={handleMetricChange} />
+        {metric === 'swing' && swingYears && selectedSenator && (
+          <Link
+            href={`/senator/${selectedSenator.senator_id}/share/map?yearA=${swingYears[0]}&yearB=${swingYears[1]}`}
+            title="Share this swing map"
+            aria-label="Share this swing map"
+            className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all shrink-0 ml-auto"
+          >
+            <Share2 className="w-3 h-3" />
+            Share
+          </Link>
+        )}
       </div>
       <div className="flex-1 overflow-hidden">
         <ChoroplethMap
@@ -585,9 +621,22 @@ function ExplorerPageInner() {
               <span className="text-xs text-zinc-500 font-medium shrink-0">View By</span>
               <MetricToggle value={metric} onChange={handleMetricChange} />
               {metric === 'swing' && swingYears && (
-                <span className="text-xs text-zinc-500 ml-auto">
-                  Comparing {swingYears[0]} → {swingYears[1]} — Election Years selector doesn&rsquo;t apply
-                </span>
+                <>
+                  <span className="text-xs text-zinc-500 ml-auto">
+                    {/* Comparing {swingYears[0]} → {swingYears[1]} — Election Years selector doesn&rsquo;t apply */}
+                  </span>
+                  {selectedSenator && (
+                    <Link
+                      href={`/senator/${selectedSenator.senator_id}/share/map?yearA=${swingYears[0]}&yearB=${swingYears[1]}`}
+                      title="Share this swing map"
+                      aria-label="Share this swing map"
+                      className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all shrink-0"
+                    >
+                      <Share2 className="w-3 h-3" />
+                      Share
+                    </Link>
+                  )}
+                </>
               )}
             </div>
             <div className="flex-1 overflow-hidden">

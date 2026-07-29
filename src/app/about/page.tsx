@@ -126,6 +126,30 @@ export default function AboutPage() {
             for details.
           </p>
         </div>
+
+        <div className="space-y-1.5">
+          <h2 className="text-lg font-semibold tracking-tight">Credits</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Made by{' '}
+            <a
+              href="https://x.com/ian_maps"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              IanMaps
+            </a>
+            {' & '}
+            <a
+              href="https://x.com/josephricafort"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              Joseph Ricafort
+            </a>
+          </p>
+        </div>
       </main>
     </div>
   );

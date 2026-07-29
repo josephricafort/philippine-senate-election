@@ -8,6 +8,64 @@ export function swingColor(delta: number): string {
   return delta >= 0 ? GAIN : LOSS;
 }
 
+// Swing uses 10 discrete buckets, 5 shades of loss + 5 shades of gain split exactly at zero —
+// no neutral/"flat" bucket, so every municipality reads as a clear direction rather than
+// blending into a middle band. Shared by the live map (ChoroplethMap) and the static map-share
+// OG image, which must paint identical colors for the identical data — any drift here would
+// make the shared graphic lie about what the interactive map actually shows.
+export const SWING_LOSS_COLORS = ['#fee2e2', '#fca5a5', '#ef4444', '#b91c1c', '#7f1d1d']; // mild -> strong loss
+export const SWING_GAIN_COLORS = ['#bbf7d0', '#86efac', '#22c55e', '#15803d', '#14532d']; // mild -> strong gain
+export const SWING_BUCKET_COLORS = [...[...SWING_LOSS_COLORS].reverse(), ...SWING_GAIN_COLORS];
+// Exact-zero swing gets its own subtle gray rather than falling into the lightest gain
+// bucket — a municipality with literally no measured change shouldn't read as "gained".
+export const SWING_ZERO_COLOR = '#d4d4d8';
+
+export const SWING_BUCKETS_PER_SIDE = 5;
+
+// Largest absolute swing across all municipalities, on either side — the shared scale anchor.
+// Both loss and gain sides are bucketed against this SAME value (not each side's own max), so
+// color intensity means the same thing on both sides. See swingBucketBounds for why.
+export function swingMaxAbs(swingByPsgc: Map<string, { delta: number }>): number {
+  let max = 0;
+  for (const entry of swingByPsgc.values()) max = Math.max(max, Math.abs(entry.delta));
+  return max;
+}
+
+// Equal-width magnitude bounds, both sides scaled against the SAME maxAbs (see swingMaxAbs) —
+// not each side's own max, and not count-based quantiles. Equal-width steps of the same shared
+// scale is what makes a given shade mean the same swing size everywhere on the map, independent
+// of which side it's on or how the data clusters.
+export function swingBucketBounds(maxAbs: number): {
+  lossBounds: number[]; // [-4/5, -3/5, -2/5, -1/5] of maxAbs, ascending
+  gainBounds: number[]; // [+1/5, +2/5, +3/5, +4/5] of maxAbs, ascending
+} {
+  const n = SWING_BUCKETS_PER_SIDE;
+  const fifth = maxAbs / n;
+  const lossBounds = Array.from({ length: n - 1 }, (_, i) => -fifth * (n - 1 - i));
+  const gainBounds = Array.from({ length: n - 1 }, (_, i) => fifth * (i + 1));
+  return { lossBounds, gainBounds };
+}
+
+// Maps a single delta to its bucket color using the same equal-width bounds as
+// swingBucketBounds/SWING_BUCKET_COLORS — the one place that per-municipality swing-to-color
+// mapping should live so the live map and the static share graphic can never drift apart.
+// lossBounds/gainBounds are ascending, so a lower findIndex hit on the loss side means a MORE
+// extreme (more negative) delta — that has to map to the strongest shade, i.e. the END of
+// SWING_LOSS_COLORS (mild -> strong), hence the n-1-idx flip. The gain side runs the other way:
+// a higher gainBounds index already means a stronger gain, so it indexes SWING_GAIN_COLORS directly.
+export function swingBucketColor(delta: number, maxAbs: number): string {
+  if (delta === 0) return SWING_ZERO_COLOR;
+  if (maxAbs === 0) return SWING_ZERO_COLOR;
+  const n = SWING_BUCKETS_PER_SIDE;
+  const { lossBounds, gainBounds } = swingBucketBounds(maxAbs);
+  if (delta < 0) {
+    const idx = lossBounds.findIndex(b => delta < b);
+    return SWING_LOSS_COLORS[n - 1 - (idx === -1 ? n - 1 : idx)];
+  }
+  const idx = gainBounds.findIndex(b => delta <= b);
+  return SWING_GAIN_COLORS[idx === -1 ? n - 1 : idx];
+}
+
 // Formats a vote-share delta's sign + magnitude for display — the ONLY place this logic
 // should live anywhere in the app. Rounding a small negative delta (e.g. -0.0003) to 1
 // decimal place can still yield the string "-0.0", which reads as a negative zero to users

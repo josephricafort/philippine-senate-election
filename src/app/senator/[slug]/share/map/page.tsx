@@ -6,7 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import ShareButton from '@/components/ShareButton';
 import PlatformShareLinks from '@/components/PlatformShareLinks';
 import { loadCandidateIndexServer, loadCandidateDataServer } from '@/lib/data-server';
-import { buildSenatorList, candidateProvinceSwingHeadline, resolveShareYearPair } from '@/lib/data';
+import { buildSenatorList, candidateMunicipalitySwingHeadline, resolveShareYearPair } from '@/lib/data';
 import type { Senator } from '@/lib/types';
 
 type Props = {
@@ -26,7 +26,7 @@ async function getHeadline(senator: Senator, query: { yearA?: string; yearB?: st
   const [yearA, yearB] = pair;
   const candidate = await loadCandidateDataServer(senator.senator_id);
   if (!candidate.years[String(yearA)] || !candidate.years[String(yearB)]) return null;
-  return candidateProvinceSwingHeadline(candidate, senator, yearA, yearB);
+  return candidateMunicipalitySwingHeadline(candidate, senator, yearA, yearB);
 }
 
 export async function generateStaticParams() {
@@ -40,7 +40,7 @@ export async function generateStaticParams() {
     const yearB = runs[runs.length - 1];
     const candidate = await loadCandidateDataServer(senator.senator_id);
     if (!candidate.years[String(yearA)] || !candidate.years[String(yearB)]) continue;
-    if (candidateProvinceSwingHeadline(candidate, senator, yearA, yearB)) {
+    if (candidateMunicipalitySwingHeadline(candidate, senator, yearA, yearB)) {
       eligible.push({ slug: senator.senator_id });
     }
   }
@@ -56,18 +56,11 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const result = await getHeadline(senator, query);
   if (!result) return { title: 'Candidate not found' };
 
-  // The headline itself ("Bong Go gained support from 89 out of 117 (76%)...") is the title —
-  // it's the actual claim being shared, not a generic "Province swing" label, so the link
-  // preview leads with the same statement the graphic makes.
+  // Same reasoning as the province-swing card: the headline itself is the title, and image
+  // dimensions must match the og-image route's actual output (1200x630) exactly.
   const title = result.headline;
-  const description = `Province swing, ${result.yearA} → ${result.yearB}. Explore all Philippine senate election data since 2007.`;
-  // og-image is a plain Route Handler, not the opengraph-image.tsx file convention (that
-  // convention's Image() only receives `params`, not `searchParams`, in this Next.js version,
-  // so it can't see which year pair was selected) — meaning og:image/twitter:image tags aren't
-  // auto-populated and need to be set explicitly here. Dimensions must match the route's actual
-  // output (1200x630) — X's card validator drops the image entirely on a size mismatch, which
-  // is why it wasn't showing a preview while Facebook (more lenient) still did.
-  const imageUrl = `/senator/${senator.senator_id}/share/province/og-image?yearA=${result.yearA}&yearB=${result.yearB}`;
+  const description = `Municipality swing map, ${result.yearA} → ${result.yearB}. Explore all Philippine senate election data since 2007.`;
+  const imageUrl = `/senator/${senator.senator_id}/share/map/og-image?yearA=${result.yearA}&yearB=${result.yearB}`;
   const imageAlt = result.headline;
 
   return {
@@ -87,7 +80,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   };
 }
 
-export default async function ProvinceSwingSharePage({ params, searchParams }: Props) {
+export default async function MapSwingSharePage({ params, searchParams }: Props) {
   const { slug } = await params;
   const query = await searchParams;
   const senator = await getSenator(slug);
@@ -120,7 +113,7 @@ export default async function ProvinceSwingSharePage({ params, searchParams }: P
         <div className="rounded-2xl overflow-hidden border">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`/senator/${senator.senator_id}/share/province/og-image${shareQuery}`}
+            src={`/senator/${senator.senator_id}/share/map/og-image${shareQuery}`}
             alt={result.headline}
             className="w-full block"
           />
@@ -130,14 +123,14 @@ export default async function ProvinceSwingSharePage({ params, searchParams }: P
           <p className="text-base font-semibold mb-3">Share this</p>
           <PlatformShareLinks
             url={exploreUrl}
-            title={`${senator.senator_name} — Province swing, ${result.yearA} → ${result.yearB}`}
+            title={`${senator.senator_name} — Municipality swing map, ${result.yearA} → ${result.yearB}`}
             xText={result.headline}
             candidateId={senator.senator_id}
           />
         </div>
 
         <ShareButton
-          title={`${senator.senator_name} — Province swing`}
+          title={`${senator.senator_name} — Municipality swing map`}
           text={result.headline}
           candidateId={senator.senator_id}
           url={exploreUrl}
