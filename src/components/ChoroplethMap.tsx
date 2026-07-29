@@ -7,7 +7,7 @@ import type { Topology, GeometryCollection } from 'topojson-specification';
 import { ChevronLeft, Home, Plus, Minus } from 'lucide-react';
 import type { CandidateData, CandidateYearData, MunicipalityNames, Metric } from '@/lib/types';
 import { yearColor } from '@/lib/year-colors';
-import { formatSwingPt } from '@/lib/swing';
+import { formatSwingPt, swingColor } from '@/lib/swing';
 import { trackEvent } from '@/lib/analytics';
 type SwingEntry = { delta: number };
 
@@ -172,7 +172,7 @@ const NO_DATA_SENTINEL = -1; // value returned by match when psgc has no data
 const VOTE_SHARE_CAP = 0.15;
 const RAW_VOTES_CAP  = 50_000;
 
-// Swing uses 6 discrete buckets, 3 shades of loss + 3 shades of gain split exactly at zero —
+// Swing uses 10 discrete buckets, 5 shades of loss + 5 shades of gain split exactly at zero —
 // no neutral/"flat" bucket, so every municipality reads as a clear direction rather than
 // blending into a middle band. (An earlier version used a white midpoint; continuous
 // interpolation toward it washed out almost the whole map since most swings cluster near
@@ -180,8 +180,8 @@ const RAW_VOTES_CAP  = 50_000;
 // Thresholds scale to each candidate's own min/max swing (same idea as the Rank metric
 // scaling to that candidate's maxRank) so the full color range is always used, rather than
 // a fixed cap leaving most candidates' maps mostly in the lightest bucket.
-const SWING_LOSS_COLORS = ['#fca5a5', '#ef4444', '#991b1b']; // mild -> strong loss
-const SWING_GAIN_COLORS = ['#86efac', '#22c55e', '#15803d']; // mild -> strong gain
+const SWING_LOSS_COLORS = ['#fee2e2', '#fca5a5', '#ef4444', '#b91c1c', '#7f1d1d']; // mild -> strong loss
+const SWING_GAIN_COLORS = ['#bbf7d0', '#86efac', '#22c55e', '#15803d', '#14532d']; // mild -> strong gain
 const SWING_BUCKET_COLORS = [...[...SWING_LOSS_COLORS].reverse(), ...SWING_GAIN_COLORS];
 // Exact-zero swing gets its own subtle gray rather than falling into the lightest gain
 // bucket — a municipality with literally no measured change shouldn't read as "gained".
@@ -202,13 +202,15 @@ function quantile(sorted: number[], frac: number): number {
   return sorted[idx];
 }
 
+const SWING_BUCKETS_PER_SIDE = 5;
+
 // Losses and gains are quantiled separately (not the combined signed distribution) so each
-// side's 3 buckets split its own municipalities into even thirds — losses cluster differently
+// side's 5 buckets split its own municipalities into even fifths — losses cluster differently
 // than gains, and quantiling them together would let one side dominate the bucket boundaries.
-// Falls back to even thirds of maxAbs when a side has too few municipalities to bucket meaningfully.
+// Falls back to even fifths of maxAbs when a side has too few municipalities to bucket meaningfully.
 function swingQuantileBounds(swingMap: Map<string, SwingEntry>, maxAbs: number): {
-  lossBounds: [number, number]; // [-2/3 boundary, -1/3 boundary], both <= 0
-  gainBounds: [number, number]; // [+1/3 boundary, +2/3 boundary], both >= 0
+  lossBounds: number[]; // [-4/5, -3/5, -2/5, -1/5] boundaries, all <= 0, ascending
+  gainBounds: number[]; // [+1/5, +2/5, +3/5, +4/5] boundaries, all >= 0, ascending
 } {
   const losses: number[] = [];
   const gains: number[] = [];
@@ -219,15 +221,49 @@ function swingQuantileBounds(swingMap: Map<string, SwingEntry>, maxAbs: number):
   losses.sort((a, b) => a - b);
   gains.sort((a, b) => a - b);
 
-  const third = maxAbs / 3;
-  const lossBounds: [number, number] = losses.length >= 3
-    ? [-quantile(losses, 2 / 3), -quantile(losses, 1 / 3)]
-    : [-third * 2, -third];
-  const gainBounds: [number, number] = gains.length >= 3
-    ? [quantile(gains, 1 / 3), quantile(gains, 2 / 3)]
-    : [third, third * 2];
+  const n = SWING_BUCKETS_PER_SIDE;
+  const fifth = maxAbs / n;
+  const lossBounds = losses.length >= n
+    ? Array.from({ length: n - 1 }, (_, i) => -quantile(losses, (n - 1 - i) / n))
+    : Array.from({ length: n - 1 }, (_, i) => -fifth * (n - 1 - i));
+  const gainBounds = gains.length >= n
+    ? Array.from({ length: n - 1 }, (_, i) => quantile(gains, (i + 1) / n))
+    : Array.from({ length: n - 1 }, (_, i) => fifth * (i + 1));
 
   return { lossBounds, gainBounds };
+}
+
+// Legend histogram bins, unlike the map's color buckets, are equal pt-width (linear) rather
+// than equal-population — a quantile split is by definition close to flat (each bin holds
+// ~1/5 of the municipalities), so it can't show the actual shape of the distribution. Linear
+// bins over the raw deltas reveal that shape (e.g. most municipalities clustered near zero),
+// while each bin is still tinted with whichever color-bucket its center falls into, so the
+// histogram stays visually tied to the quantile-based map colors it sits next to.
+function swingHistogramCounts(
+  swingMap: Map<string, SwingEntry>,
+  maxAbs: number,
+  lossBounds: number[],
+  gainBounds: number[]
+): { lossCounts: number[]; gainCounts: number[]; zeroCount: number } {
+  const n = SWING_BUCKETS_PER_SIDE;
+  const binWidth = maxAbs / n;
+  const lossCounts = new Array(n).fill(0);
+  const gainCounts = new Array(n).fill(0);
+  let zeroCount = 0;
+  for (const { delta } of swingMap.values()) {
+    if (delta < 0) {
+      // Bin 0 = closest to zero (mildest), bin n-1 = furthest (strongest) — matches the
+      // mild->strong color ordering within SWING_LOSS_COLORS.
+      const bin = Math.min(n - 1, Math.floor(-delta / binWidth));
+      lossCounts[bin]++;
+    } else if (delta > 0) {
+      const bin = Math.min(n - 1, Math.floor(delta / binWidth));
+      gainCounts[bin]++;
+    } else {
+      zeroCount++;
+    }
+  }
+  return { lossCounts, gainCounts, zeroCount };
 }
 
 function buildMatchExpression(
@@ -270,20 +306,15 @@ function buildColorExpression(
     if (!swingMap || swingMap.size === 0) return NO_DATA_COLOR as unknown as maplibregl.ExpressionSpecification;
     const maxAbs = swingMaxAbs(swingMap);
     if (maxAbs === 0) return SWING_ZERO_COLOR as unknown as maplibregl.ExpressionSpecification;
-    // 6 discrete bands, boundaries at each side's own tercile (quantile) rather than even
-    // thirds of the value range — most swings cluster near zero, so equal-width bands left
-    // the two "mild" buckets absorbing nearly every municipality. Quantile boundaries instead
-    // put roughly equal counts of municipalities in each bucket.
+    // 10 discrete bands, boundaries at each side's own quintile rather than even fifths of
+    // the value range — most swings cluster near zero, so equal-width bands left the "mild"
+    // buckets absorbing nearly every municipality. Quantile boundaries instead put roughly
+    // equal counts of municipalities in each bucket.
     const { lossBounds, gainBounds } = swingQuantileBounds(swingMap, maxAbs);
-    const stepExpr = [
-      'step', valueExpr,
-      SWING_BUCKET_COLORS[0],
-      lossBounds[0], SWING_BUCKET_COLORS[1],
-      lossBounds[1], SWING_BUCKET_COLORS[2],
-      0,             SWING_BUCKET_COLORS[3],
-      gainBounds[0], SWING_BUCKET_COLORS[4],
-      gainBounds[1], SWING_BUCKET_COLORS[5],
-    ];
+    const stepExpr: unknown[] = ['step', valueExpr, SWING_BUCKET_COLORS[0]];
+    lossBounds.forEach((bound, i) => stepExpr.push(bound, SWING_BUCKET_COLORS[i + 1]));
+    stepExpr.push(0, SWING_BUCKET_COLORS[SWING_BUCKETS_PER_SIDE]);
+    gainBounds.forEach((bound, i) => stepExpr.push(bound, SWING_BUCKET_COLORS[SWING_BUCKETS_PER_SIDE + 1 + i]));
     // Exact zero gets its own neutral color instead of falling into the lightest gain bucket.
     return noDataGuard(['case', ['==', valueExpr, 0], SWING_ZERO_COLOR, stepExpr]);
   }
@@ -327,10 +358,12 @@ function buildTooltipHtml(
   const province = municipalityNames[psgc]?.adm2_en ?? '';
 
   let detail = '';
+  let detailColor = '#a1a1aa';
   if (metric === 'swing') {
     const entry = swingMap?.get(psgc);
     if (entry) {
       detail = `${formatSwingPt(entry.delta)} swing`;
+      detailColor = swingColor(entry.delta);
     } else if (senatorId) {
       detail = 'No data';
     }
@@ -349,7 +382,7 @@ function buildTooltipHtml(
     <div style="font-family:Inter,system-ui,sans-serif;font-size:13px;line-height:1.5;padding:6px 10px;min-width:130px">
       <div style="font-weight:600;color:#f4f4f5;margin-bottom:1px">${name}</div>
       ${province ? `<div style="color:#d4d4d8;font-size:12px;margin-bottom:3px">${province}</div>` : ''}
-      ${detail ? `<div style="color:#a1a1aa;font-size:15px;font-weight:600">${detail}</div>` : ''}
+      ${detail ? `<div style="color:${detailColor};font-size:15px;font-weight:600">${detail}</div>` : ''}
     </div>`;
 }
 
@@ -382,12 +415,19 @@ function buildLegend(
     if (!swingMap || swingMap.size === 0) return null;
     const maxAbs = swingMaxAbs(swingMap);
     if (maxAbs === 0) return null;
+    const { lossBounds, gainBounds } = swingQuantileBounds(swingMap, maxAbs);
+    const { lossCounts, gainCounts, zeroCount } = swingBucketCounts(swingMap, lossBounds, gainBounds);
+    // Bar order matches SWING_BUCKET_COLORS (strong loss -> mild loss -> mild gain -> strong
+    // gain), with the zero-swing count inserted as its own center bar between the two sides.
+    const counts = [...lossCounts.slice().reverse(), zeroCount, ...gainCounts];
+    const colors = [...SWING_LOSS_COLORS.slice().reverse(), SWING_ZERO_COLOR, ...SWING_GAIN_COLORS];
     return {
       colors: SWING_BUCKET_COLORS,
+      histogram: { colors, counts },
       minLabel: `−${(maxAbs * 100).toFixed(0)}pt`,
       maxLabel: `+${(maxAbs * 100).toFixed(0)}pt`,
       bestFirst: false,
-      // Swing paints in 6 discrete step buckets, not a continuous ramp — the legend must
+      // Swing paints in 10 discrete step buckets, not a continuous ramp — the legend must
       // render as separate solid chips, not a blended gradient, or it misrepresents the
       // scale as smooth when adjacent municipalities can jump a whole bucket at once.
       discrete: true,
@@ -406,9 +446,11 @@ function buildLegend(
     const maxRank = Math.max(...values);
     return {
       colors: [...rampColors].reverse(),
+      histogram: undefined,
       minLabel: formatLegendValue('rank', 1),
       maxLabel: formatLegendValue('rank', maxRank),
       bestFirst: true,
+      discrete: false,
     };
   }
 
@@ -416,9 +458,11 @@ function buildLegend(
   const max = Math.min(Math.max(...values), cap);
   return {
     colors: rampColors,
+    histogram: undefined,
     minLabel: formatLegendValue(metric, 0),
     maxLabel: `${max >= cap ? '≥' : ''}${formatLegendValue(metric, max)}`,
     bestFirst: false,
+    discrete: false,
   };
 }
 
@@ -870,7 +914,29 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
       {legend && (
         <div className="absolute bottom-3 left-3 z-10 bg-white/95 text-zinc-700 border border-zinc-200 shadow-sm rounded-lg px-3 py-2 space-y-1.5">
           <div className="flex items-center gap-2">
-            {legend.discrete ? (
+            {legend.histogram ? (
+              // Mini histogram — bar height ∝ how many municipalities fall in that bucket,
+              // so the legend doubles as a distribution summary, not just a color key.
+              (() => {
+                const maxCount = Math.max(1, ...legend.histogram.counts);
+                return (
+                  <div className="flex items-end w-24 h-6 gap-px">
+                    {legend.histogram.colors.map((c, i) => {
+                      const count = legend.histogram!.counts[i];
+                      const pct = Math.max(count > 0 ? 12 : 4, (count / maxCount) * 100);
+                      return (
+                        <div
+                          key={i}
+                          className="flex-1 rounded-[1px]"
+                          style={{ background: c, height: `${pct}%` }}
+                          title={`${count} municipalit${count === 1 ? 'y' : 'ies'}`}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              })()
+            ) : legend.discrete ? (
               <div className="flex w-24 h-2.5 rounded-full overflow-hidden gap-px">
                 {legend.colors.map((c, i) => (
                   <div key={i} className="flex-1 h-full" style={{ background: c }} />
@@ -889,12 +955,6 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
           </div>
           {legend.bestFirst && (
             <p className="text-[10px] text-zinc-400 leading-tight">Left = best rank</p>
-          )}
-          {legend.discrete && (
-            <div className="flex items-center gap-1.5 pt-1 border-t border-zinc-200">
-              <div className="w-3 h-3 rounded-sm shrink-0" style={{ background: SWING_ZERO_COLOR }} />
-              <span className="text-[10px] text-zinc-500 leading-none">No swing</span>
-            </div>
           )}
           <div className="flex items-center gap-1.5 pt-1 border-t border-zinc-200">
             <div
