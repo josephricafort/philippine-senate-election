@@ -74,6 +74,9 @@ export default function LeaderboardTable({ nationalData, senators, highlightId, 
         <TableCell className={`font-medium ${isHighlight ? 'text-primary' : ''}`}>
           {row.senator.senator_name}
         </TableCell>
+        <TableCell className="text-muted-foreground">
+          {row.senator.years.length}
+        </TableCell>
       </TableRow>
     );
   }
@@ -88,6 +91,7 @@ export default function LeaderboardTable({ nationalData, senators, highlightId, 
           <TableRow>
             <TableHead>Nat. rank</TableHead>
             <TableHead>Candidate</TableHead>
+            <TableHead>Runs</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
