@@ -3,7 +3,7 @@ import { ImageResponse } from 'next/og';
 import { loadCandidateIndexServer, loadCandidateDataServer } from '@/lib/data-server';
 import { buildSenatorList, candidateProvinceSwingHeadline, resolveShareYearPair } from '@/lib/data';
 import { GAIN, LOSS, formatSwingPt } from '@/lib/swing';
-import { SITE_URL } from '@/lib/site';
+import { siteUrlFromHeaders } from '@/lib/site';
 
 // A Route Handler rather than the opengraph-image.tsx file convention — that convention's
 // Image() function only receives `params` (dynamic route segments) in this Next.js version, not
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
               Explore all senate election data since 2007 up to present —
             </span>
             <span style={{ display: 'flex', fontFamily: 'monospace', fontSize: 24, color: '#a1a1aa' }}>
-              {SITE_URL.replace(/^https?:\/\//, '')}
+              {siteUrlFromHeaders(request.headers).replace(/^https?:\/\//, '')}
             </span>
           </div>
         </div>

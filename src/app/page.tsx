@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 
 import ExplorerClient from './ExplorerClient';
 import { loadCandidateIndexServer, loadCandidateDataServer } from '@/lib/data-server';
 import { buildSenatorList, candidateMunicipalitySwingHeadline, resolveShareYearPair } from '@/lib/data';
+import { siteUrlFromHeaders } from '@/lib/site';
 
 type Props = {
   searchParams: Promise<{ candidate?: string; yearA?: string; yearB?: string }>;
@@ -39,7 +41,11 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const shareDescription = `Municipality swing map, ${result.yearA} → ${result.yearB}. Explore all Philippine senate election data since 2007.`;
   // Same og-image route the /senator/[slug]/share/map preview page renders — one source of
   // truth for the actual graphic, referenced here so the shared link's own preview matches it.
-  const imageUrl = `/senator/${senator.senator_id}/share/map/og-image?yearA=${result.yearA}&yearB=${result.yearB}`;
+  // Built against the actual request host (not the static SITE_URL/metadataBase fallback) so
+  // this keeps working when served from a domain other than production, e.g. a Vercel preview
+  // URL used while the production domain is temporarily offline pre-launch.
+  const origin = siteUrlFromHeaders(await headers());
+  const imageUrl = `${origin}/senator/${senator.senator_id}/share/map/og-image?yearA=${result.yearA}&yearB=${result.yearB}`;
 
   return {
     title: shareTitle,

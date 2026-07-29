@@ -4,7 +4,7 @@ import { loadCandidateIndexServer, loadCandidateDataServer } from '@/lib/data-se
 import { buildSenatorList, candidateMunicipalitySwingHeadline, resolveShareYearPair } from '@/lib/data';
 import { buildMunicipalityPaths } from '@/lib/map-svg-server';
 import { GAIN, LOSS, swingBucketColor, swingMaxAbs } from '@/lib/swing';
-import { SITE_URL } from '@/lib/site';
+import { siteUrlFromHeaders } from '@/lib/site';
 
 // Same Route Handler reasoning as the province-swing og-image: needs searchParams (yearA/yearB),
 // which the opengraph-image.tsx file convention can't see in this Next.js version.
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
               Explore all senate election data since 2007 up to present —
             </span>
             <span style={{ display: 'flex', fontFamily: 'monospace', fontSize: 24, color: '#a1a1aa' }}>
-              {SITE_URL.replace(/^https?:\/\//, '')}
+              {siteUrlFromHeaders(request.headers).replace(/^https?:\/\//, '')}
             </span>
           </div>
         </div>
