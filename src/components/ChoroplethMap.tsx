@@ -948,15 +948,15 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
             {onChangeMetric && (
               <p className="mt-1">
                 See the{' '}
-                <button type="button" onClick={() => onChangeMetric('rank')} className="text-primary underline underline-offset-2 hover:no-underline">
+                <button type="button" onClick={() => onChangeMetric('rank')} className="text-blue-700 font-medium underline underline-offset-2 hover:no-underline">
                   rank
                 </button>
                 ,{' '}
-                <button type="button" onClick={() => onChangeMetric('vote_share')} className="text-primary underline underline-offset-2 hover:no-underline">
+                <button type="button" onClick={() => onChangeMetric('vote_share')} className="text-blue-700 font-medium underline underline-offset-2 hover:no-underline">
                   vote share
                 </button>
                 {' '}or{' '}
-                <button type="button" onClick={() => onChangeMetric('votes')} className="text-primary underline underline-offset-2 hover:no-underline">
+                <button type="button" onClick={() => onChangeMetric('votes')} className="text-blue-700 font-medium underline underline-offset-2 hover:no-underline">
                   raw votes
                 </button>
                 {' '}view instead.
