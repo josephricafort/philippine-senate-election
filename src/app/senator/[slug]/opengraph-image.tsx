@@ -4,7 +4,7 @@ import { buildSenatorList, nationalTotalVotes, candidateTopProvinces, candidateT
 import { yearColor } from '@/lib/year-colors';
 import type { ElectionYear } from '@/lib/types';
 
-export const alt = 'Philippine Senate Election Explorer';
+export const alt = 'BotoSenado — Philippine Senate Election Results (2007 - 2025)';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -28,7 +28,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
             justifyContent: 'center', background: '#0a0a0a', color: '#fafafa', fontSize: 48,
           }}
         >
-          Philippine Senate Election Explorer
+          BotoSenado
         </div>
       ),
       size
@@ -70,7 +70,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
         {/* Eyebrow */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 22, color: '#a1a1aa' }}>
           <div style={{ width: 10, height: 10, borderRadius: 5, background: yearColor(latestYear), display: 'flex' }} />
-          Philippine Senate Election Explorer &middot; {latestYear}
+          BotoSenado &middot; {latestYear}
         </div>
 
         {/* Name */}

@@ -4,7 +4,7 @@ import { ArrowLeft } from 'lucide-react';
 import { SITE_URL } from '@/lib/site';
 
 export const metadata: Metadata = {
-  title: 'Data & Methodology — Philippine Senate Election Explorer',
+  title: 'Data & Methodology — BotoSenado',
   description: 'How Senate election results from 2007–2025 were standardized, corrected, verified, and combined.',
 };
 
@@ -40,7 +40,7 @@ const datasetJsonLd = {
   },
   creator: {
     '@type': 'Organization',
-    name: 'Philippine Senate Election Explorer',
+    name: 'BotoSenado',
     url: SITE_URL,
   },
   isAccessibleForFree: true,

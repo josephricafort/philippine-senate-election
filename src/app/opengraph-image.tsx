@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { YEAR_COLORS } from '@/lib/year-colors';
 
-export const alt = 'Philippine Senate Election Explorer';
+export const alt = 'BotoSenado — Philippine Senate Election Results (2007 - 2025)';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -24,11 +24,11 @@ export default function Image() {
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 22, color: '#a1a1aa' }}>
           <div style={{ width: 10, height: 10, borderRadius: 5, background: '#0891b2', display: 'flex' }} />
-          2007–2025 &middot; Municipality-level results
+          Philippine Senate Election Results (2007 - 2025)
         </div>
 
         <div style={{ display: 'flex', fontSize: 68, fontWeight: 700, marginTop: 28, lineHeight: 1.08, letterSpacing: -1.5, maxWidth: 980 }}>
-          Philippine Senate Election Explorer
+          BotoSenado
         </div>
 
         <div style={{ display: 'flex', fontSize: 28, color: '#a1a1aa', marginTop: 24, maxWidth: 820, lineHeight: 1.4 }}>

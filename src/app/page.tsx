@@ -538,9 +538,9 @@ function ExplorerPageInner() {
           <Vote className="w-6 h-6 text-primary shrink-0" strokeWidth={2} />
           <div>
             <h1 className="text-base font-semibold leading-tight">
-              Philippine Senate Election Explorer
+              BotoSenado
             </h1>
-            <p className="text-xs text-muted-foreground">Municipality-level results · 2007–2025</p>
+            <p className="text-xs text-muted-foreground">Philippine Senate Election Results (2007 - 2025)</p>
           </div>
         </div>
         <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">

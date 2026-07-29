@@ -17,7 +17,7 @@ const ibmPlexMono = IBM_Plex_Mono({
   weight: ["400", "500"],
 });
 
-const title = "Philippine Senate Election Explorer";
+const title = "BotoSenado — Philippine Senate Election Results (2007 - 2025)";
 const description = "Explore every Philippine senatorial election from 2007–2025, broken down to the municipality level. Look up any candidate's vote share, rank, strongholds, and trend over time.";
 
 export const metadata: Metadata = {

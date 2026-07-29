@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ArrowLeft, Search, Map as MapIcon, TrendingUp, ListOrdered, MapPinned, SlidersHorizontal } from 'lucide-react';
 
 export const metadata: Metadata = {
-  title: 'About — Philippine Senate Election Explorer',
+  title: 'About — BotoSenado',
   description: 'What this tool does and how to explore nearly two decades of Philippine senatorial election results.',
 };
 
@@ -45,7 +45,7 @@ export default function AboutPage() {
       <main className="max-w-2xl mx-auto px-4 md:px-6 py-10 space-y-12">
         <div className="space-y-3">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Philippine Senate Election Explorer
+            BotoSenado
           </h1>
           <p className="text-base text-muted-foreground leading-relaxed">
             Every Philippine senatorial election since 2007 — 2007, 2010, 2013, 2016, 2019,

@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         justifyContent: 'center', background: '#0a0a0a', color: '#fafafa', fontSize: 40,
       }}
     >
-      Philippine Senate Election Explorer
+      BotoSenado
     </div>
   );
 
