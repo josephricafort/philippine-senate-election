@@ -410,6 +410,10 @@ function ExplorerPageInner() {
                   provinceRows={swingProps.provinceRows}
                   muniRowsByProvince={swingProps.muniRowsByProvince}
                   yearPair={swingYearPair}
+                  onSwitchToTrends={() => {
+                    handleProfileTabChange('trends');
+                    handleMetricChange('rank');
+                  }}
                 />
               )}
 

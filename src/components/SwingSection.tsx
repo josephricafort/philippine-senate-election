@@ -26,11 +26,14 @@ type Props = {
   muniRowsByProvince: Record<string, { psgc: string; adm3_en: string; share_a: number; share_b: number; delta: number }[]>;
   /** Which consecutive pair of runs to compare — selected via SwingYearPairSelector in page.tsx. */
   yearPair: YearPair | null;
+  /** Called when the user follows the "See the National Trends instead" link shown for
+   *  single-run candidates — lets the parent flip both the profile tab and the map metric. */
+  onSwitchToTrends?: () => void;
 };
 
 // Reads ?province= from the URL so a specific province's swing view is shareable/linkable
 // (e.g. /senator/go_bong?province=Cavite) without minting a static page per province.
-export default function SwingSection({ senator, provinceTrends, topProvinceNames, provinceRows, muniRowsByProvince, yearPair }: Props) {
+export default function SwingSection({ senator, provinceTrends, topProvinceNames, provinceRows, muniRowsByProvince, yearPair, onSwitchToTrends }: Props) {
   const searchParams = useSearchParams();
   const provinceParam = searchParams.get('province');
   const provinces = useMemo(() => provinceTrends.map(p => p.adm2_en).sort(), [provinceTrends]);
@@ -74,6 +77,17 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
           {' '}{senator.senator_name} has only run once ({senator.years[0]}), so there&rsquo;s
           no prior result to compare against.
         </p>
+        {onSwitchToTrends && (
+          <p className="text-sm mt-1">
+            <button
+              type="button"
+              onClick={onSwitchToTrends}
+              className="text-primary underline underline-offset-2 hover:no-underline"
+            >
+              See the National Trends instead
+            </button>
+          </p>
+        )}
       </div>
     );
   }
