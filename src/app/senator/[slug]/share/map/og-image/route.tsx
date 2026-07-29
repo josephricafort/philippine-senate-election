@@ -55,13 +55,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // Rendering this (topology parsing + per-polygon simplification, see map-svg-server.ts) takes
   // ~2-3s on a cold serverless instance, and Vercel doesn't reliably reuse warm instances between
   // requests here — X's link-preview crawler doesn't wait that long and was leaving the card
-  // image empty. Cache-Control lets Vercel's edge CDN serve repeat requests for the exact same
-  // slug+years+host without invoking this function at all, so only the very first fetch per URL
-  // pays the render cost. Vary: Host because the rendered footer text embeds the requesting
-  // domain (see siteUrlFromHeaders below) — without it, a cache hit from one domain could serve
+  // image empty. Plain Cache-Control's s-maxage does NOT get Vercel's CDN to actually cache a
+  // Function response — confirmed in production (x-vercel-cache stayed MISS on repeat requests
+  // to the identical URL) and documented at vercel.com/docs/caching/cdn-cache: "If you set
+  // Cache-Control without a CDN-Cache-Control, the Vercel CDN strips s-maxage and
+  // stale-while-revalidate from the response". CDN-Cache-Control is the header Vercel actually
+  // reads to cache Function responses at the edge — only the very first fetch per URL then pays
+  // the render cost. Vary: Host because the rendered footer text embeds the requesting domain
+  // (see siteUrlFromHeaders below) — without it, a cache hit from one domain could serve
   // another domain's footer text.
   const headers = {
-    'Cache-Control': 'public, s-maxage=31536000, stale-while-revalidate=86400',
+    'Cache-Control': 'public, max-age=0, must-revalidate',
+    'CDN-Cache-Control': 'public, s-maxage=31536000, stale-while-revalidate=86400',
     'Vary': 'Host, X-Forwarded-Host',
   };
 
