@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Share2 } from 'lucide-react';
-import { GAIN, LOSS, quartileSample, formatSwingParts } from '@/lib/swing';
+import { swingColor, quartileSample, formatSwingParts } from '@/lib/swing';
 
 type Row = { adm2_en: string; share_a: number; share_b: number; delta: number };
 
@@ -69,6 +69,7 @@ export default function ProvinceSwingBarChart({ rows, senatorId, senatorName, ye
       <div className="flex flex-col gap-2">
         {visible.map(({ row, label }) => {
           const gain = row.delta >= 0;
+          const color = swingColor(row.delta);
           const widthPct = (Math.abs(row.delta) / maxAbsDelta) * 50;
           const { sign, magnitude } = formatSwingParts(row.delta);
           return (
@@ -86,14 +87,14 @@ export default function ProvinceSwingBarChart({ rows, senatorId, senatorName, ye
                 <div
                   className="absolute top-px bottom-px rounded-sm"
                   style={{
-                    background: gain ? GAIN : LOSS,
+                    background: color,
                     width: `${widthPct}%`,
                     left: gain ? '50%' : undefined,
                     right: gain ? undefined : '50%',
                   }}
                 />
               </div>
-              <p className="font-mono text-xs font-semibold text-right tabular-nums" style={{ color: gain ? GAIN : LOSS }}>
+              <p className="font-mono text-xs font-semibold text-right tabular-nums" style={{ color }}>
                 {sign}{magnitude}
               </p>
             </div>

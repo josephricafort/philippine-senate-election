@@ -3,8 +3,24 @@
 // green line/bar = gained since the candidate's first run, red = lost.
 export const GAIN = '#4ade80';
 export const LOSS = '#f87171';
+// Same neutral used by the map's exact-zero bucket — reused here so "no meaningful
+// change" reads identically everywhere, not just on the choropleth.
+export const NEUTRAL = '#a1a1aa';
 
-export function swingColor(delta: number): string {
+// A delta "rounds to zero" if, at the precision the UI actually displays it, the sign
+// would be invisible (e.g. a 0.03pt swing shows as "+0.0pt" — a sign with no visible
+// magnitude behind it). `scale` matches whatever multiplier the caller's own display
+// string applies before rounding to 1 decimal place: 100 for percentage-point deltas
+// (the x100 in formatSwingPt), 1 for raw index-unit deltas (province-vs-national "x").
+// This must be the single source of truth for "is this effectively zero" — coloring
+// and display text must never disagree about it, or a colored dot next to "0.0pt"
+// reads as a bug (a real value with an invisible sign looks like noise otherwise).
+export function swingRoundsToZero(delta: number, scale: number = 100): boolean {
+  return Math.abs(delta * scale).toFixed(1) === '0.0';
+}
+
+export function swingColor(delta: number, scale: number = 100): string {
+  if (swingRoundsToZero(delta, scale)) return NEUTRAL;
   return delta >= 0 ? GAIN : LOSS;
 }
 
@@ -54,7 +70,7 @@ export function swingBucketBounds(maxAbs: number): {
 // SWING_LOSS_COLORS (mild -> strong), hence the n-1-idx flip. The gain side runs the other way:
 // a higher gainBounds index already means a stronger gain, so it indexes SWING_GAIN_COLORS directly.
 export function swingBucketColor(delta: number, maxAbs: number): string {
-  if (delta === 0) return SWING_ZERO_COLOR;
+  if (swingRoundsToZero(delta)) return SWING_ZERO_COLOR;
   if (maxAbs === 0) return SWING_ZERO_COLOR;
   const n = SWING_BUCKETS_PER_SIDE;
   const { lossBounds, gainBounds } = swingBucketBounds(maxAbs);

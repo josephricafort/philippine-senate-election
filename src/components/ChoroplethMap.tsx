@@ -10,6 +10,7 @@ import { yearColor } from '@/lib/year-colors';
 import {
   formatSwingPt,
   swingColor,
+  swingRoundsToZero,
   SWING_LOSS_COLORS,
   SWING_GAIN_COLORS,
   SWING_BUCKET_COLORS,
@@ -198,7 +199,10 @@ const RAW_VOTES_CAP  = 50_000;
 
 // Per-bucket municipality counts for the same 10 equal-width buckets swingBucketBounds carves
 // out (plus the exact-zero count) — this must bin by the identical bounds the map paints with,
-// or the legend's bar heights/colors stop corresponding to what's shaded on the map.
+// or the legend's bar heights/colors stop corresponding to what's shaded on the map. A delta
+// that rounds to 0.0pt is counted as zero here too (see swingRoundsToZero) — otherwise the
+// legend's zero bar and the map's zero-colored municipalities wouldn't agree on which
+// municipalities actually belong in it.
 function swingBucketCounts(
   swingMap: Map<string, SwingEntry>,
   lossBounds: number[],
@@ -209,14 +213,14 @@ function swingBucketCounts(
   const gainCounts = new Array(n).fill(0);
   let zeroCount = 0;
   for (const { delta } of swingMap.values()) {
-    if (delta < 0) {
+    if (swingRoundsToZero(delta)) {
+      zeroCount++;
+    } else if (delta < 0) {
       const idx = lossBounds.findIndex(b => delta < b);
       lossCounts[idx === -1 ? n - 1 : idx]++;
-    } else if (delta > 0) {
+    } else {
       const idx = gainBounds.findIndex(b => delta <= b);
       gainCounts[idx === -1 ? n - 1 : idx]++;
-    } else {
-      zeroCount++;
     }
   }
   return { lossCounts, gainCounts, zeroCount };

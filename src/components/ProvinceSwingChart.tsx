@@ -30,7 +30,9 @@ export default function ProvinceSwingChart({ province, trend, contextTrends }: P
 
   const indexed = trend.map(t => ({ year: t.year, index: toIndex(t) })).filter(t => t.index !== undefined) as { year: number; index: number }[];
   const swing = indexed.length > 1 ? indexed[indexed.length - 1].index - indexed[0].index : 0;
-  const lineColor = getSwingColor(swing);
+  // Index-unit delta (province-vs-national multiplier), not a percentage-point share —
+  // scale=1 so "rounds to zero" matches SwingPill's own 1-decimal "x" display below.
+  const lineColor = getSwingColor(swing, 1);
 
   // Merge all series onto one set of year rows so recharts can share an x-axis.
   const years = Array.from(new Set([

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { ImageResponse } from 'next/og';
 import { loadCandidateIndexServer, loadCandidateDataServer } from '@/lib/data-server';
 import { buildSenatorList, candidateProvinceSwingHeadline, resolveShareYearPair } from '@/lib/data';
-import { GAIN, LOSS, formatSwingPt } from '@/lib/swing';
+import { GAIN, LOSS, swingColor, formatSwingPt } from '@/lib/swing';
 import { siteUrlFromHeaders } from '@/lib/site';
 
 // A Route Handler rather than the opengraph-image.tsx file convention — that convention's
@@ -124,7 +124,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             {result.sample.map(row => {
               const gain = row.delta >= 0;
               const widthPct = (Math.abs(row.delta) / maxAbsDelta) * 100;
-              const color = gain ? GAIN : LOSS;
+              const color = swingColor(row.delta);
               return (
                 <div key={row.adm2_en} style={{ display: 'flex', alignItems: 'center', gap: 14, minHeight: 22 }}>
                   <div style={{ display: 'flex', width: 180, fontSize: 18, lineHeight: 1.2, color: '#fafafa', justifyContent: 'flex-end', textAlign: 'right' }}>
