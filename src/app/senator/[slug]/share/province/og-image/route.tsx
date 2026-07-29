@@ -49,6 +49,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const maxAbsDelta = Math.max(...result.sample.map(s => Math.abs(s.delta)), 0.01);
 
+  // Same reasoning as the map og-image route: Vercel doesn't reliably reuse warm instances
+  // between requests to this route, so every cold invocation was measured slow enough in
+  // production (a few seconds, occasionally spiking well past that) that X's link-preview
+  // crawler was leaving the card image empty. Cache-Control lets the edge CDN serve repeat
+  // requests for the same slug+years+host without invoking this function at all. Vary: Host
+  // because the rendered footer text embeds the requesting domain (see siteUrlFromHeaders
+  // below) — without it, a cache hit from one domain could serve another domain's footer text.
+  const headers = {
+    'Cache-Control': 'public, s-maxage=31536000, stale-while-revalidate=86400',
+    'Vary': 'Host, X-Forwarded-Host',
+  };
+
   return new ImageResponse(
     (
       <div
@@ -141,6 +153,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         </div>
       </div>
     ),
-    SIZE
+    { ...SIZE, headers }
   );
 }

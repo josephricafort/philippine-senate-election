@@ -22,9 +22,13 @@ function facebookShareHref(url: string): string {
   return `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
 }
 
-// X's officially documented web intent — confirmed to accept and prefill real text/URL.
-function xShareHref(url: string, text: string): string {
-  return `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+// X's officially documented web intent. Deliberately omits `text` — a tweet-intent link with
+// text+url together prefills the composer as "{text}\n{url}", and X's card unfurl was
+// unreliable/absent for those (confirmed: a bare pasted link unfurled a card fine, the
+// pre-filled text+url intent didn't). URL-only prefill matches the bare-link case that worked;
+// the headline still reaches the reader via the card's own og:title/og:description.
+function xShareHref(url: string): string {
+  return `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}`;
 }
 
 // fb-messenger://share is a widely-used mobile deep link, but it's NOT in Meta's official
@@ -93,7 +97,7 @@ export default function PlatformShareLinks({ url, title, xText, candidateId }: P
       )}
 
       <a
-        href={xShareHref(shareUrl, xText)}
+        href={xShareHref(shareUrl)}
         target="_blank"
         rel="noopener noreferrer"
         onClick={() => trackEvent('click_share', { candidate_id: candidateId, method: 'platform_x' })}

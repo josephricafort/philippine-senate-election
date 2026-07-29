@@ -52,6 +52,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { paths } = await buildMunicipalityPaths(mapWidth, mapHeight, 'cover');
   const maxAbs = swingMaxAbs(result.swingByPsgc);
 
+  // Rendering this (topology parsing + per-polygon simplification, see map-svg-server.ts) takes
+  // ~2-3s on a cold serverless instance, and Vercel doesn't reliably reuse warm instances between
+  // requests here — X's link-preview crawler doesn't wait that long and was leaving the card
+  // image empty. Cache-Control lets Vercel's edge CDN serve repeat requests for the exact same
+  // slug+years+host without invoking this function at all, so only the very first fetch per URL
+  // pays the render cost. Vary: Host because the rendered footer text embeds the requesting
+  // domain (see siteUrlFromHeaders below) — without it, a cache hit from one domain could serve
+  // another domain's footer text.
+  const headers = {
+    'Cache-Control': 'public, s-maxage=31536000, stale-while-revalidate=86400',
+    'Vary': 'Host, X-Forwarded-Host',
+  };
+
   return new ImageResponse(
     (
       <div
@@ -103,6 +116,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         </div>
       </div>
     ),
-    SIZE
+    { ...SIZE, headers }
   );
 }
