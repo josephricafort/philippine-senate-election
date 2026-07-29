@@ -612,7 +612,10 @@ export function candidateProvinceSwingHeadline(
     .filter(r => r.share_a >= 0.03 || r.share_b >= 0.03); // ignore places they barely competed in either year
   if (rows.length === 0) return null;
 
-  const sample = quartileSample(rows, r => r.adm2_en, 7).map(({ row, label }) => ({
+  // 15 rows fills the og-image's bar-chart column edge-to-edge at its current row height —
+  // tied to that specific layout, not a generically "right" sample size, so if the image's
+  // row height/gap changes this constant should move with it.
+  const sample = quartileSample(rows, r => r.adm2_en, Math.min(rows.length, 15)).map(({ row, label }) => ({
     adm2_en: row.adm2_en,
     delta: row.delta,
     label,

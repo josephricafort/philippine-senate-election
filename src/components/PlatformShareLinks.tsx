@@ -52,7 +52,7 @@ export default function PlatformShareLinks({ url, title, xText, candidateId }: P
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
       <a
         href={facebookShareHref(shareUrl)}
         target="_blank"

@@ -105,7 +105,7 @@ export default async function ProvinceSwingSharePage({ params, searchParams }: P
         </Link>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 md:px-6 py-8 space-y-6">
+      <main className="max-w-3xl mx-auto px-4 md:px-6 py-8 space-y-6">
         {/* This IS the og:image, rendered inline — one source of truth for what gets
             previewed here vs. what platforms fetch when the link is shared. */}
         <div className="rounded-2xl overflow-hidden border">
