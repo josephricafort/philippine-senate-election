@@ -32,6 +32,82 @@ export function swingColor(delta: number, scale: number = 100): string {
   return delta >= 0 ? GAIN : LOSS;
 }
 
+export type SwingHeadlineDirection = 'loss' | 'gain' | 'mixed' | 'flat';
+
+// Shared "N out of TOTAL (%) <unit> <verb> between yearA and yearB" headline builder — used by
+// every "how did this candidate's support move" summary (province-level and municipality-level,
+// both the general VoteData version and the per-candidate CandidateData version in lib/data.ts)
+// so the direction/wording rules only have to be gotten right in one place.
+//
+// A row whose delta rounds to 0.0pt (see swingRoundsToZero) is neither a gain nor a loss — an
+// earlier version counted it as "gained" just because raw delta >= 0, which meant a candidate
+// whose numbers were almost entirely noise-level unchanged could be reported as having "gained
+// support from 953 out of 1623 (59%)" municipalities, wildly overstating a swing that mostly
+// didn't happen. Those rows are pulled into their own `flat` bucket and excluded from the
+// gain/loss percentage entirely, with a 4th headline case ("barely moved") that fires whenever
+// they're the majority — matching how `direction` already reads "mixed" instead of forcing a
+// one-sided claim once no single bucket has a real majority.
+export function buildSwingHeadline(
+  rows: { delta: number }[],
+  name: string,
+  unit: string,
+  yearA: number,
+  yearB: number
+): {
+  headline: string;
+  headlineParts: { text: string; emphasis?: 'gain' | 'loss' | 'flat' }[];
+  breadth: { total: number; losing: number; gaining: number; flat: number; direction: SwingHeadlineDirection };
+} {
+  const total = rows.length;
+  const flat = rows.filter(r => swingRoundsToZero(r.delta)).length;
+  const moved = rows.filter(r => !swingRoundsToZero(r.delta));
+  const losing = moved.filter(r => r.delta < 0).length;
+  const gaining = moved.length - losing;
+  const flatPct = flat / total;
+  const losingPct = moved.length > 0 ? losing / moved.length : 0;
+
+  // A flat majority takes priority over gain/loss/mixed — a candidate whose numbers barely
+  // moved anywhere isn't meaningfully "mixed" just because the sliver that did move split
+  // close to 50/50; the real story is that most places didn't move at all.
+  const direction: SwingHeadlineDirection =
+    flatPct > 0.5 ? 'flat' : losingPct > 0.5 ? 'loss' : losingPct < 0.5 ? 'gain' : 'mixed';
+
+  let headlineParts: { text: string; emphasis?: 'gain' | 'loss' | 'flat' }[];
+  if (direction === 'flat') {
+    const pct = Math.round((flat / total) * 100);
+    headlineParts = [
+      { text: `${name}'s support ` },
+      { text: 'barely moved', emphasis: 'flat' },
+      { text: ' in ' },
+      { text: `${flat} out of ${total} (${pct}%)`, emphasis: 'flat' },
+      { text: ` ${unit} between ${yearA} and ${yearB} elections.` },
+    ];
+  } else if (direction === 'mixed') {
+    headlineParts = [
+      { text: `${name}'s support was mixed` },
+      { text: ` — falling in ${losing} and rising in ${gaining} of ${moved.length} ${unit}` },
+      { text: ` between ${yearA} and ${yearB}.` },
+    ];
+  } else {
+    const count = direction === 'loss' ? losing : gaining;
+    const pct = Math.round((count / moved.length) * 100);
+    const verb = direction === 'loss' ? 'lost' : 'gained';
+    headlineParts = [
+      { text: `${name} ` },
+      { text: verb, emphasis: direction },
+      { text: ' support from ' },
+      { text: `${count} out of ${moved.length} (${pct}%)`, emphasis: direction },
+      { text: ` ${unit} between ${yearA} and ${yearB} elections.` },
+    ];
+  }
+
+  return {
+    headline: headlineParts.map(p => p.text).join(''),
+    headlineParts,
+    breadth: { total, losing, gaining, flat, direction },
+  };
+}
+
 // Swing uses 10 discrete buckets, 5 shades of loss + 5 shades of gain split exactly at zero —
 // no neutral/"flat" bucket, so every municipality reads as a clear direction rather than
 // blending into a middle band. Shared by the live map (ChoroplethMap) and the static map-share

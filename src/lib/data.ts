@@ -1,7 +1,7 @@
 import type {
   VoteData, CandidateIndex, Senator, CandidateData, NationalYearData, MunicipalityNames,
 } from './types';
-import { quartileSample } from './swing';
+import { quartileSample, buildSwingHeadline, type SwingHeadlineDirection } from './swing';
 import { headlineName } from './display-name';
 import { trackEvent } from './analytics';
 
@@ -330,13 +330,15 @@ export type ProvinceSwingHeadline = {
   headline: string;
   /** Same claim as `headline`, split into segments so renderers (ImageResponse, JSX) can
    *  highlight the verb + count in the swing's color without re-deriving the copy logic or
-   *  duplicating the lose/gain/mixed branching. Concatenating all `text` fields in order
+   *  duplicating the lose/gain/mixed/flat branching. Concatenating all `text` fields in order
    *  reproduces `headline`. */
-  headlineParts: { text: string; emphasis?: 'gain' | 'loss' }[];
+  headlineParts: { text: string; emphasis?: 'gain' | 'loss' | 'flat' }[];
   /** Full-dataset breakdown (not just the 7-item sample) — this is what the headline's
    *  count/percentage claim is actually measured against, so "111 out of 113" is a real
-   *  count across every province/city the candidate meaningfully contested, not the sample. */
-  breadth: { total: number; losing: number; gaining: number; direction: 'loss' | 'gain' | 'mixed' };
+   *  count across every province/city the candidate meaningfully contested, not the sample.
+   *  `flat` is provinces whose swing rounds to 0.0pt — excluded from `losing`/`gaining` (see
+   *  buildSwingHeadline in lib/swing.ts), so losing + gaining + flat === total. */
+  breadth: { total: number; losing: number; gaining: number; flat: number; direction: SwingHeadlineDirection };
   /** The single biggest mover in the full (unsampled) province list — may differ from
    *  sample[0] only in edge cases where quartileSample's dedup shifts the picks; in practice
    *  these agree because biggest-drop is always sample position 0. */
@@ -409,37 +411,7 @@ export function provinceSwingHeadline(
   };
 
   const name = headlineName(senator.senator_name);
-  const total = rows.length;
-  const losing = rows.filter(r => r.delta < 0).length;
-  const gaining = total - losing;
-  const losingPct = losing / total;
-
-  // >50% one way or the other reads as a real trend; anywhere closer than that is genuinely
-  // split and shouldn't be flattened into a one-sided claim (see the mixed-swing question this
-  // threshold answers — a 55/45 split isn't "lost support", it's "support was mixed").
-  const direction: 'loss' | 'gain' | 'mixed' =
-    losingPct > 0.5 ? 'loss' : losingPct < 0.5 ? 'gain' : 'mixed';
-
-  let headlineParts: { text: string; emphasis?: 'gain' | 'loss' }[];
-  if (direction === 'mixed') {
-    headlineParts = [
-      { text: `${name}'s support was mixed` },
-      { text: ` — falling in ${losing} and rising in ${gaining} of ${total} provinces/cities` },
-      { text: ` between ${yearA} and ${yearB}.` },
-    ];
-  } else {
-    const count = direction === 'loss' ? losing : gaining;
-    const pct = Math.round((count / total) * 100);
-    const verb = direction === 'loss' ? 'lost' : 'gained';
-    headlineParts = [
-      { text: `${name} ` },
-      { text: verb, emphasis: direction },
-      { text: ' support from ' },
-      { text: `${count} out of ${total} (${pct}%)`, emphasis: direction },
-      { text: ` provinces/cities between ${yearA} and ${yearB} elections.` },
-    ];
-  }
-  const headline = headlineParts.map(p => p.text).join('');
+  const { headline, headlineParts, breadth } = buildSwingHeadline(rows, name, 'provinces/cities', yearA, yearB);
 
   return {
     senatorName: senator.senator_name,
@@ -448,7 +420,7 @@ export function provinceSwingHeadline(
     sample,
     headline,
     headlineParts,
-    breadth: { total, losing, gaining, direction },
+    breadth,
     biggestMove,
   };
 }
@@ -640,34 +612,7 @@ export function candidateProvinceSwingHeadline(
   };
 
   const name = headlineName(senator.senator_name);
-  const total = rows.length;
-  const losing = rows.filter(r => r.delta < 0).length;
-  const gaining = total - losing;
-  const losingPct = losing / total;
-
-  const direction: 'loss' | 'gain' | 'mixed' =
-    losingPct > 0.5 ? 'loss' : losingPct < 0.5 ? 'gain' : 'mixed';
-
-  let headlineParts: { text: string; emphasis?: 'gain' | 'loss' }[];
-  if (direction === 'mixed') {
-    headlineParts = [
-      { text: `${name}'s support was mixed` },
-      { text: ` — falling in ${losing} and rising in ${gaining} of ${total} provinces/cities` },
-      { text: ` between ${yearA} and ${yearB}.` },
-    ];
-  } else {
-    const count = direction === 'loss' ? losing : gaining;
-    const pct = Math.round((count / total) * 100);
-    const verb = direction === 'loss' ? 'lost' : 'gained';
-    headlineParts = [
-      { text: `${name} ` },
-      { text: verb, emphasis: direction },
-      { text: ' support from ' },
-      { text: `${count} out of ${total} (${pct}%)`, emphasis: direction },
-      { text: ` provinces/cities between ${yearA} and ${yearB} elections.` },
-    ];
-  }
-  const headline = headlineParts.map(p => p.text).join('');
+  const { headline, headlineParts, breadth } = buildSwingHeadline(rows, name, 'provinces/cities', yearA, yearB);
 
   return {
     senatorName: senator.senator_name,
@@ -676,7 +621,7 @@ export function candidateProvinceSwingHeadline(
     sample,
     headline,
     headlineParts,
-    breadth: { total, losing, gaining, direction },
+    breadth,
     biggestMove,
   };
 }
@@ -689,8 +634,10 @@ export type MunicipalitySwingHeadline = {
    *  data (colors every polygon), unlike the province version's bar-chart `sample`. */
   swingByPsgc: Map<string, { delta: number }>;
   headline: string;
-  headlineParts: { text: string; emphasis?: 'gain' | 'loss' }[];
-  breadth: { total: number; losing: number; gaining: number; direction: 'loss' | 'gain' | 'mixed' };
+  headlineParts: { text: string; emphasis?: 'gain' | 'loss' | 'flat' }[];
+  /** `flat` is municipalities whose swing rounds to 0.0pt — excluded from `losing`/`gaining`
+   *  (see buildSwingHeadline in lib/swing.ts), so losing + gaining + flat === total. */
+  breadth: { total: number; losing: number; gaining: number; flat: number; direction: SwingHeadlineDirection };
   biggestMove: { adm3_en: string; adm2_en: string; shareA: number; shareB: number; delta: number };
 };
 
@@ -733,34 +680,7 @@ export function candidateMunicipalitySwingHeadline(
   };
 
   const name = headlineName(senator.senator_name);
-  const total = rows.length;
-  const losing = rows.filter(r => r.delta < 0).length;
-  const gaining = total - losing;
-  const losingPct = losing / total;
-
-  const direction: 'loss' | 'gain' | 'mixed' =
-    losingPct > 0.5 ? 'loss' : losingPct < 0.5 ? 'gain' : 'mixed';
-
-  let headlineParts: { text: string; emphasis?: 'gain' | 'loss' }[];
-  if (direction === 'mixed') {
-    headlineParts = [
-      { text: `${name}'s support was mixed` },
-      { text: ` — falling in ${losing} and rising in ${gaining} of ${total} municipalities/cities` },
-      { text: ` between ${yearA} and ${yearB}.` },
-    ];
-  } else {
-    const count = direction === 'loss' ? losing : gaining;
-    const pct = Math.round((count / total) * 100);
-    const verb = direction === 'loss' ? 'lost' : 'gained';
-    headlineParts = [
-      { text: `${name} ` },
-      { text: verb, emphasis: direction },
-      { text: ' support from ' },
-      { text: `${count} out of ${total} (${pct}%)`, emphasis: direction },
-      { text: ` municipalities/cities between ${yearA} and ${yearB} elections.` },
-    ];
-  }
-  const headline = headlineParts.map(p => p.text).join('');
+  const { headline, headlineParts, breadth } = buildSwingHeadline(rows, name, 'municipalities/cities', yearA, yearB);
 
   return {
     senatorName: senator.senator_name,
@@ -769,7 +689,7 @@ export function candidateMunicipalitySwingHeadline(
     swingByPsgc,
     headline,
     headlineParts,
-    breadth: { total, losing, gaining, direction },
+    breadth,
     biggestMove,
   };
 }

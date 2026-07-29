@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { ImageResponse } from 'next/og';
 import { loadCandidateIndexServer, loadCandidateDataServer } from '@/lib/data-server';
 import { buildSenatorList, candidateProvinceSwingHeadline, resolveShareYearPair } from '@/lib/data';
-import { GAIN, LOSS, swingColor, formatSwingPt } from '@/lib/swing';
+import { GAIN, LOSS, NEUTRAL, swingColor, formatSwingPt } from '@/lib/swing';
 import { siteUrlFromHeaders } from '@/lib/site';
 
 // A Route Handler rather than the opengraph-image.tsx file convention — that convention's
@@ -90,7 +90,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           <div style={{ display: 'flex', flexWrap: 'wrap', fontSize: 40, fontWeight: 700, lineHeight: 1.2, letterSpacing: -0.5 }}>
             {result.headlineParts.flatMap((part, i) =>
               part.text.split(' ').filter(word => word !== '').map((word, j) => (
-                <span key={`${i}-${j}`} style={{ display: 'flex', whiteSpace: 'pre', color: part.emphasis === 'loss' ? LOSS : part.emphasis === 'gain' ? GAIN : '#fafafa' }}>
+                <span key={`${i}-${j}`} style={{ display: 'flex', whiteSpace: 'pre', color: part.emphasis === 'loss' ? LOSS : part.emphasis === 'gain' ? GAIN : part.emphasis === 'flat' ? NEUTRAL : '#fafafa' }}>
                   {`${word} `}
                 </span>
               ))
