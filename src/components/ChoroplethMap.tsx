@@ -36,6 +36,9 @@ type Props = {
   /** The two years being compared for the swing metric, e.g. [2019, 2025]. */
   swingYears?: [number, number] | null;
   onNavigateToProfile?: () => void;
+  /** Lets the "no swing data" overlay switch the map to another metric directly, without
+   *  making the user find the View By toggle themselves. */
+  onChangeMetric?: (metric: Metric) => void;
 };
 
 const PH_CENTER: [number, number] = [122, 12.8];
@@ -450,7 +453,7 @@ function applyPaint(
   );
 }
 
-export default function ChoroplethMap({ candidate, municipalityNames, senatorId, senatorName, year, metric, swingMap, swingYears, onNavigateToProfile }: Props) {
+export default function ChoroplethMap({ candidate, municipalityNames, senatorId, senatorName, year, metric, swingMap, swingYears, onNavigateToProfile, onChangeMetric }: Props) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const mapRef        = useRef<maplibregl.Map | null>(null);
   const loadedRef     = useRef(false);
@@ -940,9 +943,26 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
 
       {senatorId && metric === 'swing' && (!swingMap || swingMap.size === 0) && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-6">
-          <p className="text-sm text-center bg-white/90 text-zinc-600 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm max-w-xs">
-            Swing values are only available for candidates who ran in 2 or more elections.
-          </p>
+          <div className="text-sm text-center bg-white/90 text-zinc-600 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm max-w-xs pointer-events-auto">
+            <p>Swing values are only available for candidates who ran in 2 or more elections.</p>
+            {onChangeMetric && (
+              <p className="mt-1">
+                See the{' '}
+                <button type="button" onClick={() => onChangeMetric('rank')} className="text-primary underline underline-offset-2 hover:no-underline">
+                  rank
+                </button>
+                ,{' '}
+                <button type="button" onClick={() => onChangeMetric('vote_share')} className="text-primary underline underline-offset-2 hover:no-underline">
+                  vote share
+                </button>
+                {' '}or{' '}
+                <button type="button" onClick={() => onChangeMetric('votes')} className="text-primary underline underline-offset-2 hover:no-underline">
+                  raw votes
+                </button>
+                {' '}view instead.
+              </p>
+            )}
+          </div>
         </div>
       )}
     </div>

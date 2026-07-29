@@ -547,6 +547,7 @@ function ExplorerPageInner() {
           swingMap={swingMap}
           swingYears={swingYears}
           onNavigateToProfile={() => handleMobileTabChange('profile')}
+          onChangeMetric={handleMetricChange}
         />
       </div>
     </div>
@@ -656,6 +657,7 @@ function ExplorerPageInner() {
                 metric={metric}
                 swingMap={swingMap}
                 swingYears={swingYears}
+                onChangeMetric={handleMetricChange}
               />
             </div>
           </main>
