@@ -56,14 +56,19 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const result = await getHeadline(senator, query);
   if (!result) return { title: 'Candidate not found' };
 
-  const title = `${senator.senator_name} — Province swing, ${result.yearA} → ${result.yearB}`;
-  const description = result.headline;
+  // The headline itself ("Bong Go gained support from 89 out of 117 (76%)...") is the title —
+  // it's the actual claim being shared, not a generic "Province swing" label, so the link
+  // preview leads with the same statement the graphic makes.
+  const title = result.headline;
+  const description = `Province swing, ${result.yearA} → ${result.yearB}. Explore all Philippine senate election data since 2007.`;
   // og-image is a plain Route Handler, not the opengraph-image.tsx file convention (that
   // convention's Image() only receives `params`, not `searchParams`, in this Next.js version,
   // so it can't see which year pair was selected) — meaning og:image/twitter:image tags aren't
-  // auto-populated and need to be set explicitly here.
+  // auto-populated and need to be set explicitly here. Dimensions must match the route's actual
+  // output (1200x630) — X's card validator drops the image entirely on a size mismatch, which
+  // is why it wasn't showing a preview while Facebook (more lenient) still did.
   const imageUrl = `/senator/${senator.senator_id}/share/province/og-image?yearA=${result.yearA}&yearB=${result.yearB}`;
-  const imageAlt = 'Philippine Senate Election Explorer — Province swing';
+  const imageAlt = result.headline;
 
   return {
     title,
@@ -71,7 +76,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
     openGraph: {
       title,
       description,
-      images: [{ url: imageUrl, width: 1080, height: 1350, alt: imageAlt }],
+      images: [{ url: imageUrl, width: 1200, height: 630, alt: imageAlt }],
     },
     twitter: {
       card: 'summary_large_image',
