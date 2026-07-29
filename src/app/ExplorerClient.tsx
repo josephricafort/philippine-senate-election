@@ -321,7 +321,10 @@ function ExplorerPageInner() {
             onSelectYear={y => handleYearChange(y, 'candidate_pill')}
           />
 
-          <div className="sticky top-16 md:top-19 z-10 bg-background -mx-4 px-4 pt-0 pb-2 -mt-1">
+          {/* Stacked directly under the header's sticky block (no gap in between) so the
+              two sticky regions form one continuous opaque strip as the page scrolls —
+              a gap here would let scrolled-past content peek through between them. */}
+          <div className="sticky top-13 md:top-16 z-10 bg-background -mx-4 px-4 pt-0 pb-2 -mt-1">
             <div className="flex items-center gap-3 flex-wrap">
               {didRunSelectedYear && (
                 <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit shrink-0">
