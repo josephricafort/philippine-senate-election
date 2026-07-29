@@ -3,22 +3,28 @@ import { headers } from 'next/headers';
 
 import ExplorerClient from './ExplorerClient';
 import { loadCandidateIndexServer, loadCandidateDataServer } from '@/lib/data-server';
-import { buildSenatorList, candidateMunicipalitySwingHeadline, resolveShareYearPair } from '@/lib/data';
+import {
+  buildSenatorList, candidateMunicipalitySwingHeadline, candidateProvinceSwingHeadline,
+  resolveShareYearPair,
+} from '@/lib/data';
 import { siteUrlFromHeaders } from '@/lib/site';
 
 type Props = {
-  searchParams: Promise<{ candidate?: string; yearA?: string; yearB?: string }>;
+  searchParams: Promise<{ candidate?: string; yearA?: string; yearB?: string; view?: string }>;
 };
 
 const title = 'BotoSenado — Philippine Senate Election Results (2007 - 2025)';
 const description = "Explore every Philippine senatorial election from 2007–2025, broken down to the municipality level. Look up any candidate's vote share, rank, strongholds, and trend over time.";
 
-// Links shared from the swing-map card point here (?candidate=&yearA=&yearB=) so followers land
-// directly in the live interactive view — but that means THIS url, not the card page, is what
-// Facebook/X fetch for a link preview. Without this, every shared link previewed as the generic
-// site card (src/app/opengraph-image.tsx) regardless of which candidate/years were shared.
+// Links shared from the swing-map/province-swing cards point here (?candidate=&yearA=&yearB=&view=)
+// so followers land directly in the live interactive view — but that means THIS url, not the card
+// page, is what Facebook/X fetch for a link preview. Without this, every shared link previewed as
+// the generic site card (src/app/opengraph-image.tsx) regardless of which candidate/years were
+// shared. `view` (set by the two share/*/page.tsx pages when building this url) picks which of the
+// two headline/og-image pairs to use — map and province shares otherwise produce the identical
+// ?candidate=&yearA=&yearB= shape and this page can't tell them apart.
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
-  const { candidate, yearA, yearB } = await searchParams;
+  const { candidate, yearA, yearB, view } = await searchParams;
   if (!candidate) return { title, description };
 
   const index = await loadCandidateIndexServer();
@@ -34,18 +40,26 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     return { title, description };
   }
 
-  const result = candidateMunicipalitySwingHeadline(candidateData, senator, resolvedYearA, resolvedYearB);
+  const isProvince = view === 'province';
+  const result = isProvince
+    ? candidateProvinceSwingHeadline(candidateData, senator, resolvedYearA, resolvedYearB)
+    : candidateMunicipalitySwingHeadline(candidateData, senator, resolvedYearA, resolvedYearB);
   if (!result) return { title, description };
 
   const shareTitle = result.headline;
-  const shareDescription = `Municipality swing map, ${result.yearA} → ${result.yearB}. Explore all Philippine senate election data since 2007.`;
-  // Same og-image route the /senator/[slug]/share/map preview page renders — one source of
-  // truth for the actual graphic, referenced here so the shared link's own preview matches it.
-  // Built against the actual request host (not the static SITE_URL/metadataBase fallback) so
-  // this keeps working when served from a domain other than production, e.g. a Vercel preview
-  // URL used while the production domain is temporarily offline pre-launch.
+  const shareDescription = isProvince
+    ? `Province swing chart, ${result.yearA} → ${result.yearB}. Explore all Philippine senate election data since 2007.`
+    : `Municipality swing map, ${result.yearA} → ${result.yearB}. Explore all Philippine senate election data since 2007.`;
+  // Same og-image route the matching /senator/[slug]/share/{map,province} preview page renders —
+  // one source of truth for the actual graphic, referenced here so the shared link's own preview
+  // matches it. Built against the actual request host (not the static SITE_URL/metadataBase
+  // fallback) so this keeps working when served from a domain other than production, e.g. a
+  // Vercel preview URL used while the production domain is temporarily offline pre-launch.
   const origin = siteUrlFromHeaders(await headers());
-  const imageUrl = `${origin}/senator/${senator.senator_id}/share/map/og-image?yearA=${result.yearA}&yearB=${result.yearB}`;
+  const imagePath = isProvince
+    ? `/senator/${senator.senator_id}/share/province/og-image?yearA=${result.yearA}&yearB=${result.yearB}`
+    : `/senator/${senator.senator_id}/share/map/og-image?yearA=${result.yearA}&yearB=${result.yearB}`;
+  const imageUrl = `${origin}${imagePath}`;
 
   return {
     title: shareTitle,

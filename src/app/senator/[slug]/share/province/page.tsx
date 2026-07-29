@@ -100,7 +100,10 @@ export default async function ProvinceSwingSharePage({ params, searchParams }: P
   // Every share surface on this page (Facebook, X, copy-link, native share, "See full profile")
   // points at the interactive explorer, deep-linked to this candidate and year pair, rather than
   // this static share-card page — so anyone who opens a shared link lands in the live map/profile.
-  const exploreUrl = `/?candidate=${senator.senator_id}&yearA=${result.yearA}&yearB=${result.yearB}`;
+  // view=province tells the explorer's own generateMetadata (src/app/page.tsx) which headline/
+  // og-image to resolve — without it, that page can't distinguish a province share from a map
+  // share since both otherwise produce the identical ?candidate=&yearA=&yearB= shape.
+  const exploreUrl = `/?candidate=${senator.senator_id}&yearA=${result.yearA}&yearB=${result.yearB}&view=province`;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
