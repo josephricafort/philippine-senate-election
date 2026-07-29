@@ -571,7 +571,7 @@ function ExplorerPageInner() {
   );
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
+    <div className="flex flex-col h-dvh bg-background text-foreground overflow-hidden">
       {/* Header */}
       <header className="shrink-0 border-b px-4 md:px-6 py-3 flex items-center gap-4">
         <div className="flex items-center gap-2.5">
