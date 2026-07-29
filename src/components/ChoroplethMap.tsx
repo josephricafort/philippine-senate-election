@@ -370,7 +370,13 @@ function buildLegend(
     const { lossCounts, gainCounts, zeroCount } = swingBucketCounts(swingMap, lossBounds, gainBounds);
     // Bar order matches SWING_BUCKET_COLORS (strong loss -> mild loss -> mild gain -> strong
     // gain), with the zero-swing count inserted as its own center bar between the two sides.
-    const counts = [...lossCounts.slice().reverse(), zeroCount, ...gainCounts];
+    // lossCounts[0] is already the strong-loss (most negative) bucket — swingBucketCounts finds
+    // the FIRST ascending bound a delta is less than, which the most extreme deltas hit first —
+    // so it must NOT be reversed again here, or counts end up misaligned with SWING_LOSS_COLORS
+    // (which IS reversed, since it's authored mild -> strong) and the mild-loss bucket's count
+    // (usually the largest, since real swings cluster near zero) renders under the strong-loss
+    // color/position, making the leftmost bar always look artificially tall.
+    const counts = [...lossCounts, zeroCount, ...gainCounts];
     const colors = [...SWING_LOSS_COLORS.slice().reverse(), SWING_ZERO_COLOR, ...SWING_GAIN_COLORS];
     // Label shows the true shared maxAbs on both sides — honest now that both sides' buckets
     // are actually scaled to it (see swingBucketBounds); a lopsided histogram (e.g. losses
