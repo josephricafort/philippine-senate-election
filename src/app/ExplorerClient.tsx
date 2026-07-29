@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { ChevronRight, Map as MapIcon, Share2, Vote } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Map as MapIcon, Share2, Vote } from 'lucide-react';
 
 import SearchSelect from '@/components/SearchSelect';
 import CandidateCard, { CandidateHeader } from '@/components/CandidateCard';
@@ -302,6 +302,23 @@ function ExplorerPageInner() {
 
   const profilePanel = (
     <div className="p-4 space-y-4 md:space-y-6">
+      <div className="flex items-center justify-between md:hidden">
+        <button
+          onClick={() => handleMobileTabChange('leaderboard')}
+          className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+          Leaderboard
+        </button>
+        <button
+          onClick={() => handleMobileTabChange('map')}
+          className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          Map
+          <ChevronRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
       <SearchSelect
         senators={senators}
         value={selectedSenator}
