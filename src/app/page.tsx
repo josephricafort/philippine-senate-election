@@ -73,7 +73,10 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       card: 'summary_large_image',
       title: shareTitle,
       description: shareDescription,
-      images: [imageUrl],
+      // Full descriptor (not a bare URL string) — X's crawler has been reported to silently
+      // skip summary_large_image cards that omit type/width/height here even when the same
+      // image works fine as a bare-string og:image for Facebook.
+      images: [{ url: imageUrl, alt: shareTitle, type: 'image/png', width: 1200, height: 630 }],
     },
   };
 }
