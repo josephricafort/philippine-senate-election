@@ -322,7 +322,7 @@ function ExplorerPageInner() {
           />
 
           <div className="sticky top-16 md:top-19 z-10 bg-background -mx-4 px-4 pt-0 pb-2 -mt-1">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-3 flex-wrap">
               {didRunSelectedYear && (
                 <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit shrink-0">
                   <button
@@ -347,16 +347,6 @@ function ExplorerPageInner() {
                   </button>
                 </div>
               )}
-
-              <Link
-                href={`/senator/${selectedSenator.senator_id}`}
-                title="View shareable profile page"
-                aria-label="View shareable profile page"
-                className="ml-auto flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-3 py-1.5 shadow-sm hover:opacity-90 active:scale-95 transition-all shrink-0"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                Share
-              </Link>
             </div>
 
             {didRunSelectedYear && (
@@ -388,14 +378,19 @@ function ExplorerPageInner() {
           </div>
 
           <button
-            onClick={() => handleMobileTabChange('map')}
+            onClick={() => {
+              handleMetricChange(profileTab === 'swing' ? 'swing' : 'rank');
+              handleMobileTabChange('map');
+            }}
             className="w-full flex items-center gap-3 rounded-xl border bg-card p-4 text-left hover:bg-accent transition-colors md:hidden"
           >
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               <MapIcon className="w-5 h-5 text-primary" />
             </div>
             <span className="flex-1 text-sm font-medium leading-snug">
-              See rank of votes per municipality for {selectedSenator.senator_name}
+              {profileTab === 'swing'
+                ? `See swing votes per municipality for ${selectedSenator.senator_name}`
+                : `See rank of votes per municipality for ${selectedSenator.senator_name}`}
             </span>
             <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
           </button>
@@ -508,8 +503,13 @@ function ExplorerPageInner() {
   // Reuses the same YearSelector styling as the Leaderboard tab for visual consistency.
   const mobileMapPanel = (
     <div className="flex-1 flex flex-col overflow-hidden h-full">
-      {selectedSenator && selectedSenator.years.length > 1 && (
-        <div className={`shrink-0 border-b px-4 py-2 overflow-x-auto ${metric === 'swing' ? 'opacity-40 pointer-events-none' : ''}`}>
+      {selectedSenator && metric === 'swing' && swingPairs.length > 0 && (
+        <div className="shrink-0 border-b px-4 py-2 overflow-x-auto">
+          <SwingYearPairSelector pairs={swingPairs} value={swingYearPair} onChange={handleSwingYearPairChange} />
+        </div>
+      )}
+      {selectedSenator && metric !== 'swing' && selectedSenator.years.length > 1 && (
+        <div className="shrink-0 border-b px-4 py-2 overflow-x-auto">
           <YearSelector
             value={year}
             onChange={y => handleYearChange(y, 'candidate_pill')}
