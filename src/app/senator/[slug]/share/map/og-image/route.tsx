@@ -61,13 +61,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // Cache-Control without a CDN-Cache-Control, the Vercel CDN strips s-maxage and
   // stale-while-revalidate from the response". CDN-Cache-Control is the header Vercel actually
   // reads to cache Function responses at the edge — only the very first fetch per URL then pays
-  // the render cost. Vary: Host because the rendered footer text embeds the requesting domain
-  // (see siteUrlFromHeaders below) — without it, a cache hit from one domain could serve
-  // another domain's footer text.
+  // the render cost.
+  //
+  // Deliberately NOT setting Vary: Host here even though the rendered footer text embeds the
+  // requesting domain (see siteUrlFromHeaders below) — Vercel's CDN was staying MISS on every
+  // repeat request to the identical URL with Vary set, and CDNs (Vercel included, per reports
+  // in vercel/next.js discussions) are known to skip/limit caching for responses carrying a
+  // Vary header on anything beyond Accept-Encoding. The tradeoff: a cached image's footer text
+  // reflects whichever domain rendered it first, until the cache expires/revalidates — acceptable
+  // while only one domain (this Vercel URL) is actually in use; revisit once botosenado.ph is
+  // back online and both domains serve real traffic simultaneously.
   const headers = {
     'Cache-Control': 'public, max-age=0, must-revalidate',
     'CDN-Cache-Control': 'public, s-maxage=31536000, stale-while-revalidate=86400',
-    'Vary': 'Host, X-Forwarded-Host',
   };
 
   return new ImageResponse(
