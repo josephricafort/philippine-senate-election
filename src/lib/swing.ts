@@ -19,6 +19,14 @@ export function swingRoundsToZero(delta: number, scale: number = 100): boolean {
   return Math.abs(delta * scale).toFixed(1) === '0.0';
 }
 
+// The raw-delta threshold below which a pt-scale delta rounds to "0.0pt" (see
+// swingRoundsToZero, scale=100) — |delta*100| < 0.05, i.e. |delta| < 0.0005. Exported
+// as a plain number (not a function) because MapLibre GL style expressions are
+// evaluated by the map's own runtime, not JS, so ChoroplethMap's fill-color expression
+// can't call swingRoundsToZero directly — it has to inline this same threshold as a
+// literal ['>', ...]/['<', ...] range instead of the exact-zero check it used before.
+export const SWING_ZERO_THRESHOLD = 0.0005;
+
 export function swingColor(delta: number, scale: number = 100): string {
   if (swingRoundsToZero(delta, scale)) return NEUTRAL;
   return delta >= 0 ? GAIN : LOSS;

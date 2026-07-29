@@ -15,6 +15,7 @@ import {
   SWING_GAIN_COLORS,
   SWING_BUCKET_COLORS,
   SWING_ZERO_COLOR,
+  SWING_ZERO_THRESHOLD,
   SWING_BUCKETS_PER_SIDE,
   swingMaxAbs,
   swingBucketBounds,
@@ -273,8 +274,16 @@ function buildColorExpression(
     lossBounds.forEach((bound, i) => stepExpr.push(bound, SWING_BUCKET_COLORS[i + 1]));
     stepExpr.push(0, SWING_BUCKET_COLORS[SWING_BUCKETS_PER_SIDE]);
     gainBounds.forEach((bound, i) => stepExpr.push(bound, SWING_BUCKET_COLORS[SWING_BUCKETS_PER_SIDE + 1 + i]));
-    // Exact zero gets its own neutral color instead of falling into the lightest gain bucket.
-    return noDataGuard(['case', ['==', valueExpr, 0], SWING_ZERO_COLOR, stepExpr]);
+    // Exact zero (or close enough to round to "0.0pt" in the tooltip/legend, see
+    // SWING_ZERO_THRESHOLD) gets its own neutral color instead of falling into the
+    // lightest gain/loss bucket — otherwise a municipality whose tooltip reads "0.0pt
+    // swing" could still be shaded pink or green, which reads as a bug.
+    return noDataGuard([
+      'case',
+      ['all', ['>', valueExpr, -SWING_ZERO_THRESHOLD], ['<', valueExpr, SWING_ZERO_THRESHOLD]],
+      SWING_ZERO_COLOR,
+      stepExpr,
+    ]);
   }
 
   const rampColors = sequentialStops(yearColor(year ?? 0));
