@@ -18,8 +18,9 @@ const FEEDBACK_URL = process.env.NEXT_PUBLIC_FEEDBACK_FORM_URL || '#feedback-for
 export default function InfoMenu() {
   return (
     <>
-      {/* Desktop (md+): plain inline links, no dropdown needed. Feedback leads here (swapped
-          ahead of About/Data & methodology) — mobile keeps its own order below unchanged. */}
+      {/* Desktop (md+): plain inline links, no dropdown needed. Order here is Feedback, Data &
+          methodology, About (About rightmost) — deliberately reversed from `links` (which stays
+          About-first for mobile below) rather than reordering the shared array. */}
       <nav className="hidden md:flex items-center gap-4">
         <a
           href={FEEDBACK_URL}
@@ -33,7 +34,7 @@ export default function InfoMenu() {
           <ExternalLink className="w-3 h-3" />
         </a>
         <span className="w-px h-3.5 bg-border" aria-hidden="true" />
-        {links.map(l => (
+        {[...links].reverse().map(l => (
           <Link
             key={l.href}
             href={l.href}
