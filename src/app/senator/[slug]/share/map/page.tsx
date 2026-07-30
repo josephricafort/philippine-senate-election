@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 
 import ShareButton from '@/components/ShareButton';
 import PlatformShareLinks from '@/components/PlatformShareLinks';
+import SiteHeader from '@/components/SiteHeader';
 import { loadCandidateIndexServer, loadCandidateDataServer } from '@/lib/data-server';
 import { buildSenatorList, candidateMunicipalitySwingHeadline, resolveShareYearPair } from '@/lib/data';
 import type { Senator } from '@/lib/types';
@@ -103,7 +104,9 @@ export default async function MapSwingSharePage({ params, searchParams }: Props)
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b px-4 md:px-6 py-3 flex items-center gap-3">
+      <SiteHeader />
+
+      <main className="max-w-3xl mx-auto px-4 md:px-6 py-8 space-y-6">
         <Link
           href={exploreUrl}
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -111,9 +114,7 @@ export default async function MapSwingSharePage({ params, searchParams }: Props)
           <ArrowLeft className="w-4 h-4" />
           Back to explorer
         </Link>
-      </header>
 
-      <main className="max-w-3xl mx-auto px-4 md:px-6 py-8 space-y-6">
         {/* This IS the og:image, rendered inline — one source of truth for what gets
             previewed here vs. what platforms fetch when the link is shared. */}
         <div className="rounded-2xl overflow-hidden border">

@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Map as MapIcon, Share2, Vote } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Map as MapIcon, Share2 } from 'lucide-react';
 
 import SearchSelect from '@/components/SearchSelect';
 import CandidateCard, { CandidateHeader } from '@/components/CandidateCard';
@@ -12,7 +12,7 @@ import MetricToggle from '@/components/MetricToggle';
 import TopMunicipalitiesTable from '@/components/TopMunicipalitiesTable';
 import TopProvincesTable from '@/components/TopProvincesTable';
 import LeaderboardTable from '@/components/LeaderboardTable';
-import InfoMenu from '@/components/InfoMenu';
+import SiteHeader from '@/components/SiteHeader';
 import SwingSection from '@/components/SwingSection';
 import SwingYearPairSelector from '@/components/SwingYearPairSelector';
 
@@ -597,22 +597,7 @@ function ExplorerPageInner() {
 
   return (
     <div className="flex flex-col h-dvh bg-background text-foreground overflow-hidden">
-      {/* Header */}
-      <header className="shrink-0 border-b px-4 md:px-6 py-3 flex items-center gap-4">
-        <div className="flex items-center gap-2.5">
-          <Vote className="w-6 h-6 text-primary shrink-0" strokeWidth={2} />
-          <div>
-            <h1 className="text-base font-semibold leading-tight">
-              BotoSenado
-            </h1>
-            <p className="text-xs text-muted-foreground">Philippine Senate Election Results (2007 - 2025)</p>
-          </div>
-        </div>
-        <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
-          {loading && <span className="animate-pulse">Loading data…</span>}
-          <InfoMenu />
-        </div>
-      </header>
+      <SiteHeader rightExtra={loading && <span className="animate-pulse">Loading data…</span>} />
 
       {/* ── Desktop layout (md+): full-width year bar + 3 columns — Leaderboard | Profile | Map ── */}
       <div className="hidden md:flex md:flex-col flex-1 overflow-hidden">

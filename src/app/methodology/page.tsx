@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { SITE_URL } from '@/lib/site';
+import SiteHeader from '@/components/SiteHeader';
 
 export const metadata: Metadata = {
   title: 'Data & Methodology — BotoSenado',
@@ -84,7 +85,9 @@ export default function MethodologyPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
-      <header className="border-b px-4 md:px-6 py-3 flex items-center gap-3">
+      <SiteHeader />
+
+      <main className="max-w-2xl mx-auto px-4 md:px-6 py-10 space-y-10">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -92,9 +95,7 @@ export default function MethodologyPage() {
           <ArrowLeft className="w-4 h-4" />
           Back to explorer
         </Link>
-      </header>
 
-      <main className="max-w-2xl mx-auto px-4 md:px-6 py-10 space-y-10">
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold tracking-tight">
             Data Processing Methodology
@@ -293,7 +294,7 @@ export default function MethodologyPage() {
           </div>
         </section>
 
-        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-1.5">
+        <div id="disclaimer" className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-1.5 scroll-mt-20">
           <p className="text-sm font-medium text-destructive">Rankings and totals will not match official results</p>
           <p className="text-sm text-muted-foreground leading-relaxed">
             The rankings, tallies, and vote counts shown here do not correspond exactly to

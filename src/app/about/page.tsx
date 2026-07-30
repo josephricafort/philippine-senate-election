@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { ArrowLeft, Search, Map as MapIcon, TrendingUp, ListOrdered, MapPinned, SlidersHorizontal } from 'lucide-react';
+import SiteHeader from '@/components/SiteHeader';
 
 export const metadata: Metadata = {
   title: 'About — BotoSenado',
@@ -32,7 +33,9 @@ function Feature({
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b px-4 md:px-6 py-3 flex items-center gap-3">
+      <SiteHeader />
+
+      <main className="max-w-2xl mx-auto px-4 md:px-6 py-10 space-y-12">
         <Link
           href="/"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -40,9 +43,7 @@ export default function AboutPage() {
           <ArrowLeft className="w-4 h-4" />
           Back to explorer
         </Link>
-      </header>
 
-      <main className="max-w-2xl mx-auto px-4 md:px-6 py-10 space-y-12">
         <div className="space-y-3">
           <h1 className="text-2xl font-semibold tracking-tight">
             BotoSenado
