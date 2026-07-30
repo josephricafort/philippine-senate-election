@@ -68,14 +68,38 @@ function Sparkline({ trend }: { trend: { year: number; vote_share: number }[] })
   const range = max - min || 1;
   const step = w / (values.length - 1);
   const points = values.map((v, i) => [i * step, h - pad - ((v - min) / range) * (h - pad * 2)]);
-  const path = smoothPath(points);
   const [lastX, lastY] = points[points.length - 1];
+  const [prevX, prevY] = points[points.length - 2];
   const color = values[values.length - 1] >= values[0] ? GAIN : LOSS;
+
+  // Arrowhead oriented along the line's final direction (prev -> last point), not the overall
+  // trend — so it visually continues the curve instead of always pointing straight right. Sized
+  // clearly wider than the stroke (2.2) so it reads as a distinct arrow shape rather than
+  // blending into the line's own rounded cap.
+  const angle = Math.atan2(lastY - prevY, lastX - prevX);
+  const arrowLen = 5;
+  const arrowWidth = 4.5;
+  const tipX = lastX;
+  const tipY = lastY;
+  const backX = lastX - Math.cos(angle) * arrowLen;
+  const backY = lastY - Math.sin(angle) * arrowLen;
+  const perpX = Math.cos(angle + Math.PI / 2) * (arrowWidth / 2);
+  const perpY = Math.sin(angle + Math.PI / 2) * (arrowWidth / 2);
+  const arrowPoints = [
+    [tipX, tipY],
+    [backX + perpX, backY + perpY],
+    [backX - perpX, backY - perpY],
+  ].map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+
+  // Line stops short of the arrowhead's back edge (not the tip) so the stroke's rounded cap
+  // doesn't poke out past/blend into the triangle.
+  const trimmedPoints = [...points.slice(0, -1), [backX, backY]];
+  const path = smoothPath(trimmedPoints);
 
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none" overflow="visible">
       <path d={path} stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={lastX.toFixed(1)} cy={lastY.toFixed(1)} r={1.8} fill={color} />
+      <polygon points={arrowPoints} fill={color} />
     </svg>
   );
 }
