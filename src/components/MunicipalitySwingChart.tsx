@@ -2,6 +2,7 @@
 import { useMemo, useState } from 'react';
 import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { swingColor, quartileSample, formatSwingParts } from '@/lib/swing';
+import { trackEvent } from '@/lib/analytics';
 
 type Row = { psgc: string; adm3_en: string; share_a: number; share_b: number; delta: number };
 
@@ -49,15 +50,17 @@ export default function MunicipalitySwingChart({ rows, province, yearA, yearB }:
   }, [rows, sortKey, sortDir]);
 
   function toggleSort(key: SortKey) {
+    const nextDir: SortDir = sortKey === key ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
     if (sortKey === key) {
-      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+      setSortDir(nextDir);
     } else {
       setSortKey(key);
       // Name defaults A-Z; delta defaults ascending too, which for a signed swing value means
       // biggest drop first — the ordering this list traditionally led with before sort was added.
-      setSortDir('asc');
+      setSortDir(nextDir);
     }
     setExpanded(true);
+    trackEvent('sort_chart', { chart: 'municipality_swing', sort_key: key, sort_dir: nextDir });
   }
 
   if (rows.length === 0) return (
@@ -111,7 +114,7 @@ export default function MunicipalitySwingChart({ rows, province, yearA, yearB }:
           return (
             <div key={row.psgc} className="grid grid-cols-[128px_1fr_52px] gap-2.5 items-center">
               <div className="min-w-0">
-                <p className="text-xs truncate" title={row.adm3_en}>{row.adm3_en}</p>
+                <p className="text-sm truncate" title={row.adm3_en}>{row.adm3_en}</p>
                 {!expanded && label && (
                   <p className="text-xs text-muted-foreground/70 uppercase tracking-wide truncate">
                     {label}
@@ -140,7 +143,10 @@ export default function MunicipalitySwingChart({ rows, province, yearA, yearB }:
 
       {rows.length > SAMPLE_SIZE && (
         <button
-          onClick={() => setExpanded(e => !e)}
+          onClick={() => setExpanded(e => {
+            trackEvent('expand_chart', { chart: 'municipality_swing', expanded: !e });
+            return !e;
+          })}
           className="mt-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           {expanded ? 'Show less' : `Show all ${rows.length} municipalities`}

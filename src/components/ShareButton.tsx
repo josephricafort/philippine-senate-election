@@ -11,9 +11,12 @@ type Props = {
    *  Share pages pass the interactive-explorer deep link (/?candidate=...) here so every share
    *  surface points back into the live map/profile rather than the static share-card page. */
   url?: string;
+  /** Which surface this button lives on — distinguishes clicks on the static share-card pages
+   *  from the senator profile's own share button in click_share analytics. */
+  source?: 'profile_menu' | 'share_card_province' | 'share_card_map';
 };
 
-export default function ShareButton({ title, text, candidateId, url: urlProp }: Props) {
+export default function ShareButton({ title, text, candidateId, url: urlProp, source }: Props) {
   const [copied, setCopied] = useState(false);
 
   async function handleShare() {
@@ -23,14 +26,14 @@ export default function ShareButton({ title, text, candidateId, url: urlProp }: 
     if (navigator.share) {
       try {
         await navigator.share({ title, text, url });
-        trackEvent('click_share', { candidate_id: candidateId ?? 'unknown', method: 'web_share' });
+        trackEvent('click_share', { candidate_id: candidateId ?? 'unknown', method: 'web_share', source: source ?? 'unknown' });
       } catch {
         // User cancelled the share sheet — no-op.
       }
       return;
     }
     await navigator.clipboard.writeText(url);
-    trackEvent('click_share', { candidate_id: candidateId ?? 'unknown', method: 'copy_link' });
+    trackEvent('click_share', { candidate_id: candidateId ?? 'unknown', method: 'copy_link', source: source ?? 'unknown' });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }

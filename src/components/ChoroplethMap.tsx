@@ -698,10 +698,20 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
         paint: { 'fill-pattern': 'no-data-hatch' },
       });
 
-      // Mid-gray rather than black or white — a dark line disappeared into dark ramp fills
-      // (e.g. top rank stops), and a light line would have the same problem against the
-      // palest fills, so neither end-of-ramp color alone stays visible everywhere. Kept
-      // thinner than the province line/halo so the province hierarchy still reads clearly.
+      // Mid-gray core alone disappeared into the darkest ramp fills (e.g. top rank stops),
+      // so — same halo trick as the province lines below — a soft white halo goes under a
+      // dark core to keep the line visible against both pale and near-black fills. Both the
+      // halo and core are kept thinner than their province counterparts so the province
+      // hierarchy still reads clearly at a glance.
+      map.addLayer({
+        id: 'municipalities-outline-halo',
+        type: 'line',
+        source: 'ph-municipalities',
+        paint: {
+          'line-color': 'rgba(255,255,255,0.55)',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 5, 1.2, 10, 2.2],
+        },
+      });
       map.addLayer({
         id: 'municipalities-outline',
         type: 'line',

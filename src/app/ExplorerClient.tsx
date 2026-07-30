@@ -33,6 +33,7 @@ import {
 } from '@/lib/types';
 import { trackEvent } from '@/lib/analytics';
 import { consecutivePairs, type YearPair } from '@/lib/swing';
+import { headlineName } from '@/lib/display-name';
 
 // Browser-only components — SSR-disabled to avoid DOM/ResizeObserver errors
 const ChoroplethMap = dynamic(() => import('@/components/ChoroplethMap'), { ssr: false });
@@ -133,10 +134,10 @@ function ExplorerPageInner() {
     trackEvent('select_metric', { metric: m, previous_metric: metric, candidate_id: selectedSenator?.senator_id });
     setMetric(m);
     // Mirrors handleProfileTabChange's own map-metric nudge, in reverse: picking a metric on the
-    // map's own toggle keeps the profile tab in sync with it too, so Swing and National Trends
-    // read as one selection surfaced in two places rather than two independent pickers that can
-    // drift apart. setProfileTab directly (not handleProfileTabChange) — that function calls
-    // back into handleMetricChange, which would be a no-op loop since m already equals metric.
+    // map's own toggle keeps the profile tab in sync with it too, so Swing and Trends read as
+    // one selection surfaced in two places rather than two independent pickers that can drift
+    // apart. setProfileTab directly (not handleProfileTabChange) — that function calls back into
+    // handleMetricChange, which would be a no-op loop since m already equals metric.
     setProfileTab(m === 'swing' ? 'swing' : 'trends');
   }
 
@@ -148,11 +149,11 @@ function ExplorerPageInner() {
   function handleProfileTabChange(tab: ProfileTab) {
     trackEvent('switch_profile_tab', { tab_name: tab });
     setProfileTab(tab);
-    // Nudge the map to the metric that matches the tab just switched to, so Swing and National
-    // Trends each read as having their own map view — Swing pairs naturally with the swing
-    // metric, National Trends with rank (its default "who's ahead" framing). This is just a
-    // default on switch, not a constraint: MetricToggle still lets the user pick any other
-    // metric afterward, and nothing here forces it back.
+    // Nudge the map to the metric that matches the tab just switched to, so Swing and Trends
+    // each read as having their own map view — Swing pairs naturally with the swing metric,
+    // Trends with rank (its default "who's ahead" framing). This is just a default on switch,
+    // not a constraint: MetricToggle still lets the user pick any other metric afterward, and
+    // nothing here forces it back.
     handleMetricChange(tab === 'swing' ? 'swing' : 'rank');
   }
 
@@ -273,8 +274,8 @@ function ExplorerPageInner() {
     return { provinceTrends, topProvinceNames, provinceRows, muniRowsByProvince };
   }, [selectedSenator, currentCandidateData, nationalTotalsByYear, swingYearPair]);
 
-  // National Trends tab's "share by province/municipality" data — every province/municipality
-  // the candidate has data for in `year`, each with its own multi-year share trend (for the
+  // Trends tab's "share by province/municipality" data — every province/municipality the
+  // candidate has data for in `year`, each with its own multi-year share trend (for the
   // sparkline). Same "reduce to plain props before handing to a client component" shape as
   // swingProps, though size isn't a concern here since ExplorerClient already holds
   // currentCandidateData in full.
@@ -402,7 +403,7 @@ function ExplorerPageInner() {
                       }`}
                     >
                       <TrendingUp className="w-4 h-4" />
-                      National Trends
+                      Vote Share
                     </button>
                   </div>
                 </div>
@@ -472,35 +473,35 @@ function ExplorerPageInner() {
               )}
 
               {/* Vote share trend, Top provinces, and Top municipalities all live under the
-                  National Trends tab — they're separate from the Swing tab's own province/
-                  municipality breakdowns, so both shouldn't be visible at once. */}
+                  Trends tab — they're separate from the Swing tab's own province/municipality
+                  breakdowns, so both shouldn't be visible at once. */}
               {profileTab === 'trends' && (
                 <>
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-medium">
-                      National vote trends
-                    </p>
-                    {selectedSenator.years.length > 1 ? (
+                    <h3 className="text-base font-semibold mb-1">
+                      Vote Share
+                    </h3>
+                    {selectedSenator.years.length > 1 && (
                       <>
+                        <h4 className="text-sm font-semibold mt-4 mb-1">
+                          Nationwide vote share trend across election cycle
+                        </h4>
                         <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                          Vote share earned nationwide in each election this candidate ran in.
-                          Shows whether their overall support grew or shrank over time.
+                          Overall trend nationwide of {headlineName(selectedSenator.senator_name)}&rsquo;s vote share.
                         </p>
                         <TrendChart data={trend} />
                       </>
-                    ) : (
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        Needs at least two runs to show a trend — this candidate has only run once.
-                      </p>
                     )}
                   </div>
 
-                  {nationalTrendsProps ? (
+                  {nationalTrendsProps && selectedSenator ? (
                     <NationalTrendsSection
                       year={year}
+                      candidateId={selectedSenator.senator_id}
                       provinceShares={nationalTrendsProps.provinceShares}
                       topProvinceNames={nationalTrendsProps.topProvinceNames}
                       muniSharesByProvince={nationalTrendsProps.muniSharesByProvince}
+                      singleRun={selectedSenator.years.length === 1}
                     />
                   ) : (
                     <p className="text-muted-foreground text-sm">Loading…</p>

@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { SITE_URL } from '@/lib/site';
 import { loadCandidateIndexServer, loadCandidateDataServer } from '@/lib/data-server';
-import { buildSenatorList, candidateProvinceSwingHeadline } from '@/lib/data';
+import { buildSenatorList, candidateProvinceSwingHeadline, candidateMunicipalitySwingHeadline } from '@/lib/data';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const index = await loadCandidateIndexServer();
@@ -19,8 +19,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.8,
   }));
 
-  // Same eligibility rule as share/province's generateStaticParams: needs at least
-  // two runs, and a computable swing headline for the most recent consecutive pair.
+  // Same eligibility rule as share/province and share/map's generateStaticParams: needs at
+  // least two runs, and a computable swing headline for the most recent consecutive pair.
   // One candidate-file read per eligible senator — cheap relative to the old
   // "load all 7 years upfront" approach, and shares data-server's module-scope promise
   // cache with generateStaticParams if the same build/worker already warmed it.
@@ -35,6 +35,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (candidateProvinceSwingHeadline(candidate, senator, yearA, yearB)) {
       shareRoutes.push({
         url: `${SITE_URL}/senator/${senator.senator_id}/share/province`,
+        changeFrequency: 'yearly',
+        priority: 0.4,
+      });
+    }
+    if (candidateMunicipalitySwingHeadline(candidate, senator, yearA, yearB)) {
+      shareRoutes.push({
+        url: `${SITE_URL}/senator/${senator.senator_id}/share/map`,
         changeFrequency: 'yearly',
         priority: 0.4,
       });

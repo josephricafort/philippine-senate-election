@@ -53,7 +53,7 @@ export default function ProfileShareMenu({ url, text, candidateId }: Props) {
 
   async function copyLink() {
     await navigator.clipboard.writeText(shareUrl);
-    trackEvent('click_share', { candidate_id: candidateId, method: 'copy_link' });
+    trackEvent('click_share', { candidate_id: candidateId, method: 'copy_link', source: 'profile_menu' });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -75,7 +75,7 @@ export default function ProfileShareMenu({ url, text, candidateId }: Props) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => {
-              trackEvent('click_share', { candidate_id: candidateId, method: 'platform_facebook' });
+              trackEvent('click_share', { candidate_id: candidateId, method: 'platform_facebook', source: 'profile_menu' });
               setOpen(false);
             }}
             title="Share on Facebook"
@@ -91,7 +91,7 @@ export default function ProfileShareMenu({ url, text, candidateId }: Props) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => {
-              trackEvent('click_share', { candidate_id: candidateId, method: 'platform_x' });
+              trackEvent('click_share', { candidate_id: candidateId, method: 'platform_x', source: 'profile_menu' });
               setOpen(false);
             }}
             title="Share on X"
@@ -107,7 +107,7 @@ export default function ProfileShareMenu({ url, text, candidateId }: Props) {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => {
-              trackEvent('click_share', { candidate_id: candidateId, method: 'platform_linkedin' });
+              trackEvent('click_share', { candidate_id: candidateId, method: 'platform_linkedin', source: 'profile_menu' });
               setOpen(false);
             }}
             title="Share on LinkedIn"

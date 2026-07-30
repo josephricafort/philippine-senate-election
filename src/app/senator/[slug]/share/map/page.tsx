@@ -5,9 +5,14 @@ import { ArrowLeft } from 'lucide-react';
 
 import ShareButton from '@/components/ShareButton';
 import PlatformShareLinks from '@/components/PlatformShareLinks';
+import ShareBarChart from '@/components/ShareBarChart';
 import SiteHeader from '@/components/SiteHeader';
+import ShareCardViewTracker from '@/components/ShareCardViewTracker';
 import { loadCandidateIndexServer, loadCandidateDataServer } from '@/lib/data-server';
-import { buildSenatorList, candidateMunicipalitySwingHeadline, resolveShareYearPair } from '@/lib/data';
+import {
+  buildSenatorList, candidateMunicipalitySwingHeadline, candidateTopProvincesHeadline, resolveShareYearPair,
+  type MunicipalitySwingHeadline, type TopProvincesHeadline,
+} from '@/lib/data';
 import type { Senator } from '@/lib/types';
 
 type Props = {
@@ -15,19 +20,35 @@ type Props = {
   searchParams: Promise<{ yearA?: string; yearB?: string }>;
 };
 
+type HeadlineResult =
+  | { kind: 'swing'; data: MunicipalitySwingHeadline }
+  | { kind: 'top'; data: TopProvincesHeadline };
+
 async function getSenator(slug: string): Promise<Senator | null> {
   const index = await loadCandidateIndexServer();
   const senators = buildSenatorList(index);
   return senators.find(s => s.senator_id === slug) ?? null;
 }
 
-async function getHeadline(senator: Senator, query: { yearA?: string; yearB?: string }) {
-  const pair = resolveShareYearPair(senator, query);
-  if (!pair) return null;
-  const [yearA, yearB] = pair;
+// Prefers the municipality-swing headline for the resolved year pair; falls back to "top
+// provinces by vote share" for the candidate's latest run when there's no swing data (single-run
+// candidates, or a year pair with zero comparable municipalities) — there's no meaningful "map"
+// to draw without a second year to diff against, so this reuses the same fallback the
+// province-swing share page uses rather than 404ing. See candidateTopProvincesHeadline for why
+// the fallback itself can't return null for any candidate with real votes.
+async function getHeadline(senator: Senator, query: { yearA?: string; yearB?: string }): Promise<HeadlineResult | null> {
   const candidate = await loadCandidateDataServer(senator.senator_id);
-  if (!candidate.years[String(yearA)] || !candidate.years[String(yearB)]) return null;
-  return candidateMunicipalitySwingHeadline(candidate, senator, yearA, yearB);
+  const pair = resolveShareYearPair(senator, query);
+  if (pair) {
+    const [yearA, yearB] = pair;
+    if (candidate.years[String(yearA)] && candidate.years[String(yearB)]) {
+      const swing = candidateMunicipalitySwingHeadline(candidate, senator, yearA, yearB);
+      if (swing) return { kind: 'swing', data: swing };
+    }
+  }
+  const latestYear = Math.max(...senator.years);
+  const top = candidateTopProvincesHeadline(candidate, senator, latestYear);
+  return top ? { kind: 'top', data: top } : null;
 }
 
 export async function generateStaticParams() {
@@ -35,15 +56,8 @@ export async function generateStaticParams() {
   const senators = buildSenatorList(index);
   const eligible: { slug: string }[] = [];
   for (const senator of senators) {
-    const runs = [...senator.years].sort((a, b) => a - b);
-    if (runs.length < 2) continue;
-    const yearA = runs[runs.length - 2];
-    const yearB = runs[runs.length - 1];
-    const candidate = await loadCandidateDataServer(senator.senator_id);
-    if (!candidate.years[String(yearA)] || !candidate.years[String(yearB)]) continue;
-    if (candidateMunicipalitySwingHeadline(candidate, senator, yearA, yearB)) {
-      eligible.push({ slug: senator.senator_id });
-    }
+    if (senator.years.length === 0) continue;
+    eligible.push({ slug: senator.senator_id });
   }
   return eligible;
 }
@@ -58,11 +72,17 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   if (!result) return { title: 'Candidate not found' };
 
   // Same reasoning as the province-swing card: the headline itself is the title, and image
-  // dimensions must match the og-image route's actual output (1200x630) exactly.
-  const title = result.headline;
-  const description = `Municipality swing map, ${result.yearA} → ${result.yearB}. Explore all Philippine senate election data since 2007.`;
-  const imageUrl = `/senator/${senator.senator_id}/share/map/og-image?yearA=${result.yearA}&yearB=${result.yearB}`;
-  const imageAlt = result.headline;
+  // dimensions must match the og-image route's actual output (1200x630) exactly. The route
+  // resolves the same swing-or-top-provinces fallback from the same query params, so this URL
+  // works whether `result` ended up being swing or top-provinces.
+  const title = result.data.headline;
+  const description = result.kind === 'swing'
+    ? `Municipality swing map, ${result.data.yearA} → ${result.data.yearB}. Explore all Philippine senate election data since 2007.`
+    : `Vote share by province, ${result.data.year}. Explore all Philippine senate election data since 2007.`;
+  const imageUrl = result.kind === 'swing'
+    ? `/senator/${senator.senator_id}/share/map/og-image?yearA=${result.data.yearA}&yearB=${result.data.yearB}`
+    : `/senator/${senator.senator_id}/share/map/og-image`;
+  const imageAlt = result.data.headline;
 
   return {
     title,
@@ -93,17 +113,37 @@ export default async function MapSwingSharePage({ params, searchParams }: Props)
   const result = await getHeadline(senator, query);
   if (!result) notFound();
 
-  const shareQuery = `?yearA=${result.yearA}&yearB=${result.yearB}`;
   // Every share surface on this page (Facebook, X, copy-link, native share, "See full profile")
-  // points at the interactive explorer, deep-linked to this candidate and year pair, rather than
-  // this static share-card page — so anyone who opens a shared link lands in the live map/profile.
-  // view=map tells the explorer's own generateMetadata (src/app/page.tsx) which headline/og-image
-  // to resolve — without it, that page can't distinguish a map share from a province share since
-  // both otherwise produce the identical ?candidate=&yearA=&yearB= shape.
-  const exploreUrl = `/?candidate=${senator.senator_id}&yearA=${result.yearA}&yearB=${result.yearB}&view=map`;
+  // points at the interactive explorer, deep-linked to this candidate, rather than this static
+  // share-card page — so anyone who opens a shared link lands in the live map/profile. For the
+  // swing case, view=map + the year pair tells the explorer's own generateMetadata
+  // (src/app/page.tsx) which headline/og-image to resolve; the top-provinces fallback has no
+  // year-pair/view concept to hand off, so it just deep-links the candidate.
+  const shareQuery = result.kind === 'swing' ? `?yearA=${result.data.yearA}&yearB=${result.data.yearB}` : '';
+  const imageUrl = `/senator/${senator.senator_id}/share/map/og-image${shareQuery}`;
+  const exploreUrl = result.kind === 'swing'
+    ? `/?candidate=${senator.senator_id}&yearA=${result.data.yearA}&yearB=${result.data.yearB}&view=map`
+    : `/?candidate=${senator.senator_id}`;
+  const shareTitle = result.kind === 'swing'
+    ? `${senator.senator_name} — Municipality swing map, ${result.data.yearA} → ${result.data.yearB}`
+    : `${senator.senator_name} — Vote share by province, ${result.data.year}`;
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {result.kind === 'swing' ? (
+        <ShareCardViewTracker
+          candidateId={senator.senator_id}
+          cardType="map_swing"
+          yearA={result.data.yearA}
+          yearB={result.data.yearB}
+        />
+      ) : (
+        <ShareCardViewTracker
+          candidateId={senator.senator_id}
+          cardType="top_provinces"
+          yearA={result.data.year}
+        />
+      )}
       <SiteHeader />
 
       <main className="max-w-3xl mx-auto px-4 md:px-6 py-8 space-y-6">
@@ -120,27 +160,45 @@ export default async function MapSwingSharePage({ params, searchParams }: Props)
         <div className="rounded-2xl overflow-hidden border">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`/senator/${senator.senator_id}/share/map/og-image${shareQuery}`}
-            alt={result.headline}
+            src={imageUrl}
+            alt={result.data.headline}
             className="w-full block"
           />
         </div>
+
+        {result.kind === 'top' && (
+          // Full top-15 list (the og-image above only fits 10) — same bar+rank presentation as
+          // the Trends tab's "Share by province" table, just fed this candidate's single latest
+          // year instead of every province they have data for.
+          <ShareBarChart
+            title={`Share by province · ${result.data.year}`}
+            rows={result.data.rows.map(r => ({ key: r.adm2_en, name: r.adm2_en, vote_share: r.vote_share, rank: r.rank, trend: [] }))}
+            nameHeader="Province"
+            shareHeader="Share"
+            sampleSize={15}
+            emptyMessage="No province data available."
+            year={result.data.year}
+            singleRun
+          />
+        )}
 
         <div>
           <p className="text-base font-semibold mb-3">Share this</p>
           <PlatformShareLinks
             url={exploreUrl}
-            title={`${senator.senator_name} — Municipality swing map, ${result.yearA} → ${result.yearB}`}
-            xText={result.headline}
+            title={shareTitle}
+            xText={result.data.headline}
             candidateId={senator.senator_id}
+            source="share_card_map"
           />
         </div>
 
         <ShareButton
-          title={`${senator.senator_name} — Municipality swing map`}
-          text={result.headline}
+          title={shareTitle}
+          text={result.data.headline}
           candidateId={senator.senator_id}
           url={exploreUrl}
+          source="share_card_map"
         />
 
         <Link

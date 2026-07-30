@@ -465,6 +465,36 @@ export function candidateTopProvinces(
     .slice(0, n);
 }
 
+export type TopProvincesHeadline = {
+  senatorName: string;
+  year: number;
+  /** Top-15 provinces by vote_share, descending — sized to fill the og-image's bar-chart
+   *  column the same way ProvinceSwingHeadline.sample does, just ranked by raw share instead
+   *  of sampled across a delta-sorted distribution (there's no "biggest drop/gain" axis here). */
+  rows: { adm2_en: string; vote_share: number; rank: number }[];
+  /** Plain-text headline for metadata/alt text and the share-card title — no markup. */
+  headline: string;
+};
+
+// Fallback headline for candidates with no swing data (single-run candidates, or a year pair
+// with zero comparable provinces) — used by the share/map and share/province pages instead of
+// notFound() so a shared link always produces a working card. Ranks by vote_share alone since
+// there's no second year to diff against; unlike the swing headlines this never returns null
+// for a candidate with any province data at all, which is any candidate with real votes.
+export function candidateTopProvincesHeadline(
+  candidate: CandidateData,
+  senator: Senator,
+  year: number
+): TopProvincesHeadline | null {
+  const rows = candidateTopProvinces(candidate, year, 15);
+  if (rows.length === 0) return null;
+
+  const name = headlineName(senator.senator_name);
+  const headline = `${name} got the highest share of votes in these provinces in ${year}.`;
+
+  return { senatorName: senator.senator_name, year, rows, headline };
+}
+
 // Vote share per year for a senator (for the trend chart). nationalTotalsByYear supplies the
 // "total votes cast nationally that year, across every candidate" denominator — build it by
 // summing national_{year}.json via nationalTotalVotes() for each year the candidate ran.
@@ -557,13 +587,13 @@ export function candidateMunicipalitySwing(
 }
 
 // Every province a senator has data for in a given year, with vote_share plus that province's
-// share trend across every year the senator ran — feeds the National Trends tab's "Share by
-// province" table (bar + sparkline), as opposed to candidateTopProvinces which only returns the
-// top N with rank, or candidateProvinceShareTrend which returns one province's own trend.
+// share trend across every year the senator ran — feeds the Trends tab's "Share by province"
+// table (bar + sparkline), as opposed to candidateTopProvinces which only returns the top N with
+// rank, or candidateProvinceShareTrend which returns one province's own trend.
 export function candidateAllProvinceShares(
   candidate: CandidateData,
   year: number
-): { adm2_en: string; vote_share: number; trend: { year: number; vote_share: number }[] }[] {
+): { adm2_en: string; vote_share: number; rank: number; trend: { year: number; vote_share: number }[] }[] {
   const yearData = candidate.years[String(year)];
   if (!yearData?.provinces) return [];
   return Object.entries(yearData.provinces).map(([adm2_en, p]) => {
@@ -571,7 +601,7 @@ export function candidateAllProvinceShares(
       .map(([yearStr, yd]) => ({ year: Number(yearStr), vote_share: yd.provinces?.[adm2_en]?.vote_share }))
       .filter((t): t is { year: number; vote_share: number } => t.vote_share !== undefined)
       .sort((a, b) => a.year - b.year);
-    return { adm2_en, vote_share: p.vote_share, trend };
+    return { adm2_en, vote_share: p.vote_share, rank: p.rank, trend };
   });
 }
 
@@ -583,7 +613,7 @@ export function candidateAllMunicipalityShares(
   candidate: CandidateData,
   year: number,
   adm2_en: string
-): { psgc: string; adm3_en: string; vote_share: number; trend: { year: number; vote_share: number }[] }[] {
+): { psgc: string; adm3_en: string; vote_share: number; rank: number; trend: { year: number; vote_share: number }[] }[] {
   const yearData = candidate.years[String(year)];
   if (!yearData) return [];
   return Object.entries(yearData.municipalities)
@@ -593,7 +623,7 @@ export function candidateAllMunicipalityShares(
         .map(([yearStr, yd]) => ({ year: Number(yearStr), vote_share: yd.municipalities[psgc]?.vote_share }))
         .filter((t): t is { year: number; vote_share: number } => t.vote_share !== undefined)
         .sort((a, b) => a.year - b.year);
-      return { psgc, adm3_en: m.adm3_en, vote_share: m.vote_share, trend };
+      return { psgc, adm3_en: m.adm3_en, vote_share: m.vote_share, rank: m.rank, trend };
     });
 }
 

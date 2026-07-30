@@ -126,7 +126,9 @@ export default function ProvinceSwingChart({ province, trend, contextTrends }: P
             {province}
           </div>
           <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
-            <span className="w-1.5 h-1.5 rounded-full border border-dashed border-muted-foreground shrink-0" />
+            <svg width="14" height="2" className="shrink-0" aria-hidden="true">
+              <line x1="0" y1="1" x2="14" y2="1" stroke="#3f3f46" strokeWidth="1.5" strokeDasharray="3 3" />
+            </svg>
             {contextTrends.map(c => c.adm2_en).join(', ')} (context)
           </div>
         </div>

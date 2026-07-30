@@ -105,7 +105,7 @@ export default async function SenatorPage({ params }: Props) {
     }
   }
 
-  // National Trends tab's "share by province/municipality" data — see ExplorerClient's
+  // Trends tab's "share by province/municipality" data — see ExplorerClient's
   // nationalTrendsProps for the equivalent client-side computation.
   const provinceShares = candidateAllProvinceShares(candidate, latestYear);
   const trendsTopProvinceNames = candidateTopProvinces(candidate, latestYear, 4).map(p => p.adm2_en);
@@ -152,6 +152,7 @@ export default async function SenatorPage({ params }: Props) {
             title={`${senator.senator_name} — Philippine Senate Election Results`}
             text={`${senator.senator_name}'s senate voting results, ${senator.years[0]}–${senator.years[senator.years.length - 1]}`}
             candidateId={senator.senator_id}
+            source="profile_menu"
           />
         </div>
       </header>
@@ -203,9 +204,11 @@ export default async function SenatorPage({ params }: Props) {
         <Suspense fallback={null}>
           <NationalTrendsSection
             year={latestYear}
+            candidateId={senator.senator_id}
             provinceShares={provinceShares}
             topProvinceNames={trendsTopProvinceNames}
             muniSharesByProvince={muniSharesByProvince}
+            singleRun={senator.years.length === 1}
           />
         </Suspense>
 

@@ -2,11 +2,13 @@
 import { useMemo, useState } from 'react';
 import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { yearColor } from '@/lib/year-colors';
+import { trackEvent } from '@/lib/analytics';
 
 type Row = {
   key: string;
   name: string;
   vote_share: number;
+  rank: number;
   trend: { year: number; vote_share: number }[];
 };
 
@@ -20,6 +22,10 @@ type Props = {
   /** Election year this data is for — tints the bar fill with that year's accent color instead
    *  of plain white, so the chart's mood matches the map/pills for the same year. */
   year: number;
+  /** True if the candidate has only ever run once — a trend sparkline has nothing to show in
+   *  that case (every row's trend is a single point), so the last column shows each row's rank
+   *  within that area instead. */
+  singleRun: boolean;
 };
 
 type SortKey = 'name' | 'share';
@@ -122,7 +128,7 @@ function SortButton({ label, active, dir, onClick }: { label: string; active: bo
 // single left-anchored fill since share has no "gain/loss" direction) plus a mini sparkline of
 // the area's share across every year the candidate ran, in place of a rank badge. Sortable by
 // name or share; trend is display-only (sorting by trend shape isn't a meaningful operation).
-export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sampleSize, emptyMessage, year }: Props) {
+export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sampleSize, emptyMessage, year, singleRun }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('share');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -148,12 +154,14 @@ export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sa
   const barColor = yearColor(year);
 
   function toggleSort(key: SortKey) {
+    const nextDir: SortDir = sortKey === key ? (sortDir === 'asc' ? 'desc' : 'asc') : (key === 'name' ? 'asc' : 'desc');
     if (sortKey === key) {
-      setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+      setSortDir(nextDir);
     } else {
       setSortKey(key);
-      setSortDir(key === 'name' ? 'asc' : 'desc');
+      setSortDir(nextDir);
     }
+    trackEvent('sort_chart', { chart: 'share_bar', sort_key: key, sort_dir: nextDir });
   }
 
   return (
@@ -165,7 +173,7 @@ export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sa
         <div className="flex justify-end">
           <SortButton label={shareHeader} active={sortKey === 'share'} dir={sortDir} onClick={() => toggleSort('share')} />
         </div>
-        <span className="text-right">Trend</span>
+        <span className="text-right">{singleRun ? 'Rank' : 'Trend'}</span>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -174,7 +182,7 @@ export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sa
           return (
             <div key={row.key} className="grid grid-cols-[128px_1fr_44px] gap-2.5 items-center">
               <div className="min-w-0">
-                <p className="text-xs truncate" title={row.name}>{row.name}</p>
+                <p className="text-sm truncate" title={row.name}>{row.name}</p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="relative h-[18px] bg-border rounded-[3px] overflow-hidden flex-1">
@@ -188,7 +196,11 @@ export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sa
                 </p>
               </div>
               <div className="flex justify-end">
-                <Sparkline trend={row.trend} />
+                {singleRun ? (
+                  <p className="font-mono text-xs text-muted-foreground tabular-nums">#{row.rank}</p>
+                ) : (
+                  <Sparkline trend={row.trend} />
+                )}
               </div>
             </div>
           );
@@ -197,7 +209,10 @@ export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sa
 
       {rows.length > sampleSize && (
         <button
-          onClick={() => setExpanded(e => !e)}
+          onClick={() => setExpanded(e => {
+            trackEvent('expand_chart', { chart: 'share_bar', expanded: !e });
+            return !e;
+          })}
           className="mt-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           {expanded ? 'Show less' : `Show all ${rows.length}`}

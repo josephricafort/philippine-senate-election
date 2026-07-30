@@ -26,6 +26,10 @@ const faqs = [
     question: 'Why might a candidate’s numbers here differ from other sources?',
     answer: 'Some municipalities are missing from the underlying source files. Where a municipality is missing, its votes are absent from every total, rank, and vote share computed from this dataset, including national and provincial figures, so outcomes shown can diverge from the official count.',
   },
+  {
+    question: 'Why do some "provinces" show up as cities, like Davao City or Cebu City?',
+    answer: 'Highly Urbanized Cities (HUCs) — Davao City, Cebu City, Iloilo City, and others, plus every city in Metro Manila — are administratively independent of the province they sit in, so their voters do not take part in provincial elections. Philippine geographic data reports each HUC as its own unit rather than folding it into the province around it, so both may appear side by side here, for example "Cebu" and "Cebu City" as separate entries. On the map, Metro Manila’s cities are merged into one "Metro Manila" area; other HUCs are still shown as their own standalone shape.',
+  },
 ];
 
 const datasetJsonLd = {
@@ -128,19 +132,46 @@ export default function MethodologyPage() {
           </p>
           <ul className="list-disc list-outside pl-5 space-y-1.5">
             <li>
-              <span className="text-foreground">2022 and 2025</span> — Publicly available
-              official results.
+              <span className="text-foreground">2025</span> — Publicly available official
+              results. Source:{' '}
+              <a href="https://2025electionresults.comelec.gov.ph/coc-result" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:no-underline">
+                2025electionresults.comelec.gov.ph
+              </a>.
             </li>
             <li>
-              <span className="text-foreground">2019 and 2016</span> — Manually scraped from
-              source.
+              <span className="text-foreground">2022</span> — Publicly available official
+              results. Source:{' '}
+              <a href="https://comelec.gov.ph/?r=2022NLE/ElectionResults_/SenatorialSummaryStatementofVotes" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:no-underline">
+                comelec.gov.ph
+              </a>.
+            </li>
+            <li>
+              <span className="text-foreground">2019</span> — Manually scraped from source.{' '}
+              <a href="https://comelec.gov.ph/?r=2019NLE/ElectionResults_/SenatorialSummaryStatementofVotes" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:no-underline">
+                comelec.gov.ph
+              </a> (unverified — please confirm this page is still live before publishing).
+            </li>
+            <li>
+              <span className="text-foreground">2016</span> — Manually scraped from source, a
+              dedicated COMELEC results microsite for that election that is likely no longer
+              live. Linked to the COMELEC homepage as a fallback:{' '}
+              <a href="https://comelec.gov.ph" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:no-underline">
+                comelec.gov.ph
+              </a> (unverified — please confirm or replace).
             </li>
             <li>
               <span className="text-foreground">2013 and 2007</span> — Sourced from NAMFREL
-              archives. These were already tabulated but required manual cleaning before use.
+              archives. These were already tabulated but required manual cleaning before use.{' '}
+              <a href="https://namfrel.org.ph" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:no-underline">
+                namfrel.org.ph
+              </a> (unverified — domain and liveness unconfirmed, please check before publishing).
             </li>
             <li>
               <span className="text-foreground">2010</span> — Sourced from COMELEC archives.
+              Source:{' '}
+              <a href="https://comelec.gov.ph/?r=2010NLE" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:no-underline">
+                comelec.gov.ph
+              </a>.
             </li>
           </ul>
         </Section>
@@ -307,6 +338,12 @@ export default function MethodologyPage() {
             project, not affiliated with or verified by COMELEC. If a number looks wrong,
             treat it as a reason to verify against COMELEC&apos;s official results, not as
             certain.
+          </p>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Province-level charts, tables, and the map also list Highly Urbanized Cities
+            (Davao City, Cebu City, Iloilo City, and others) as their own entries alongside
+            their geographic province, since these cities are administratively independent
+            and are reported separately in the underlying data. See the FAQ below for details.
           </p>
         </div>
       </main>

@@ -39,10 +39,22 @@ export type AnalyticsEvent =
     } }
   | { name: 'switch_mobile_tab'; params: { tab_name: string } }
   | { name: 'switch_profile_tab'; params: { tab_name: string } }
-  | { name: 'select_swing_province'; params: { province: string; candidate_id: string } }
+  | { name: 'select_province'; params: { province: string; candidate_id: string; context: 'swing' | 'trends' } }
+  | { name: 'sort_chart'; params: {
+      chart: 'municipality_swing' | 'province_swing' | 'share_bar'; sort_key: string; sort_dir: 'asc' | 'desc';
+    } }
+  | { name: 'expand_chart'; params: { chart: 'municipality_swing' | 'province_swing' | 'share_bar'; expanded: boolean } }
   | { name: 'select_swing_year_pair'; params: { year_a: number; year_b: number; candidate_id?: string } }
   | { name: 'click_info_menu'; params: { link_target: string } }
-  | { name: 'click_share'; params: { candidate_id: string; method: 'web_share' | 'copy_link' | 'platform_facebook' | 'platform_messenger' | 'platform_x' | 'platform_linkedin' } }
+  | { name: 'click_share'; params: {
+      candidate_id: string; method: 'web_share' | 'copy_link' | 'platform_facebook' | 'platform_messenger' | 'platform_x' | 'platform_linkedin';
+      source: 'profile_menu' | 'share_card_province' | 'share_card_map' | 'unknown';
+    } }
+  | { name: 'view_share_card'; params: {
+      candidate_id: string; card_type: 'province_swing' | 'map_swing' | 'top_provinces';
+      // top_provinces has only one year (no swing pair to compare) — year_b is omitted for it.
+      year_a: number; year_b?: number;
+    } }
   | { name: 'no_data_for_candidate'; params: { candidate_id: string; year: number } }
   | { name: 'data_fetch_error'; params: { resource: string; error_type: string } };
 

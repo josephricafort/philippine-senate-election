@@ -39,7 +39,9 @@ export default function TrendChart({ data }: Props) {
   return (
     <div className="rounded-xl border bg-card p-4">
       <div className="flex items-start justify-between mb-3.5">
-        <p className="text-sm font-semibold">Vote share, by election</p>
+        <p className="text-sm font-semibold">
+          Nationwide vote share from {data[0].year} to {data[data.length - 1].year}
+        </p>
         {data.length > 1 && <SwingPill delta={swing} />}
       </div>
 

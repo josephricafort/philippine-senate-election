@@ -1,8 +1,11 @@
 import { NextRequest } from 'next/server';
 import { ImageResponse } from 'next/og';
 import { loadCandidateIndexServer, loadCandidateDataServer } from '@/lib/data-server';
-import { buildSenatorList, candidateProvinceSwingHeadline, resolveShareYearPair } from '@/lib/data';
+import {
+  buildSenatorList, candidateProvinceSwingHeadline, candidateTopProvincesHeadline, resolveShareYearPair,
+} from '@/lib/data';
 import { GAIN, LOSS, NEUTRAL, swingColor, formatSwingPt } from '@/lib/swing';
+import { yearColor } from '@/lib/year-colors';
 import { siteUrlFromHeaders } from '@/lib/site';
 
 // A Route Handler rather than the opengraph-image.tsx file convention — that convention's
@@ -36,16 +39,79 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   if (!senator) return new ImageResponse(fallback, SIZE);
 
-  const pair = resolveShareYearPair(senator, { yearA, yearB });
-  if (!pair) return new ImageResponse(fallback, SIZE);
-  const [resolvedYearA, resolvedYearB] = pair;
   const candidate = await loadCandidateDataServer(senator.senator_id);
-  if (!candidate.years[String(resolvedYearA)] || !candidate.years[String(resolvedYearB)]) {
-    return new ImageResponse(fallback, SIZE);
-  }
 
-  const result = candidateProvinceSwingHeadline(candidate, senator, resolvedYearA, resolvedYearB);
-  if (!result) return new ImageResponse(fallback, SIZE);
+  const pair = resolveShareYearPair(senator, { yearA, yearB });
+  const result = pair && candidate.years[String(pair[0])] && candidate.years[String(pair[1])]
+    ? candidateProvinceSwingHeadline(candidate, senator, pair[0], pair[1])
+    : null;
+
+  if (!result) {
+    // No swing data (single-run candidate, or zero comparable provinces for the resolved year
+    // pair) — fall back to "top provinces by vote share" for the candidate's latest run, so a
+    // shared link for e.g. a first-time candidate still produces a real card instead of a 404/
+    // blank image. See candidateTopProvincesHeadline for why this can't return null for any
+    // candidate with real votes.
+    const latestYear = Math.max(...senator.years);
+    const topResult = candidateTopProvincesHeadline(candidate, senator, latestYear);
+    if (!topResult) return new ImageResponse(fallback, SIZE);
+
+    const maxShare = Math.max(...topResult.rows.map(r => r.vote_share), 0.0001);
+    const barColor = yearColor(latestYear);
+    // Top 10 in the image (vs. 15 on the page below it) — 15 rows at a legible height would
+    // either overflow the 630px canvas or shrink the text past readable at social-thumbnail
+    // size; the share page itself shows the full 15-row list.
+    const topRows = topResult.rows.slice(0, 10);
+
+    return new ImageResponse(
+      (
+        <div
+          style={{
+            width: '100%', height: '100%', display: 'flex', background: '#0a0a0a', color: '#fafafa',
+            padding: '48px 56px', fontFamily: 'sans-serif',
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', width: 356, marginRight: 40 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', fontSize: 40, fontWeight: 700, lineHeight: 1.2, letterSpacing: -0.5 }}>
+              {topResult.headline}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', marginTop: 'auto', paddingTop: 24, borderTop: '2px solid rgba(255,255,255,0.1)', gap: 8 }}>
+              <span style={{ display: 'flex', fontSize: 24, color: '#fafafa', fontWeight: 600 }}>
+                Explore all senate election data since 2007 up to present —
+              </span>
+              <span style={{ display: 'flex', fontFamily: 'monospace', fontSize: 24, color: '#a1a1aa' }}>
+                {siteUrlFromHeaders(request.headers).replace(/^https?:\/\//, '')}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
+            {topRows.map(row => {
+              const widthPct = (row.vote_share / maxShare) * 100;
+              return (
+                <div key={row.adm2_en} style={{ display: 'flex', alignItems: 'center', gap: 14, minHeight: 22 }}>
+                  <div style={{ display: 'flex', width: 220, fontSize: 18, lineHeight: 1.2, color: '#fafafa', justifyContent: 'flex-end', textAlign: 'right' }}>
+                    {row.adm2_en}
+                  </div>
+                  <div style={{ display: 'flex', flex: 1, height: 20, background: 'rgba(255,255,255,0.06)', borderRadius: 5, position: 'relative' }}>
+                    <div style={{ display: 'flex', position: 'absolute', left: 0, top: 0, bottom: 0, width: `${widthPct}%`, background: barColor, borderRadius: 3 }} />
+                  </div>
+                  <div style={{ display: 'flex', width: 60, fontSize: 16, fontWeight: 700, color: '#fafafa' }}>
+                    {(row.vote_share * 100).toFixed(1)}%
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ),
+      { ...SIZE, headers: {
+        'Cache-Control': 'public, max-age=0, must-revalidate',
+        'CDN-Cache-Control': 'public, s-maxage=31536000, stale-while-revalidate=86400',
+      } }
+    );
+  }
 
   const maxAbsDelta = Math.max(...result.sample.map(s => Math.abs(s.delta)), 0.01);
 

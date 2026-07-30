@@ -5,8 +5,10 @@ import ProvinceSelect from '@/components/ProvinceSelect';
 import ProvinceSwingChart from '@/components/ProvinceSwingChart';
 import ProvinceSwingBarChart from '@/components/ProvinceSwingBarChart';
 import MunicipalitySwingChart from '@/components/MunicipalitySwingChart';
-import { formatSwingPt, type YearPair } from '@/lib/swing';
+import type { YearPair } from '@/lib/swing';
 import type { Senator } from '@/lib/types';
+import { trackEvent } from '@/lib/analytics';
+import { headlineName } from '@/lib/display-name';
 
 type Point = { year: number; vote_share: number; national_share: number };
 
@@ -26,7 +28,7 @@ type Props = {
   muniRowsByProvince: Record<string, { psgc: string; adm3_en: string; share_a: number; share_b: number; delta: number }[]>;
   /** Which consecutive pair of runs to compare — selected via SwingYearPairSelector in page.tsx. */
   yearPair: YearPair | null;
-  /** Called when the user follows the "See the National Trends instead" link shown for
+  /** Called when the user follows the "See Vote Share Trends instead" link shown for
    *  single-run candidates — lets the parent flip both the profile tab and the map metric. */
   onSwitchToTrends?: () => void;
 };
@@ -58,6 +60,11 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
 
   const provinceTrend = province ? trendByProvince.get(province) ?? [] : [];
 
+  function handleProvinceChange(p: string) {
+    trackEvent('select_province', { province: p, candidate_id: senator.senator_id, context: 'swing' });
+    setProvince(p);
+  }
+
   // Province/municipality swing compares whichever pair the year-pair selector chose.
   const [yearA, yearB] = yearPair ?? [undefined, undefined];
 
@@ -69,9 +76,9 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
   if (senator.years.length < 2) {
     return (
       <div>
-        <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-medium">
-          Where support shifted
-        </p>
+        <h3 className="text-base font-semibold mb-1">
+          Swing Votes
+        </h3>
         <p className="text-sm text-muted-foreground leading-relaxed">
           Swing values are only available for candidates who ran in 2 or more elections.
           {' '}{senator.senator_name} has only run once ({senator.years[0]}), so there&rsquo;s
@@ -84,7 +91,7 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
               onClick={onSwitchToTrends}
               className="text-primary underline underline-offset-2 hover:no-underline"
             >
-              See the National Trends instead
+              See Vote Share Trends instead
             </button>
           </p>
         )}
@@ -102,20 +109,15 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
     : null;
   const latestProvinceIndex = provinceIndexed[provinceIndexed.length - 1];
 
-  // Municipality bar chart: name the biggest mover within the selected province.
-  const biggestMuniMove = muniRows.length > 0
-    ? [...muniRows].sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0]
-    : null;
-
   return (
     <div>
-      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-medium">
-        Where support shifted
-      </p>
+      <h3 className="text-base font-semibold mb-1">
+        Swing Votes
+      </h3>
+
+      <h4 className="text-sm font-semibold mt-4 mb-1">Swing votes by Province</h4>
       <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-        {yearA !== undefined && yearB !== undefined
-          ? `Percentage-point change in vote share by province, ${yearA} → ${yearB}.`
-          : 'Percentage-point change in vote share by province between two consecutive runs.'}
+        {headlineName(senator.senator_name)}&rsquo;s percentage-point change in vote share by province nationwide
       </p>
 
       {yearA !== undefined && (
@@ -131,33 +133,32 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
       )}
 
       <p className="text-sm text-muted-foreground leading-relaxed mb-2">
-        Select a province to see its trend and municipality-level detail.
+        Select a province to see swing trends and swing votes by its municipality
       </p>
       <div className="mb-5">
-        <ProvinceSelect provinces={provinces} value={province} onChange={setProvince} />
+        <ProvinceSelect provinces={provinces} value={province} onChange={handleProvinceChange} />
       </div>
 
       {province && (
         <div className="space-y-6">
-          <div className="rounded-xl border bg-card p-4">
+          <div>
+            <h4 className="text-sm font-semibold mb-1">Swing votes trend in {province}</h4>
             {provinceIndexSwing !== null && latestProvinceIndex !== undefined && (
-              <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-                {latestProvinceIndex >= 1
-                  ? `${province} is a stronghold — ${latestProvinceIndex.toFixed(2)}x the national average as of ${provinceTrend[provinceTrend.length - 1]?.year}.`
-                  : `${province} underperforms the national average — ${latestProvinceIndex.toFixed(2)}x as of ${provinceTrend[provinceTrend.length - 1]?.year}.`}
-                {' '}{provinceIndexSwing >= 0 ? 'Improved' : 'Weakened'} {Math.abs(provinceIndexSwing).toFixed(2)}x since {provinceTrend[0]?.year}.
+              <p className="text-sm text-muted-foreground leading-relaxed mb-2.5">
+                Percentage-point change across election cycles in {province}
               </p>
             )}
-            <ProvinceSwingChart province={province} trend={provinceTrend} contextTrends={contextTrends} />
+            <div className="rounded-xl border bg-card p-4">
+              <ProvinceSwingChart province={province} trend={provinceTrend} contextTrends={contextTrends} />
+            </div>
           </div>
 
           {yearA !== undefined ? (
             <div>
-              {biggestMuniMove && (
-                <p className="text-sm text-muted-foreground leading-relaxed mb-2.5">
-                  Biggest mover in {province}: {biggestMuniMove.adm3_en} {formatSwingPt(biggestMuniMove.delta)} from {yearA} to {yearB}.
-                </p>
-              )}
+              <h4 className="text-sm font-semibold mb-1">Swing votes in {province} by municipality</h4>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-2.5">
+                Percentage-point change in vote share in {province} by municipality
+              </p>
               <MunicipalitySwingChart rows={muniRows} province={province} yearA={yearA} yearB={yearB} />
             </div>
           ) : (

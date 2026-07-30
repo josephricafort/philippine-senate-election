@@ -11,6 +11,7 @@ type Props = {
    *  dialog re-scrapes OG tags and ignores any text passed to it). */
   xText: string;
   candidateId: string;
+  source: 'share_card_province' | 'share_card_map';
 };
 
 function absoluteUrl(path: string): string {
@@ -43,14 +44,14 @@ function isMobile(): boolean {
   return typeof navigator !== 'undefined' && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 }
 
-export default function PlatformShareLinks({ url, title, xText, candidateId }: Props) {
+export default function PlatformShareLinks({ url, title, xText, candidateId, source }: Props) {
   const [copied, setCopied] = useState(false);
   const shareUrl = absoluteUrl(url);
   const mobile = isMobile();
 
   async function copyLink() {
     await navigator.clipboard.writeText(shareUrl);
-    trackEvent('click_share', { candidate_id: candidateId, method: 'copy_link' });
+    trackEvent('click_share', { candidate_id: candidateId, method: 'copy_link', source });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
@@ -61,7 +62,7 @@ export default function PlatformShareLinks({ url, title, xText, candidateId }: P
         href={facebookShareHref(shareUrl)}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={() => trackEvent('click_share', { candidate_id: candidateId, method: 'platform_facebook' })}
+        onClick={() => trackEvent('click_share', { candidate_id: candidateId, method: 'platform_facebook', source })}
         title={title}
         className="flex items-center gap-3 rounded-xl border bg-card p-3.5 hover:bg-accent transition-colors"
       >
@@ -78,7 +79,7 @@ export default function PlatformShareLinks({ url, title, xText, candidateId }: P
       {mobile && (
         <a
           href={messengerDeepLink(shareUrl)}
-          onClick={() => trackEvent('click_share', { candidate_id: candidateId, method: 'platform_messenger' })}
+          onClick={() => trackEvent('click_share', { candidate_id: candidateId, method: 'platform_messenger', source })}
           title={title}
           className="flex items-center gap-3 rounded-xl border bg-card p-3.5 hover:bg-accent transition-colors"
         >
@@ -100,7 +101,7 @@ export default function PlatformShareLinks({ url, title, xText, candidateId }: P
         href={xShareHref(shareUrl)}
         target="_blank"
         rel="noopener noreferrer"
-        onClick={() => trackEvent('click_share', { candidate_id: candidateId, method: 'platform_x' })}
+        onClick={() => trackEvent('click_share', { candidate_id: candidateId, method: 'platform_x', source })}
         title={title}
         className="flex items-center gap-3 rounded-xl border bg-card p-3.5 hover:bg-accent transition-colors"
       >
