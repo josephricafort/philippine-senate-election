@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Share2 } from 'lucide-react';
+import { Check, Link2, Share2 } from 'lucide-react';
 import { trackEvent } from '@/lib/analytics';
 
 type Props = {
@@ -10,8 +10,6 @@ type Props = {
    *  (or without it, for a first-time candidate) — this component just appends the link. */
   text: string;
   candidateId: string;
-  /** Button label — defaults to "Share". */
-  label?: string;
 };
 
 // Facebook's share dialog re-scrapes OG tags and ignores any `quote`/text param for links it
@@ -30,14 +28,22 @@ function xShareHref(url: string, text: string): string {
   return `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
 }
 
-export default function ProfileShareMenu({ url, text, candidateId, label = 'Share' }: Props) {
+// LinkedIn's share-offsite endpoint, like Facebook's, only accepts a URL and re-scrapes OG tags
+// for the card — no text/caption param exists to prefill.
+function linkedinShareHref(url: string): string {
+  return `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
+}
+
+export default function ProfileShareMenu({ url, text, candidateId }: Props) {
   const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}${url}` : url;
 
   useEffect(() => {
     if (!open) return;
     function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
         setOpen(false);
       }
     }
@@ -45,20 +51,25 @@ export default function ProfileShareMenu({ url, text, candidateId, label = 'Shar
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [open]);
 
-  const shareUrl = typeof window !== 'undefined' ? `${window.location.origin}${url}` : url;
+  async function copyLink() {
+    await navigator.clipboard.writeText(shareUrl);
+    trackEvent('click_share', { candidate_id: candidateId, method: 'copy_link' });
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="relative" ref={wrapperRef}>
       <button
         onClick={() => setOpen(o => !o)}
         className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all shrink-0"
       >
         <Share2 className="w-3 h-3" />
-        {label}
+        Share candidate
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border bg-card shadow-lg overflow-hidden z-20">
+        <div className="absolute right-0 top-full mt-2 flex items-center gap-1.5 rounded-full border bg-card shadow-lg px-2.5 py-1.5 z-20">
           <a
             href={facebookShareHref(shareUrl)}
             target="_blank"
@@ -67,12 +78,12 @@ export default function ProfileShareMenu({ url, text, candidateId, label = 'Shar
               trackEvent('click_share', { candidate_id: candidateId, method: 'platform_facebook' });
               setOpen(false);
             }}
-            className="flex items-center gap-3 px-3.5 py-3 hover:bg-accent transition-colors"
+            title="Share on Facebook"
+            aria-label="Share on Facebook"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 hover:opacity-90 active:scale-95 transition-all"
+            style={{ background: '#1877f2' }}
           >
-            <div className="w-7 h-7 rounded-md flex items-center justify-center text-white font-bold text-sm shrink-0" style={{ background: '#1877f2' }}>
-              f
-            </div>
-            <span className="text-sm font-medium">Facebook</span>
+            f
           </a>
 
           <a
@@ -83,13 +94,38 @@ export default function ProfileShareMenu({ url, text, candidateId, label = 'Shar
               trackEvent('click_share', { candidate_id: candidateId, method: 'platform_x' });
               setOpen(false);
             }}
-            className="flex items-center gap-3 px-3.5 py-3 hover:bg-accent transition-colors border-t"
+            title="Share on X"
+            aria-label="Share on X"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 border hover:opacity-90 active:scale-95 transition-all"
+            style={{ background: '#000' }}
           >
-            <div className="w-7 h-7 rounded-md flex items-center justify-center text-white font-bold text-sm shrink-0 border" style={{ background: '#000' }}>
-              &#120143;
-            </div>
-            <span className="text-sm font-medium">X</span>
+            &#120143;
           </a>
+
+          <a
+            href={linkedinShareHref(shareUrl)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => {
+              trackEvent('click_share', { candidate_id: candidateId, method: 'platform_linkedin' });
+              setOpen(false);
+            }}
+            title="Share on LinkedIn"
+            aria-label="Share on LinkedIn"
+            className="w-7 h-7 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 hover:opacity-90 active:scale-95 transition-all"
+            style={{ background: '#0a66c2' }}
+          >
+            in
+          </a>
+
+          <button
+            onClick={copyLink}
+            title="Copy link"
+            aria-label="Copy link"
+            className="w-7 h-7 rounded-full flex items-center justify-center bg-muted text-muted-foreground shrink-0 hover:opacity-90 active:scale-95 transition-all"
+          >
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
+          </button>
         </div>
       )}
     </div>

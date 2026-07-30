@@ -42,7 +42,7 @@ export type AnalyticsEvent =
   | { name: 'select_swing_province'; params: { province: string; candidate_id: string } }
   | { name: 'select_swing_year_pair'; params: { year_a: number; year_b: number; candidate_id?: string } }
   | { name: 'click_info_menu'; params: { link_target: string } }
-  | { name: 'click_share'; params: { candidate_id: string; method: 'web_share' | 'copy_link' | 'platform_facebook' | 'platform_messenger' | 'platform_x' } }
+  | { name: 'click_share'; params: { candidate_id: string; method: 'web_share' | 'copy_link' | 'platform_facebook' | 'platform_messenger' | 'platform_x' | 'platform_linkedin' } }
   | { name: 'no_data_for_candidate'; params: { candidate_id: string; year: number } }
   | { name: 'data_fetch_error'; params: { resource: string; error_type: string } };
 

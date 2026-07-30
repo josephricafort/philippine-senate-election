@@ -60,6 +60,7 @@ export default function NationalTrendsSection({ year, provinceShares, topProvinc
           shareHeader="Share w/in Prov."
           sampleSize={7}
           emptyMessage="No province data"
+          year={year}
         />
       </div>
 
@@ -78,6 +79,7 @@ export default function NationalTrendsSection({ year, provinceShares, topProvinc
           shareHeader="Share w/in Muni."
           sampleSize={5}
           emptyMessage={`No municipality data for ${province}`}
+          year={year}
         />
       )}
     </div>

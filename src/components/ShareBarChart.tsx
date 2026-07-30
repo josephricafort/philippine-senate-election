@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { yearColor } from '@/lib/year-colors';
 
 type Row = {
   key: string;
@@ -16,6 +17,9 @@ type Props = {
   shareHeader: string;
   sampleSize: number;
   emptyMessage: string;
+  /** Election year this data is for — tints the bar fill with that year's accent color instead
+   *  of plain white, so the chart's mood matches the map/pills for the same year. */
+  year: number;
 };
 
 type SortKey = 'name' | 'share';
@@ -94,7 +98,7 @@ function SortButton({ label, active, dir, onClick }: { label: string; active: bo
 // single left-anchored fill since share has no "gain/loss" direction) plus a mini sparkline of
 // the area's share across every year the candidate ran, in place of a rank badge. Sortable by
 // name or share; trend is display-only (sorting by trend shape isn't a meaningful operation).
-export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sampleSize, emptyMessage }: Props) {
+export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sampleSize, emptyMessage, year }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('share');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -117,6 +121,7 @@ export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sa
 
   const maxShare = Math.max(...rows.map(r => r.vote_share), 0.0001);
   const visible = expanded ? sorted : sorted.slice(0, sampleSize);
+  const barColor = yearColor(year);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -150,8 +155,8 @@ export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sa
               <div className="flex items-center gap-2">
                 <div className="relative h-[18px] bg-border rounded overflow-hidden flex-1">
                   <div
-                    className="absolute top-px bottom-px left-px rounded-sm bg-white/70"
-                    style={{ width: `${widthPct}%` }}
+                    className="absolute top-px bottom-px left-px rounded-sm"
+                    style={{ width: `${widthPct}%`, background: barColor }}
                   />
                 </div>
                 <p className="font-mono text-xs font-semibold text-right tabular-nums w-11 shrink-0">
