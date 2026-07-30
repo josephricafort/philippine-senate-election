@@ -88,7 +88,7 @@ export default function ProvinceSwingBarChart({ rows, senatorId, senatorName, ye
             href={`/senator/${senatorId}/share/province?yearA=${yearA}&yearB=${yearB}`}
             title="Share this chart"
             aria-label="Share this chart"
-            className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all"
+            className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all"
           >
             <Share2 className="w-3 h-3" />
             Share chart
@@ -96,7 +96,7 @@ export default function ProvinceSwingBarChart({ rows, senatorId, senatorName, ye
         </div>
       </div>
 
-      <div className="grid grid-cols-[128px_1fr_52px] gap-2.5 mb-2 text-[11px] text-muted-foreground">
+      <div className="grid grid-cols-[128px_1fr_52px] gap-2.5 mb-2 text-xs text-muted-foreground">
         {/* active only once expanded — the collapsed rows are the curated quartile sample below,
             not actually sorted by sortKey, so neither header should look "active" until sorting
             is the thing actually driving what's visible. */}
@@ -109,7 +109,7 @@ export default function ProvinceSwingBarChart({ rows, senatorId, senatorName, ye
 
       <div className="grid grid-cols-[128px_1fr_52px] gap-2.5 mb-2">
         <div />
-        <div className="flex justify-between font-mono text-[9px] text-muted-foreground/70">
+        <div className="flex justify-between font-mono text-xs text-muted-foreground/70">
           <span>−{(maxAbsDelta * 100).toFixed(0)}pt</span>
           <span>0</span>
           <span>+{(maxAbsDelta * 100).toFixed(0)}pt</span>
@@ -128,7 +128,7 @@ export default function ProvinceSwingBarChart({ rows, senatorId, senatorName, ye
               <div className="min-w-0">
                 <p className="text-xs truncate" title={row.adm2_en}>{row.adm2_en}</p>
                 {!expanded && label && (
-                  <p className="text-[9px] font-mono text-muted-foreground/70 uppercase tracking-wide truncate">
+                  <p className="text-xs text-muted-foreground/70 uppercase tracking-wide truncate">
                     {label}
                   </p>
                 )}

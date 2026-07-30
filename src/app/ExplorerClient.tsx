@@ -572,7 +572,7 @@ function ExplorerPageInner() {
             href={`/senator/${selectedSenator.senator_id}/share/map?yearA=${swingYears[0]}&yearB=${swingYears[1]}`}
             title="Share this swing map"
             aria-label="Share this swing map"
-            className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all shrink-0 ml-auto"
+            className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all shrink-0 ml-auto"
           >
             <Share2 className="w-3 h-3" />
             Share map
@@ -669,7 +669,7 @@ function ExplorerPageInner() {
                       href={`/senator/${selectedSenator.senator_id}/share/map?yearA=${swingYears[0]}&yearB=${swingYears[1]}`}
                       title="Share this swing map"
                       aria-label="Share this swing map"
-                      className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all shrink-0"
+                      className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all shrink-0"
                     >
                       <Share2 className="w-3 h-3" />
                       Share map

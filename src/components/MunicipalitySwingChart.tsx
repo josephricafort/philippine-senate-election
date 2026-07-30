@@ -81,7 +81,7 @@ export default function MunicipalitySwingChart({ rows, province, yearA, yearB }:
         </p>
       </div>
 
-      <div className="grid grid-cols-[128px_1fr_52px] gap-2.5 mb-2 text-[11px] text-muted-foreground">
+      <div className="grid grid-cols-[128px_1fr_52px] gap-2.5 mb-2 text-xs text-muted-foreground">
         {/* active only once expanded — the collapsed rows are the curated quartile sample below,
             not actually sorted by sortKey, so neither header should look "active" until sorting
             is the thing actually driving what's visible. */}
@@ -94,7 +94,7 @@ export default function MunicipalitySwingChart({ rows, province, yearA, yearB }:
 
       <div className="grid grid-cols-[128px_1fr_52px] gap-2.5 mb-2">
         <div />
-        <div className="flex justify-between font-mono text-[9px] text-muted-foreground/70">
+        <div className="flex justify-between font-mono text-xs text-muted-foreground/70">
           <span>−{(maxAbsDelta * 100).toFixed(0)}pt</span>
           <span>0</span>
           <span>+{(maxAbsDelta * 100).toFixed(0)}pt</span>
@@ -113,7 +113,7 @@ export default function MunicipalitySwingChart({ rows, province, yearA, yearB }:
               <div className="min-w-0">
                 <p className="text-xs truncate" title={row.adm3_en}>{row.adm3_en}</p>
                 {!expanded && label && (
-                  <p className="text-[9px] font-mono text-muted-foreground/70 uppercase tracking-wide truncate">
+                  <p className="text-xs text-muted-foreground/70 uppercase tracking-wide truncate">
                     {label}
                   </p>
                 )}

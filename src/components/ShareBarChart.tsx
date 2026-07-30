@@ -160,7 +160,7 @@ export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sa
     <div className="rounded-xl border bg-card p-4">
       <p className="text-sm font-semibold mb-3.5">{title}</p>
 
-      <div className="grid grid-cols-[128px_1fr_44px] gap-2.5 mb-2 text-[11px] text-muted-foreground">
+      <div className="grid grid-cols-[128px_1fr_44px] gap-2.5 mb-2 text-xs text-muted-foreground">
         <SortButton label={nameHeader} active={sortKey === 'name'} dir={sortDir} onClick={() => toggleSort('name')} />
         <div className="flex justify-end">
           <SortButton label={shareHeader} active={sortKey === 'share'} dir={sortDir} onClick={() => toggleSort('share')} />
@@ -177,9 +177,9 @@ export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sa
                 <p className="text-xs truncate" title={row.name}>{row.name}</p>
               </div>
               <div className="flex items-center gap-2">
-                <div className="relative h-[18px] bg-border rounded overflow-hidden flex-1">
+                <div className="relative h-[18px] bg-border rounded-[3px] overflow-hidden flex-1">
                   <div
-                    className="absolute top-px bottom-px left-px rounded-sm"
+                    className="absolute top-px bottom-px left-px rounded-[3px]"
                     style={{ width: `${widthPct}%`, background: barColor }}
                   />
                 </div>

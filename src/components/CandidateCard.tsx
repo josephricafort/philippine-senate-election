@@ -81,19 +81,19 @@ export default function CandidateCard({ senator, national, year, onSelectYear }:
           <thead>
             <tr>
               <th scope="col" className="font-normal pr-6 md:pr-10 pb-0.5 md:pb-1.5">
-                <span className="text-muted-foreground text-[10px] md:text-xs uppercase tracking-wide inline-flex items-center gap-1">
+                <span className="text-muted-foreground text-xs uppercase tracking-wide inline-flex items-center gap-1">
                   National votes
                   <RankDisclaimerTooltip />
                 </span>
               </th>
               <th scope="col" className="font-normal pr-6 md:pr-10 pb-0.5 md:pb-1.5">
-                <span className="text-muted-foreground text-[10px] md:text-xs uppercase tracking-wide inline-flex items-center gap-1">
+                <span className="text-muted-foreground text-xs uppercase tracking-wide inline-flex items-center gap-1">
                   National rank
                   <RankDisclaimerTooltip />
                 </span>
               </th>
               <th scope="col" className="font-normal pb-0.5 md:pb-1.5">
-                <span className="text-muted-foreground text-[10px] md:text-xs uppercase tracking-wide">
+                <span className="text-muted-foreground text-xs uppercase tracking-wide">
                   Year
                 </span>
               </th>

@@ -979,12 +979,12 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
               />
             )}
           </div>
-          <div className="flex items-center justify-between w-24 text-[10px] text-zinc-500 leading-none">
+          <div className="flex items-center justify-between w-24 text-xs text-zinc-500 leading-none">
             <span>{legend.minLabel}</span>
             <span>{legend.maxLabel}</span>
           </div>
           {legend.bestFirst && (
-            <p className="text-[10px] text-zinc-400 leading-tight">Left = best rank</p>
+            <p className="text-xs text-zinc-400 leading-tight">Left = best rank</p>
           )}
           <div className="flex items-center gap-1.5 pt-1 border-t border-zinc-200">
             <div
@@ -994,7 +994,7 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
                   'repeating-linear-gradient(45deg, #e4e4e7 0, #e4e4e7 1.5px, #a1a1aa 1.5px, #a1a1aa 2px, #e4e4e7 2px, #e4e4e7 3.5px)',
               }}
             />
-            <span className="text-[10px] text-zinc-500 leading-none">No data recorded</span>
+            <span className="text-xs text-zinc-500 leading-none">No data recorded</span>
           </div>
         </div>
       )}
