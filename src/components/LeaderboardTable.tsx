@@ -4,6 +4,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { RankDisclaimerTooltip } from '@/components/InfoTooltip';
 import type { NationalYearData, Senator } from '@/lib/types';
 
 type Props = {
@@ -89,7 +90,12 @@ export default function LeaderboardTable({ nationalData, senators, highlightId, 
       <Table containerClassName="overflow-visible">
         <TableHeader className="sticky top-0 bg-background z-10">
           <TableRow>
-            <TableHead>Nat. rank</TableHead>
+            <TableHead>
+              <span className="inline-flex items-center gap-1">
+                Nat. rank
+                <RankDisclaimerTooltip />
+              </span>
+            </TableHead>
             <TableHead>Candidate</TableHead>
             <TableHead>Runs</TableHead>
           </TableRow>

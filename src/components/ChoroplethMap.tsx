@@ -332,6 +332,12 @@ function buildTooltipHtml(
 
   let detail = '';
   let detailColor = '#a1a1aa';
+  // Second, smaller line under the vote-share detail — total votes cast for this office in
+  // this municipality (votes ÷ vote_share, since the source data doesn't carry a separate
+  // municipality total), so "4.7%" reads as a checkable number, not just an abstract share.
+  // Municipality-scoped, matching what vote_share itself is a share OF — a province-wide total
+  // here would silently mismatch the percentage shown above it.
+  let subDetail = '';
   if (metric === 'swing') {
     const entry = swingMap?.get(psgc);
     if (entry) {
@@ -343,7 +349,13 @@ function buildTooltipHtml(
   } else {
     const m = yearData?.municipalities[psgc];
     if (m) {
-      if (metric === 'vote_share') detail = `${(m.vote_share * 100).toFixed(1)}% vote share`;
+      if (metric === 'vote_share') {
+        detail = `${(m.vote_share * 100).toFixed(1)}% vote share`;
+        if (m.vote_share > 0) {
+          const totalVotes = Math.round(m.votes / m.vote_share);
+          subDetail = `of ${totalVotes.toLocaleString()} votes`;
+        }
+      }
       else if (metric === 'rank')  detail = `Rank #${m.rank}`;
       else                         detail = `${m.votes.toLocaleString()} votes`;
     } else if (senatorId) {
@@ -356,6 +368,7 @@ function buildTooltipHtml(
       <div style="font-weight:600;color:#f4f4f5;margin-bottom:1px">${name}</div>
       ${province ? `<div style="color:#d4d4d8;font-size:12px;margin-bottom:3px">${province}</div>` : ''}
       ${detail ? `<div style="color:${detailColor};font-size:15px;font-weight:600">${detail}</div>` : ''}
+      ${subDetail ? `<div style="color:#a1a1aa;font-size:11px">${subDetail}</div>` : ''}
     </div>`;
 }
 

@@ -1,6 +1,7 @@
 'use client';
 import { AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { RankDisclaimerTooltip } from '@/components/InfoTooltip';
 import YearSelector from '@/components/YearSelector';
 import type { ElectionYear, NationalTotals, Senator } from '@/lib/types';
 
@@ -43,11 +44,17 @@ export default function CandidateCard({ senator, national, year, onSelectYear }:
       {national ? (
         <div className="flex gap-4 md:gap-8 flex-wrap">
           <div>
-            <p className="text-muted-foreground text-[10px] md:text-xs uppercase tracking-wide">National votes</p>
+            <p className="text-muted-foreground text-[10px] md:text-xs uppercase tracking-wide inline-flex items-center gap-1">
+              National votes
+              <RankDisclaimerTooltip />
+            </p>
             <p className="text-sm md:text-base font-semibold mt-0.5 md:mt-1.5">{formatVotes(national.national_votes)}</p>
           </div>
           <div>
-            <p className="text-muted-foreground text-[10px] md:text-xs uppercase tracking-wide">National rank</p>
+            <p className="text-muted-foreground text-[10px] md:text-xs uppercase tracking-wide inline-flex items-center gap-1">
+              National rank
+              <RankDisclaimerTooltip />
+            </p>
             <Badge variant="secondary" className="mt-0.5 md:mt-1.5 text-xs md:text-sm px-1.5 md:px-2 py-0 md:py-0.5">
               #{national.national_rank}
             </Badge>
