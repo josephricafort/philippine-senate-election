@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Map as MapIcon, Share2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Map as MapIcon, Share2, ArrowLeftRight, TrendingUp } from 'lucide-react';
 
 import SearchSelect from '@/components/SearchSelect';
 import CandidateCard, { CandidateHeader } from '@/components/CandidateCard';
@@ -123,6 +123,12 @@ function ExplorerPageInner() {
     if (m === metric) return;
     trackEvent('select_metric', { metric: m, previous_metric: metric, candidate_id: selectedSenator?.senator_id });
     setMetric(m);
+    // Mirrors handleProfileTabChange's own map-metric nudge, in reverse: picking a metric on the
+    // map's own toggle keeps the profile tab in sync with it too, so Swing and National Trends
+    // read as one selection surfaced in two places rather than two independent pickers that can
+    // drift apart. setProfileTab directly (not handleProfileTabChange) — that function calls
+    // back into handleMetricChange, which would be a no-op loop since m already equals metric.
+    setProfileTab(m === 'swing' ? 'swing' : 'trends');
   }
 
   function handleMobileTabChange(tab: MobileTab) {
@@ -133,6 +139,12 @@ function ExplorerPageInner() {
   function handleProfileTabChange(tab: ProfileTab) {
     trackEvent('switch_profile_tab', { tab_name: tab });
     setProfileTab(tab);
+    // Nudge the map to the metric that matches the tab just switched to, so Swing and National
+    // Trends each read as having their own map view — Swing pairs naturally with the swing
+    // metric, National Trends with rank (its default "who's ahead" framing). This is just a
+    // default on switch, not a constraint: MetricToggle still lets the user pick any other
+    // metric afterward, and nothing here forces it back.
+    handleMetricChange(tab === 'swing' ? 'swing' : 'rank');
   }
 
   // Per-candidate data, fetched on demand and cached by senator_id — replaces the old
@@ -346,39 +358,44 @@ function ExplorerPageInner() {
             onSelectYear={y => handleYearChange(y, 'candidate_pill')}
           />
 
-          {/* Stacked directly under the header's sticky block (no gap in between) so the
-              two sticky regions form one continuous opaque strip as the page scrolls —
-              a gap here would let scrolled-past content peek through between them. */}
-          <div className="sticky top-13 md:top-16 z-10 bg-background -mx-4 px-4 pt-0 pb-2 -mt-1">
-            <div className="flex items-center gap-3 flex-wrap">
-              {didRunSelectedYear && (
-                <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit shrink-0">
-                  <button
-                    onClick={() => handleProfileTabChange('swing')}
-                    className={`h-7 px-3 text-xs font-medium rounded-md transition-colors ${
-                      profileTab === 'swing'
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    Swing
-                  </button>
-                  <button
-                    onClick={() => handleProfileTabChange('trends')}
-                    className={`h-7 px-3 text-xs font-medium rounded-md transition-colors ${
-                      profileTab === 'trends'
-                        ? 'bg-background text-foreground shadow-sm'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    National Trends
-                  </button>
+          {/* pt-4 adds breathing room below CandidateCard before the tabs; -mt-1 still keeps
+              this sticky block flush against CandidateHeader's sticky block above (no gap
+              there) so the two sticky regions form one continuous opaque strip while
+              scrolling — the padding is inside this block, not a margin that would break that. */}
+          <div className="sticky top-13 md:top-16 z-10 bg-background -mx-4 px-4 pt-4 pb-2 -mt-1">
+            {didRunSelectedYear && (
+              <div className="pt-3 border-t">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit shrink-0">
+                    <button
+                      onClick={() => handleProfileTabChange('swing')}
+                      className={`h-8 px-3.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                        profileTab === 'swing'
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <ArrowLeftRight className="w-4 h-4" />
+                      Swing
+                    </button>
+                    <button
+                      onClick={() => handleProfileTabChange('trends')}
+                      className={`h-8 px-3.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                        profileTab === 'trends'
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <TrendingUp className="w-4 h-4" />
+                      National Trends
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {didRunSelectedYear && (
-              <div className="mt-3 pt-3 border-t">
+              <div className="mt-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   {profileTab === 'swing' ? (
                     <>
@@ -435,10 +452,7 @@ function ExplorerPageInner() {
                   provinceRows={swingProps.provinceRows}
                   muniRowsByProvince={swingProps.muniRowsByProvince}
                   yearPair={swingYearPair}
-                  onSwitchToTrends={() => {
-                    handleProfileTabChange('trends');
-                    handleMetricChange('rank');
-                  }}
+                  onSwitchToTrends={() => handleProfileTabChange('trends')}
                 />
               )}
 
@@ -564,6 +578,7 @@ function ExplorerPageInner() {
           onNavigateToProfile={() => handleMobileTabChange('profile')}
           onChangeMetric={handleMetricChange}
           onChangeYear={y => handleYearChange(y as ElectionYear, 'candidate_pill')}
+          onChangeSwingYearPair={handleSwingYearPairChange}
         />
       </div>
     </div>
@@ -661,6 +676,7 @@ function ExplorerPageInner() {
                 senatorYears={selectedSenator?.years ?? null}
                 onChangeMetric={handleMetricChange}
                 onChangeYear={y => handleYearChange(y as ElectionYear, 'candidate_pill')}
+                onChangeSwingYearPair={handleSwingYearPairChange}
               />
             </div>
           </main>

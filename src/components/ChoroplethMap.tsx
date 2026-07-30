@@ -19,6 +19,8 @@ import {
   SWING_BUCKETS_PER_SIDE,
   swingMaxAbs,
   swingBucketBounds,
+  consecutivePairs,
+  type YearPair,
 } from '@/lib/swing';
 import { trackEvent } from '@/lib/analytics';
 type SwingEntry = { delta: number };
@@ -47,6 +49,9 @@ type Props = {
   /** Lets the "didn't run this year" overlay jump straight to a year the candidate ran in,
    *  without making the user find the year selector themselves. */
   onChangeYear?: (year: number) => void;
+  /** Lets the swing-mode "didn't run this year" overlay jump straight to one of the candidate's
+   *  real consecutive year pairs, since a bare year link wouldn't make sense while in Swing view. */
+  onChangeSwingYearPair?: (pair: YearPair) => void;
 };
 
 const PH_CENTER: [number, number] = [122, 12.8];
@@ -234,7 +239,10 @@ function swingBucketCounts(
 }
 
 function buildMatchExpression(
-  yearData: CandidateYearData,
+  // Only read in the non-swing branch below — swing colors entirely off swingMap, so this may
+  // be null when the candidate has no entry for the active `year` (metric !== 'swing' guards
+  // the branch that would otherwise crash on a null read).
+  yearData: CandidateYearData | null,
   metric: Metric,
   swingMap?: Map<string, SwingEntry> | null
 ): maplibregl.ExpressionSpecification {
@@ -244,7 +252,7 @@ function buildMatchExpression(
       pairs.push(psgc, entry.delta);
     }
   } else {
-    for (const [psgc, m] of Object.entries(yearData.municipalities)) {
+    for (const [psgc, m] of Object.entries(yearData?.municipalities ?? {})) {
       let val: number;
       if (metric === 'vote_share') val = Math.min(m.vote_share, VOTE_SHARE_CAP);
       else if (metric === 'rank')  val = m.rank;
@@ -259,7 +267,7 @@ function buildMatchExpression(
 }
 
 function buildColorExpression(
-  yearData: CandidateYearData,
+  yearData: CandidateYearData | null,
   metric: Metric,
   year: number | null,
   swingMap?: Map<string, SwingEntry> | null
@@ -295,7 +303,7 @@ function buildColorExpression(
   const rampColors = sequentialStops(yearColor(year ?? 0));
 
   if (metric === 'rank') {
-    const ranks = Object.values(yearData.municipalities).map(m => m.rank);
+    const ranks = Object.values(yearData?.municipalities ?? {}).map(m => m.rank);
     if (ranks.length === 0) return NO_DATA_COLOR as unknown as maplibregl.ExpressionSpecification;
     const maxRank = Math.max(...ranks);
     // Best rank (#1) = darkest step, worst = lightest — same ramp direction reversed
@@ -464,7 +472,10 @@ function buildLegend(
 
 function applyPaint(
   map: maplibregl.Map,
-  yearData: CandidateYearData,
+  // Only read for non-swing metrics — swing paints entirely off swingMap, so this may be null
+  // when the candidate has no entry for the active `year` (e.g. the year selector is sitting on
+  // a year they skipped, independent of which swing pair is being compared).
+  yearData: CandidateYearData | null,
   metric: Metric,
   year: number | null,
   swingMap?: Map<string, SwingEntry> | null
@@ -475,7 +486,7 @@ function applyPaint(
   // Show hatch only on features where this senator has no data for the active metric
   const psgcsWithData = metric === 'swing'
     ? Array.from(swingMap?.keys() ?? [])
-    : Object.keys(yearData.municipalities);
+    : Object.keys(yearData?.municipalities ?? {});
 
   // filter: psgc NOT in the with-data set → show hatch
   map.setFilter('municipalities-nodata',
@@ -493,7 +504,7 @@ function clearPaint(map: maplibregl.Map) {
   map.setFilter('municipalities-nodata', ['boolean', true]);
 }
 
-export default function ChoroplethMap({ candidate, municipalityNames, senatorId, senatorName, year, metric, swingMap, swingYears, senatorYears, onNavigateToProfile, onChangeMetric, onChangeYear }: Props) {
+export default function ChoroplethMap({ candidate, municipalityNames, senatorId, senatorName, year, metric, swingMap, swingYears, senatorYears, onNavigateToProfile, onChangeMetric, onChangeYear, onChangeSwingYearPair }: Props) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const mapRef        = useRef<maplibregl.Map | null>(null);
   const loadedRef     = useRef(false);
@@ -822,7 +833,7 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
       const { yearData, senatorId, metric, year, swingMap } = propsRef.current;
       if (senatorId) {
         if (yearData) applyPaint(map, yearData, metric, year, swingMap);
-        else if (metric !== 'swing') clearPaint(map);
+        else clearPaint(map);
       }
     });
 
@@ -830,15 +841,20 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-paint when senator / metric / yearData / year / swingMap changes. When the candidate has
-  // no entry at all for the active year (metric !== 'swing'), blank the map instead of leaving
-  // whatever was painted for a previous candidate/year on screen behind the overlay below.
+  // Re-paint when senator / metric / yearData / year / swingMap changes. yearData gates every
+  // metric, including swing: the single-year selector and the swing year-pair are independent
+  // pieces of state, and if the selector is sitting on a year this candidate didn't run (no
+  // yearData entry), the map blanks out and shows the "didn't run" overlay below rather than
+  // silently painting a swing comparison for a year pair the visible year selector doesn't
+  // agree with — showing real colors there would look correct but actually be confusing (the
+  // year tabs and the map would be telling two different stories). Blanking also prevents a
+  // stale paint from a previous candidate/year lingering behind the overlay text.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loadedRef.current || !senatorId) return;
     if (!map.getLayer('municipalities-fill')) return;
     if (yearData) applyPaint(map, yearData, metric, year, swingMap);
-    else if (metric !== 'swing') clearPaint(map);
+    else clearPaint(map);
   }, [yearData, senatorId, metric, year, swingMap]);
 
   // New candidate+year view — allow map_interact to fire again for it.
@@ -1040,6 +1056,45 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
                 )}
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Swing mode has its own version of the above: the single-year selector and the swing
+          year-pair are independent state, so `year` sitting on a year this candidate skipped
+          (no yearData entry) doesn't mean swing itself lacks data — but showing real swing
+          colors while the visible year tabs point at an unrelated year would just be a
+          different kind of confusing (see applyPaint's yearData gate above, which blanks the
+          map in exactly this case). Point at real consecutive year PAIRS, not bare years —
+          a bare "2019" link wouldn't mean anything in a Swing-mode context. */}
+      {senatorId && metric === 'swing' && !yearData && swingMap && swingMap.size > 0 && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-6">
+          <div className="text-sm text-center bg-white/90 text-zinc-600 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm max-w-xs pointer-events-auto">
+            <p>{senatorName ?? 'This candidate'} did not run in {year ?? 'this year'}.</p>
+            {(() => {
+              const pairs = senatorYears ? consecutivePairs(senatorYears) : [];
+              if (pairs.length === 0) return null;
+              return (
+                <p className="mt-1">
+                  {onChangeSwingYearPair ? (
+                    <>
+                      See{' '}
+                      {pairs.map((pair, i) => (
+                        <span key={`${pair[0]}-${pair[1]}`}>
+                          {i > 0 && (i === pairs.length - 1 ? ' or ' : ', ')}
+                          <button type="button" onClick={() => onChangeSwingYearPair(pair)} className="text-blue-700 font-medium underline underline-offset-2 hover:no-underline">
+                            {pair[0]} &rarr; {pair[1]}
+                          </button>
+                        </span>
+                      ))}
+                      {' '}instead.
+                    </>
+                  ) : (
+                    <>Ran in {senatorYears?.join(', ')}.</>
+                  )}
+                </p>
+              );
+            })()}
           </div>
         </div>
       )}
