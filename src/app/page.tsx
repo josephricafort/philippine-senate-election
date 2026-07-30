@@ -47,6 +47,19 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   // fallback) so this keeps working when served from a domain other than production, e.g. a
   // Vercel preview URL used while the production domain is temporarily offline pre-launch.
   const origin = siteUrlFromHeaders(await headers());
+  // The root layout's metadata sets openGraph.url to the static SITE_URL (botosenado.ph, which
+  // is offline pre-launch) and Next.js does NOT merge that into this page's own returned
+  // metadata — og:url ends up simply absent here. Facebook/LinkedIn tolerate a missing og:url
+  // and fall back to the crawled URL, but X's card validator has been observed to silently
+  // refuse to render a card at all when og:url is missing, even with a fully valid og:image —
+  // so this must be set explicitly, using the actual shared URL (this exact query string), not
+  // just the origin, so the tag matches what was really fetched.
+  const shareUrlParams = new URLSearchParams();
+  shareUrlParams.set('candidate', candidate);
+  if (yearA) shareUrlParams.set('yearA', yearA);
+  if (yearB) shareUrlParams.set('yearB', yearB);
+  if (view) shareUrlParams.set('view', view);
+  const pageUrl = `${origin}/?${shareUrlParams.toString()}`;
 
   let shareTitle: string;
   let shareDescription: string;
@@ -88,6 +101,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     openGraph: {
       title: shareTitle,
       description: shareDescription,
+      url: pageUrl,
       images: [{ url: imageUrl, width: 1200, height: 630, alt: shareTitle }],
     },
     twitter: {
@@ -99,6 +113,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       // image works fine as a bare-string og:image for Facebook.
       images: [{ url: imageUrl, alt: shareTitle, type: 'image/png', width: 1200, height: 630 }],
     },
+    alternates: { canonical: pageUrl },
   };
 }
 
