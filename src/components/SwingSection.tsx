@@ -31,13 +31,11 @@ type Props = {
   /** Called when the user follows the "See Vote Share Trends instead" link shown for
    *  single-run candidates — lets the parent flip both the profile tab and the map metric. */
   onSwitchToTrends?: () => void;
-  /** Forwarded to ProvinceSwingBarChart's sticky header offset — see that component for why. */
-  chartStickyTopClassName?: string;
 };
 
 // Reads ?province= from the URL so a specific province's swing view is shareable/linkable
 // (e.g. /senator/go_bong?province=Cavite) without minting a static page per province.
-export default function SwingSection({ senator, provinceTrends, topProvinceNames, provinceRows, muniRowsByProvince, yearPair, onSwitchToTrends, chartStickyTopClassName }: Props) {
+export default function SwingSection({ senator, provinceTrends, topProvinceNames, provinceRows, muniRowsByProvince, yearPair, onSwitchToTrends }: Props) {
   const searchParams = useSearchParams();
   const provinceParam = searchParams.get('province');
   const provinces = useMemo(() => provinceTrends.map(p => p.adm2_en).sort(), [provinceTrends]);
@@ -123,17 +121,13 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
       </p>
 
       {yearA !== undefined && (
-        // mt-2: once the page scrolls, this card sits directly beneath ExplorerClient's own
-        // sticky "Comparing" bar with nothing else in between — without its own top margin the
-        // two look like they're touching, no breathing room at all.
-        <div className="mt-2 mb-6">
+        <div className="mb-6">
           <ProvinceSwingBarChart
             rows={provinceRows}
             senatorId={senator.senator_id}
             senatorName={senator.senator_name}
             yearA={yearA}
             yearB={yearB}
-            stickyTopClassName={chartStickyTopClassName}
           />
         </div>
       )}

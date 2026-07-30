@@ -469,7 +469,6 @@ function ExplorerPageInner() {
                   muniRowsByProvince={swingProps.muniRowsByProvince}
                   yearPair={swingYearPair}
                   onSwitchToTrends={() => handleProfileTabChange('trends')}
-                  chartStickyTopClassName="top-45.75"
                 />
               )}
 
@@ -503,7 +502,6 @@ function ExplorerPageInner() {
                       topProvinceNames={nationalTrendsProps.topProvinceNames}
                       muniSharesByProvince={nationalTrendsProps.muniSharesByProvince}
                       singleRun={selectedSenator.years.length === 1}
-                      chartStickyTopClassName="top-45.75"
                     />
                   ) : (
                     <p className="text-muted-foreground text-sm">Loading…</p>

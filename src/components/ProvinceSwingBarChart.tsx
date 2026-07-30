@@ -13,10 +13,6 @@ type Props = {
   senatorName: string;
   yearA: number;
   yearB: number;
-  /** Tailwind `top-*` class for the sticky column header when expanded — defaults to flush
-   *  against the viewport, but pages with their own sticky header/tab stack (e.g. ExplorerClient)
-   *  need to pass an offset so this chart's header docks below theirs instead of underneath it. */
-  stickyTopClassName?: string;
 };
 
 const SAMPLE_SIZE = 7;
@@ -40,7 +36,7 @@ function SortButton({ label, active, dir, onClick }: { label: string; active: bo
 
 // All-province diverging swing bars — the "which provinces moved the most" overview that sits
 // above the province picker, so choosing a province to drill into isn't a blind guess.
-export default function ProvinceSwingBarChart({ rows, senatorId, senatorName, yearA, yearB, stickyTopClassName = 'top-0' }: Props) {
+export default function ProvinceSwingBarChart({ rows, senatorId, senatorName, yearA, yearB }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('delta');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -86,51 +82,45 @@ export default function ProvinceSwingBarChart({ rows, senatorId, senatorName, ye
 
   return (
     <div className="rounded-xl border bg-card p-4">
-      {/* Sticky to the page viewport (not an inner scroll box) so the column labels stay
-          readable during a long expanded list without adding a second, conflicting scroll
-          region inside the card. pb-3 + border-b gives the stuck header a visible seam once
-          it's pinned, instead of butting flush against whatever's scrolling beneath it. */}
-      <div className={expanded ? `sticky ${stickyTopClassName} z-10 bg-card -mx-4 px-4 pt-4 pb-3 -mt-4 border-b border-border` : ''}>
-        <div className="flex items-start justify-between mb-3.5 gap-2">
-          <p className="text-sm font-semibold">
-            Provinces &middot; {senatorName} &middot; {yearA} &rarr; {yearB}
-          </p>
-          <div className="flex items-center gap-2 shrink-0">
-            <Link
-              href={`/senator/${senatorId}/share/province?yearA=${yearA}&yearB=${yearB}`}
-              title="Share this chart"
-              aria-label="Share this chart"
-              className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all"
-            >
-              <Share2 className="w-3 h-3" />
-              Share chart
-            </Link>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-[128px_1fr_52px] gap-2.5 mb-2 text-xs text-muted-foreground">
-          {/* active only once expanded — the collapsed rows are the curated quartile sample below,
-              not actually sorted by sortKey, so neither header should look "active" until sorting
-              is the thing actually driving what's visible. */}
-          <SortButton label="Province" active={expanded && sortKey === 'name'} dir={sortDir} onClick={() => toggleSort('name')} />
-          <div />
-          <div className="flex justify-end">
-            <SortButton label="Swing" active={expanded && sortKey === 'delta'} dir={sortDir} onClick={() => toggleSort('delta')} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-[128px_1fr_52px] gap-2.5">
-          <div />
-          <div className="flex justify-between font-mono text-xs text-muted-foreground/70">
-            <span>−{(maxAbsDelta * 100).toFixed(0)}pt</span>
-            <span>0</span>
-            <span>+{(maxAbsDelta * 100).toFixed(0)}pt</span>
-          </div>
-          <div />
+      <div className="flex items-start justify-between mb-3.5 gap-2">
+        <p className="text-sm font-semibold">
+          Provinces &middot; {senatorName} &middot; {yearA} &rarr; {yearB}
+        </p>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            href={`/senator/${senatorId}/share/province?yearA=${yearA}&yearB=${yearB}`}
+            title="Share this chart"
+            aria-label="Share this chart"
+            className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all"
+          >
+            <Share2 className="w-3 h-3" />
+            Share chart
+          </Link>
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 mt-4">
+      <div className="grid grid-cols-[128px_1fr_52px] gap-2.5 mb-2 text-xs text-muted-foreground">
+        {/* active only once expanded — the collapsed rows are the curated quartile sample below,
+            not actually sorted by sortKey, so neither header should look "active" until sorting
+            is the thing actually driving what's visible. */}
+        <SortButton label="Province" active={expanded && sortKey === 'name'} dir={sortDir} onClick={() => toggleSort('name')} />
+        <div />
+        <div className="flex justify-end">
+          <SortButton label="Swing" active={expanded && sortKey === 'delta'} dir={sortDir} onClick={() => toggleSort('delta')} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-[128px_1fr_52px] gap-2.5 mb-2">
+        <div />
+        <div className="flex justify-between font-mono text-xs text-muted-foreground/70">
+          <span>−{(maxAbsDelta * 100).toFixed(0)}pt</span>
+          <span>0</span>
+          <span>+{(maxAbsDelta * 100).toFixed(0)}pt</span>
+        </div>
+        <div />
+      </div>
+
+      <div className="flex flex-col gap-2">
         {visible.map(({ row, label }) => {
           const gain = row.delta >= 0;
           const color = swingColor(row.delta);

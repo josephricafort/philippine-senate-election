@@ -22,14 +22,12 @@ type Props = {
   /** True if the candidate has only ever run once — a trend sparkline has nothing to show in
    *  that case, so ShareBarChart shows each area's rank instead. */
   singleRun: boolean;
-  /** Forwarded to ShareBarChart's sticky header offset — see that component for why. */
-  chartStickyTopClassName?: string;
 };
 
 // "Share by province" / "Share by municipality" — the Trends tab counterpart of SwingSection's
 // own province bar chart + dropdown + municipality breakdown, showing vote share itself rather
 // than the change in vote share between two runs.
-export default function NationalTrendsSection({ year, candidateId, provinceShares, topProvinceNames, muniSharesByProvince, singleRun, chartStickyTopClassName }: Props) {
+export default function NationalTrendsSection({ year, candidateId, provinceShares, topProvinceNames, muniSharesByProvince, singleRun }: Props) {
   const searchParams = useSearchParams();
   const provinceParam = searchParams.get('province');
   const provinces = useMemo(() => provinceShares.map(p => p.adm2_en).sort(), [provinceShares]);
@@ -67,22 +65,16 @@ export default function NationalTrendsSection({ year, candidateId, provinceShare
         <p className="text-sm text-muted-foreground leading-relaxed mb-3">
           Vote share earned in every province in {year}
         </p>
-        {/* mt-2: once the page scrolls, this card sits directly beneath ExplorerClient's own
-            sticky "Years Ran" bar with nothing else in between — without its own top margin the
-            two look like they're touching, no breathing room at all. */}
-        <div className="mt-2">
-          <ShareBarChart
-            title={`Share by province · ${year}`}
-            rows={provinceRows}
-            nameHeader="Province"
-            shareHeader="Share w/in Prov."
-            sampleSize={7}
-            emptyMessage="No province data"
-            year={year}
-            singleRun={singleRun}
-            stickyTopClassName={chartStickyTopClassName}
-          />
-        </div>
+        <ShareBarChart
+          title={`Share by province · ${year}`}
+          rows={provinceRows}
+          nameHeader="Province"
+          shareHeader="Share w/in Prov."
+          sampleSize={7}
+          emptyMessage="No province data"
+          year={year}
+          singleRun={singleRun}
+        />
       </div>
 
       <div>
@@ -106,7 +98,6 @@ export default function NationalTrendsSection({ year, candidateId, provinceShare
             emptyMessage={`No municipality data for ${province}`}
             year={year}
             singleRun={singleRun}
-            stickyTopClassName={chartStickyTopClassName}
           />
         </div>
       )}
