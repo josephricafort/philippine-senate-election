@@ -672,6 +672,19 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
 
       map.addSource('ph-provinces', { type: 'geojson', data: provinceMesh });
 
+      // National outline — topojson-client's mesh() calls the filter with the two geometry
+      // objects touching each arc; for an outer-boundary arc (only one polygon touches it,
+      // nothing on the other side) both arguments are the SAME object reference, whereas an
+      // internal arc shared between two different polygons gets two distinct references. `a ===
+      // b` therefore keeps exactly the outer coastline and drops every internal municipality/
+      // province border — a plain `() => false` (tried first) drops outer arcs too, since the
+      // filter still runs on them with a===b, and returning false unconditionally excludes them.
+      // Needed because below zoom 6 municipality lines are hidden (see municipalities-outline's
+      // own minzoom) and province lines are thin/pale, so without this a light-colored region's
+      // coastline has nothing to visually separate it from the page background.
+      const nationalMesh = mesh(topo, municitiesObj, (a, b) => a === b);
+      map.addSource('ph-national', { type: 'geojson', data: nationalMesh });
+
       // Topology + geometry collection kept in case labels need rebuilding later (they don't,
       // since municipalityNames is available from mount — kept for parity/safety).
       topoRef.current = { topo, municitiesObj };
@@ -698,15 +711,33 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
         paint: { 'fill-pattern': 'no-data-hatch' },
       });
 
+      // Country outline — drawn under every other boundary layer so it never competes with
+      // them, but it's the only line visible below zoom 6 (municipality lines hidden, province
+      // lines present but thin) — without it, a pale-filled coastal region has no edge to
+      // separate it from the page background at that zoom.
+      map.addLayer({
+        id: 'national-outline',
+        type: 'line',
+        source: 'ph-national',
+        paint: {
+          'line-color': 'rgba(24,24,27,0.55)',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 5, 1, 10, 1.6],
+        },
+      });
+
       // Mid-gray core alone disappeared into the darkest ramp fills (e.g. top rank stops),
       // so — same halo trick as the province lines below — a soft white halo goes under a
       // dark core to keep the line visible against both pale and near-black fills. Both the
       // halo and core are kept thinner than their province counterparts so the province
       // hierarchy still reads clearly at a glance.
+      // minzoom matches province-labels' own minzoom (6) below — below that zoom the map is
+      // zoomed out enough that province names aren't shown either, so hundreds of thin
+      // municipal slivers with no province context to anchor them is just noise, not signal.
       map.addLayer({
         id: 'municipalities-outline-halo',
         type: 'line',
         source: 'ph-municipalities',
+        minzoom: 6,
         paint: {
           'line-color': 'rgba(255,255,255,0.55)',
           'line-width': ['interpolate', ['linear'], ['zoom'], 5, 1.2, 10, 2.2],
@@ -716,6 +747,7 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
         id: 'municipalities-outline',
         type: 'line',
         source: 'ph-municipalities',
+        minzoom: 6,
         paint: {
           'line-color': 'rgba(113,113,122,0.55)',
           'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.6, 10, 1.1],

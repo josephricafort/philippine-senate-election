@@ -19,10 +19,6 @@ const faqs = [
     answer: 'Seven Philippine senatorial election years: 2007, 2010, 2013, 2016, 2019, 2022, and 2025, each broken down to the municipality level.',
   },
   {
-    question: 'Where did the source data come from?',
-    answer: '2022 and 2025 results come from publicly available official results. 2019 and 2016 were manually scraped from source. 2013 and 2007 were sourced from NAMFREL archives. 2010 was sourced from COMELEC archives.',
-  },
-  {
     question: 'Why might a candidate’s numbers here differ from other sources?',
     answer: 'Some municipalities are missing from the underlying source files. Where a municipality is missing, its votes are absent from every total, rank, and vote share computed from this dataset, including national and provincial figures, so outcomes shown can diverge from the official count.',
   },
@@ -147,9 +143,9 @@ export default function MethodologyPage() {
             </li>
             <li>
               <span className="text-foreground">2019</span> — Manually scraped from source.{' '}
-              <a href="https://comelec.gov.ph/?r=2019NLE/ElectionResults_/SenatorialSummaryStatementofVotes" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:no-underline">
+              <a href="https://comelec.gov.ph" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:no-underline">
                 comelec.gov.ph
-              </a> (unverified — please confirm this page is still live before publishing).
+              </a>.
             </li>
             <li>
               <span className="text-foreground">2016</span> — Manually scraped from source, a
@@ -157,14 +153,14 @@ export default function MethodologyPage() {
               live. Linked to the COMELEC homepage as a fallback:{' '}
               <a href="https://comelec.gov.ph" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:no-underline">
                 comelec.gov.ph
-              </a> (unverified — please confirm or replace).
+              </a>.
             </li>
             <li>
               <span className="text-foreground">2013 and 2007</span> — Sourced from NAMFREL
               archives. These were already tabulated but required manual cleaning before use.{' '}
               <a href="https://namfrel.org.ph" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:no-underline">
                 namfrel.org.ph
-              </a> (unverified — domain and liveness unconfirmed, please check before publishing).
+              </a>.
             </li>
             <li>
               <span className="text-foreground">2010</span> — Sourced from COMELEC archives.
