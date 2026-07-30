@@ -5,7 +5,7 @@ import ExplorerClient from './ExplorerClient';
 import { loadCandidateIndexServer, loadCandidateDataServer } from '@/lib/data-server';
 import {
   buildSenatorList, candidateMunicipalitySwingHeadline, candidateProvinceSwingHeadline,
-  resolveShareYearPair,
+  candidateTopProvincesHeadline, resolveShareYearPair,
 } from '@/lib/data';
 import { siteUrlFromHeaders } from '@/lib/site';
 
@@ -31,35 +31,56 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const senator = buildSenatorList(index).find(s => s.senator_id === candidate);
   if (!senator) return { title, description };
 
-  const pair = resolveShareYearPair(senator, { yearA, yearB });
-  if (!pair) return { title, description };
-  const [resolvedYearA, resolvedYearB] = pair;
-
   const candidateData = await loadCandidateDataServer(senator.senator_id);
-  if (!candidateData.years[String(resolvedYearA)] || !candidateData.years[String(resolvedYearB)]) {
-    return { title, description };
-  }
-
   const isProvince = view === 'province';
-  const result = isProvince
-    ? candidateProvinceSwingHeadline(candidateData, senator, resolvedYearA, resolvedYearB)
-    : candidateMunicipalitySwingHeadline(candidateData, senator, resolvedYearA, resolvedYearB);
-  if (!result) return { title, description };
 
-  const shareTitle = result.headline;
-  const shareDescription = isProvince
-    ? `Province swing chart, ${result.yearA} → ${result.yearB}. Explore all Philippine senate election data since 2007.`
-    : `Municipality swing map, ${result.yearA} → ${result.yearB}. Explore all Philippine senate election data since 2007.`;
+  const pair = resolveShareYearPair(senator, { yearA, yearB });
+  const swingResult = pair && candidateData.years[String(pair[0])] && candidateData.years[String(pair[1])]
+    ? (isProvince
+        ? candidateProvinceSwingHeadline(candidateData, senator, pair[0], pair[1])
+        : candidateMunicipalitySwingHeadline(candidateData, senator, pair[0], pair[1]))
+    : null;
+
   // Same og-image route the matching /senator/[slug]/share/{map,province} preview page renders —
   // one source of truth for the actual graphic, referenced here so the shared link's own preview
   // matches it. Built against the actual request host (not the static SITE_URL/metadataBase
   // fallback) so this keeps working when served from a domain other than production, e.g. a
   // Vercel preview URL used while the production domain is temporarily offline pre-launch.
   const origin = siteUrlFromHeaders(await headers());
-  const imagePath = isProvince
-    ? `/senator/${senator.senator_id}/share/province/og-image?yearA=${result.yearA}&yearB=${result.yearB}`
-    : `/senator/${senator.senator_id}/share/map/og-image?yearA=${result.yearA}&yearB=${result.yearB}`;
-  const imageUrl = `${origin}${imagePath}`;
+
+  let shareTitle: string;
+  let shareDescription: string;
+  let imageUrl: string;
+
+  if (swingResult) {
+    shareTitle = swingResult.headline;
+    shareDescription = isProvince
+      ? `Province swing chart, ${swingResult.yearA} → ${swingResult.yearB}. Explore all Philippine senate election data since 2007.`
+      : `Municipality swing map, ${swingResult.yearA} → ${swingResult.yearB}. Explore all Philippine senate election data since 2007.`;
+    const imagePath = isProvince
+      ? `/senator/${senator.senator_id}/share/province/og-image?yearA=${swingResult.yearA}&yearB=${swingResult.yearB}`
+      : `/senator/${senator.senator_id}/share/map/og-image?yearA=${swingResult.yearA}&yearB=${swingResult.yearB}`;
+    imageUrl = `${origin}${imagePath}`;
+  } else {
+    // No swing data (single-run candidate, or a year pair with zero comparable provinces/
+    // municipalities) — the shared link previously quietly fell back to the generic site card
+    // here, which is why candidates like a first-time senator got a blank/generic preview on
+    // Facebook/LinkedIn despite the /share/* card pages already knowing how to render a
+    // "top provinces by vote share" fallback. Reuse that same fallback (and its og-image route)
+    // here too, since THIS page's metadata — not /share/*'s — is what a crawler actually fetches
+    // when a candidate's profile "Share" link is shared (see CandidateCard.tsx's shareUrl).
+    const latestYear = Math.max(...senator.years);
+    const topResult = candidateTopProvincesHeadline(candidateData, senator, latestYear);
+    if (!topResult) return { title, description };
+
+    shareTitle = topResult.headline;
+    shareDescription = `Vote share by province, ${topResult.year}. Explore all Philippine senate election data since 2007.`;
+    // Either share/*/og-image route renders the identical top-provinces fallback when no
+    // yearA/yearB resolve to swing data — province is the one CandidateCard's shareUrl doesn't
+    // already default to (it appends &view=map for multi-run candidates), so used here for
+    // single-run candidates arriving with no view param at all.
+    imageUrl = `${origin}/senator/${senator.senator_id}/share/province/og-image`;
+  }
 
   return {
     title: shareTitle,
