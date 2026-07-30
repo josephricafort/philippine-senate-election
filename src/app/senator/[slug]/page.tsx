@@ -16,6 +16,7 @@ import {
   candidateTopProvinces, candidateTrendData,
   candidateProvinceList, candidateProvinceShareTrend, candidateProvinceSwing, candidateMunicipalitySwing,
   candidateAllProvinceShares, candidateAllMunicipalityShares,
+  candidateMunicipalitySwingHeadline,
 } from '@/lib/data';
 import { yearColor } from '@/lib/year-colors';
 import { netSwing, consecutivePairs, type YearPair } from '@/lib/swing';
@@ -88,6 +89,12 @@ export default async function SenatorPage({ params }: Props) {
   const topProvinceNames = candidateTopProvinces(candidate, latestYear, 4).map(p => p.adm2_en);
 
   const [swingYearA, swingYearB] = swingYearPair ?? [undefined, undefined];
+  // Same "X gained/lost support from N out of TOTAL (%) municipalities..." claim shown on the
+  // swing-map share card — reused as this page's own share text (see CandidateHeader) so that
+  // share leads with a concrete number too, not just a generic "performed at the polls."
+  const swingHeadline = (swingYearA !== undefined && swingYearB !== undefined)
+    ? candidateMunicipalitySwingHeadline(candidate, senator, swingYearA, swingYearB)?.headline ?? null
+    : null;
   const swingProvinceRows = (swingYearA !== undefined && swingYearB !== undefined)
     ? candidateProvinceSwing(candidate, swingYearA, swingYearB)
     : [];
@@ -151,7 +158,7 @@ export default async function SenatorPage({ params }: Props) {
 
       <main className="max-w-2xl mx-auto px-4 md:px-6 py-10 space-y-10">
         <div className="space-y-4 md:space-y-6">
-          <CandidateHeader senator={senator} national={latestYearData ? { national_votes: latestYearData.national_votes, national_rank: latestYearData.national_rank } : null} />
+          <CandidateHeader senator={senator} national={latestYearData ? { national_votes: latestYearData.national_votes, national_rank: latestYearData.national_rank } : null} swingHeadline={swingHeadline} />
           <CandidateCard senator={senator} national={latestYearData ? { national_votes: latestYearData.national_votes, national_rank: latestYearData.national_rank } : null} year={latestYear} />
         </div>
 

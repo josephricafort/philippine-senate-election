@@ -29,11 +29,27 @@ function formatVotes(n: number) {
   return n.toLocaleString();
 }
 
-export function CandidateHeader({ senator, national }: { senator: Senator; national: NationalTotals | null }) {
+export function CandidateHeader({
+  senator,
+  national,
+  swingHeadline,
+}: {
+  senator: Senator;
+  national: NationalTotals | null;
+  /** Same claim shown on the municipality swing-map share card (e.g. "X gained support from
+   *  1146 out of 1583 (72%) municipalities/cities...") — reused here so even the plain
+   *  candidate-profile share text leads with a concrete, checkable number instead of a vague
+   *  "performed at the polls." Only available once the candidate's full CandidateData is loaded
+   *  and a swing year pair is resolved; falls back to the generic phrasing until then, or for
+   *  single-run candidates who have no swing pair at all. */
+  swingHeadline?: string | null;
+}) {
   const years = [...senator.years].sort((a, b) => a - b);
-  const shareText = years.length > 1
-    ? `${headlineName(senator.senator_name)}: how did your city or town vote since ${years[0]}? See the results here:`
-    : `${headlineName(senator.senator_name)}: how did your city or town vote? See the results here:`;
+  const shareText = swingHeadline
+    ? `${swingHeadline} See the full breakdown here:`
+    : years.length > 1
+    ? `See how ${headlineName(senator.senator_name)} performed at the polls in your city or town since ${years[0]}:`
+    : `See how ${headlineName(senator.senator_name)} performed at the polls in your city or town:`;
   // view=map tells src/app/page.tsx's generateMetadata to render the municipality swing-map
   // og:image (the graphic from /senator/[slug]/share/map) for this link instead of the generic
   // site card — Facebook/LinkedIn re-scrape the shared URL itself for a preview image, they

@@ -25,6 +25,7 @@ import {
   candidateNationwideMunicipalitySwing, candidateProvinceList, candidateProvinceShareTrend,
   candidateProvinceSwing, candidateMunicipalitySwing, resolveShareYearPair,
   candidateAllProvinceShares, candidateAllMunicipalityShares,
+  candidateMunicipalitySwingHeadline,
 } from '@/lib/data';
 import {
   type ElectionYear, type Metric, type Senator,
@@ -111,6 +112,14 @@ function ExplorerPageInner() {
   function handleSwingYearPairChange(pair: YearPair) {
     trackEvent('select_swing_year_pair', { year_a: pair[0], year_b: pair[1], candidate_id: selectedSenator?.senator_id });
     setSwingYearPair(pair);
+    // Keep the single-year selector in step with whichever pair is now being compared — without
+    // this, picking a pair from the "did not run in {year}" overlay (ChoroplethMap) left `year`
+    // on the old, unrelated year, so that overlay's own !yearData dismiss condition never
+    // cleared: the swing map underneath was already showing correct data for the new pair, but
+    // the overlay stayed up forever, since it was still checking the stale `year` against
+    // yearData. Land on the pair's later year, since that's the one usually still selectable
+    // from the normal year bar too.
+    setYear(pair[1] as ElectionYear);
   }
 
   function handleYearChange(y: ElectionYear, source: 'year_selector' | 'candidate_pill' = 'year_selector') {
@@ -310,6 +319,12 @@ function ExplorerPageInner() {
   const swingYears: [number, number] | null = (swingYearA !== undefined && swingYearB !== undefined)
     ? [swingYearA, swingYearB]
     : null;
+  // Same "X gained/lost support from N out of TOTAL (%) municipalities..." claim shown on the
+  // swing-map share card — reused as the candidate profile's own share text (see CandidateHeader)
+  // so that share leads with a concrete number too, not just a generic "performed at the polls."
+  const swingHeadline = (selectedSenator && currentCandidateData && swingYearA !== undefined && swingYearB !== undefined)
+    ? candidateMunicipalitySwingHeadline(currentCandidateData, selectedSenator, swingYearA, swingYearB)?.headline ?? null
+    : null;
 
   // Top 3 candidates who did run this year — offered as a way out of the dead end
   // when the selected senator didn't run in `year`
@@ -348,7 +363,7 @@ function ExplorerPageInner() {
       {selectedSenator ? (
         <>
           <div className="sticky top-0 z-20 bg-background -mx-4 px-4 pt-2 pb-2">
-            <CandidateHeader senator={selectedSenator} national={currentNationalData?.[selectedSenator.senator_id] ?? null} />
+            <CandidateHeader senator={selectedSenator} national={currentNationalData?.[selectedSenator.senator_id] ?? null} swingHeadline={swingHeadline} />
           </div>
 
           <CandidateCard
