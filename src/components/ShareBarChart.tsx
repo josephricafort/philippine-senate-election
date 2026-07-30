@@ -26,6 +26,10 @@ type Props = {
    *  that case (every row's trend is a single point), so the last column shows each row's rank
    *  within that area instead. */
   singleRun: boolean;
+  /** Tailwind `top-*` class for the sticky column header when expanded — defaults to flush
+   *  against the viewport, but pages with their own sticky header/tab stack (e.g. ExplorerClient)
+   *  need to pass an offset so this chart's header docks below theirs instead of underneath it. */
+  stickyTopClassName?: string;
 };
 
 type SortKey = 'name' | 'share';
@@ -128,7 +132,7 @@ function SortButton({ label, active, dir, onClick }: { label: string; active: bo
 // single left-anchored fill since share has no "gain/loss" direction) plus a mini sparkline of
 // the area's share across every year the candidate ran, in place of a rank badge. Sortable by
 // name or share; trend is display-only (sorting by trend shape isn't a meaningful operation).
-export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sampleSize, emptyMessage, year, singleRun }: Props) {
+export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sampleSize, emptyMessage, year, singleRun, stickyTopClassName = 'top-0' }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>('share');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
@@ -166,17 +170,23 @@ export default function ShareBarChart({ title, rows, nameHeader, shareHeader, sa
 
   return (
     <div className="rounded-xl border bg-card p-4">
-      <p className="text-sm font-semibold mb-3.5">{title}</p>
+      {/* Sticky to the page viewport (not an inner scroll box) so the column labels stay
+          readable during a long expanded list without adding a second, conflicting scroll
+          region inside the card. pb-3 + border-b gives the stuck header a visible seam once
+          it's pinned, instead of butting flush against whatever's scrolling beneath it. */}
+      <div className={expanded ? `sticky ${stickyTopClassName} z-10 bg-card -mx-4 px-4 pt-4 pb-3 -mt-4 border-b border-border` : ''}>
+        <p className="text-sm font-semibold mb-3.5">{title}</p>
 
-      <div className="grid grid-cols-[128px_1fr_44px] gap-2.5 mb-2 text-xs text-muted-foreground">
-        <SortButton label={nameHeader} active={sortKey === 'name'} dir={sortDir} onClick={() => toggleSort('name')} />
-        <div className="flex justify-end">
-          <SortButton label={shareHeader} active={sortKey === 'share'} dir={sortDir} onClick={() => toggleSort('share')} />
+        <div className="grid grid-cols-[128px_1fr_44px] gap-2.5 text-xs text-muted-foreground">
+          <SortButton label={nameHeader} active={sortKey === 'name'} dir={sortDir} onClick={() => toggleSort('name')} />
+          <div className="flex justify-end">
+            <SortButton label={shareHeader} active={sortKey === 'share'} dir={sortDir} onClick={() => toggleSort('share')} />
+          </div>
+          <span className="text-right">{singleRun ? 'Rank' : 'Trend'}</span>
         </div>
-        <span className="text-right">{singleRun ? 'Rank' : 'Trend'}</span>
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 mt-4">
         {visible.map(row => {
           const widthPct = (row.vote_share / maxShare) * 100;
           return (

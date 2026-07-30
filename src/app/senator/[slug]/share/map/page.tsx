@@ -77,7 +77,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   // works whether `result` ended up being swing or top-provinces.
   const title = result.data.headline;
   const description = result.kind === 'swing'
-    ? `Municipality swing map, ${result.data.yearA} → ${result.data.yearB}. Explore all Philippine senate election data since 2007.`
+    ? `${senator.senator_name}'s municipality vote-share swing map, ${result.data.yearA} → ${result.data.yearB}. Explore all Philippine senate election data since 2007.`
     : `Vote share by province, ${result.data.year}. Explore all Philippine senate election data since 2007.`;
   const imageUrl = result.kind === 'swing'
     ? `/senator/${senator.senator_id}/share/map/og-image?yearA=${result.data.yearA}&yearB=${result.data.yearB}`
@@ -125,7 +125,7 @@ export default async function MapSwingSharePage({ params, searchParams }: Props)
     ? `/?candidate=${senator.senator_id}&yearA=${result.data.yearA}&yearB=${result.data.yearB}&view=map`
     : `/?candidate=${senator.senator_id}`;
   const shareTitle = result.kind === 'swing'
-    ? `${senator.senator_name} — Municipality swing map, ${result.data.yearA} → ${result.data.yearB}`
+    ? `${senator.senator_name} — Municipality vote-share swing map, ${result.data.yearA} → ${result.data.yearB}`
     : `${senator.senator_name} — Vote share by province, ${result.data.year}`;
 
   return (

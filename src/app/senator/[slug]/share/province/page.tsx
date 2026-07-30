@@ -75,7 +75,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   // label, so the link preview leads with the same statement the graphic makes.
   const title = result.data.headline;
   const description = result.kind === 'swing'
-    ? `Province swing, ${result.data.yearA} → ${result.data.yearB}. Explore all Philippine senate election data since 2007.`
+    ? `${senator.senator_name}'s province vote-share swing, ${result.data.yearA} → ${result.data.yearB}. Explore all Philippine senate election data since 2007.`
     : `Vote share by province, ${result.data.year}. Explore all Philippine senate election data since 2007.`;
   // og-image is a plain Route Handler, not the opengraph-image.tsx file convention (that
   // convention's Image() only receives `params`, not `searchParams`, in this Next.js version,
@@ -131,7 +131,7 @@ export default async function ProvinceSwingSharePage({ params, searchParams }: P
     ? `/?candidate=${senator.senator_id}&yearA=${result.data.yearA}&yearB=${result.data.yearB}&view=province`
     : `/?candidate=${senator.senator_id}`;
   const shareTitle = result.kind === 'swing'
-    ? `${senator.senator_name} — Province swing, ${result.data.yearA} → ${result.data.yearB}`
+    ? `${senator.senator_name} — Vote-share swing, ${result.data.yearA} → ${result.data.yearB}`
     : `${senator.senator_name} — Vote share by province, ${result.data.year}`;
 
   return (

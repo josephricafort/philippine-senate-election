@@ -68,8 +68,8 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   if (swingResult) {
     shareTitle = swingResult.headline;
     shareDescription = isProvince
-      ? `Province swing chart, ${swingResult.yearA} → ${swingResult.yearB}. Explore all Philippine senate election data since 2007.`
-      : `Municipality swing map, ${swingResult.yearA} → ${swingResult.yearB}. Explore all Philippine senate election data since 2007.`;
+      ? `${senator.senator_name}'s province vote-share swing, ${swingResult.yearA} → ${swingResult.yearB}. Explore all Philippine senate election data since 2007.`
+      : `${senator.senator_name}'s municipality vote-share swing map, ${swingResult.yearA} → ${swingResult.yearB}. Explore all Philippine senate election data since 2007.`;
     const imagePath = isProvince
       ? `/senator/${senator.senator_id}/share/province/og-image?yearA=${swingResult.yearA}&yearB=${swingResult.yearB}`
       : `/senator/${senator.senator_id}/share/map/og-image?yearA=${swingResult.yearA}&yearB=${swingResult.yearB}`;

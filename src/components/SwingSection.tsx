@@ -31,11 +31,13 @@ type Props = {
   /** Called when the user follows the "See Vote Share Trends instead" link shown for
    *  single-run candidates — lets the parent flip both the profile tab and the map metric. */
   onSwitchToTrends?: () => void;
+  /** Forwarded to ProvinceSwingBarChart's sticky header offset — see that component for why. */
+  chartStickyTopClassName?: string;
 };
 
 // Reads ?province= from the URL so a specific province's swing view is shareable/linkable
 // (e.g. /senator/go_bong?province=Cavite) without minting a static page per province.
-export default function SwingSection({ senator, provinceTrends, topProvinceNames, provinceRows, muniRowsByProvince, yearPair, onSwitchToTrends }: Props) {
+export default function SwingSection({ senator, provinceTrends, topProvinceNames, provinceRows, muniRowsByProvince, yearPair, onSwitchToTrends, chartStickyTopClassName }: Props) {
   const searchParams = useSearchParams();
   const provinceParam = searchParams.get('province');
   const provinces = useMemo(() => provinceTrends.map(p => p.adm2_en).sort(), [provinceTrends]);
@@ -77,10 +79,10 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
     return (
       <div>
         <h3 className="text-base font-semibold mb-1">
-          Swing Votes
+          Vote-Share Swing
         </h3>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Swing values are only available for candidates who ran in 2 or more elections.
+          Vote-share swing is only available for candidates who ran in 2 or more elections.
           {' '}{senator.senator_name} has only run once ({senator.years[0]}), so there&rsquo;s
           no prior result to compare against.
         </p>
@@ -112,28 +114,32 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
   return (
     <div>
       <h3 className="text-base font-semibold mb-1">
-        Swing Votes
+        Vote-Share Swing
       </h3>
 
-      <h4 className="text-sm font-semibold mt-4 mb-1">Swing votes by Province</h4>
+      <h4 className="text-sm font-semibold mt-4 mb-1">Vote-share swing by Province</h4>
       <p className="text-sm text-muted-foreground leading-relaxed mb-4">
         {headlineName(senator.senator_name)}&rsquo;s percentage-point change in vote share by province nationwide
       </p>
 
       {yearA !== undefined && (
-        <div className="mb-6">
+        // mt-2: once the page scrolls, this card sits directly beneath ExplorerClient's own
+        // sticky "Comparing" bar with nothing else in between — without its own top margin the
+        // two look like they're touching, no breathing room at all.
+        <div className="mt-2 mb-6">
           <ProvinceSwingBarChart
             rows={provinceRows}
             senatorId={senator.senator_id}
             senatorName={senator.senator_name}
             yearA={yearA}
             yearB={yearB}
+            stickyTopClassName={chartStickyTopClassName}
           />
         </div>
       )}
 
       <p className="text-sm text-muted-foreground leading-relaxed mb-2">
-        Select a province to see swing trends and swing votes by its municipality
+        Select a province to see vote-share trends and swing by its municipality
       </p>
       <div className="mb-5">
         <ProvinceSelect provinces={provinces} value={province} onChange={handleProvinceChange} />
@@ -142,7 +148,7 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
       {province && (
         <div className="space-y-6">
           <div>
-            <h4 className="text-sm font-semibold mb-1">Swing votes trend in {province}</h4>
+            <h4 className="text-sm font-semibold mb-1">Vote-share swing trend in {province}</h4>
             {provinceIndexSwing !== null && latestProvinceIndex !== undefined && (
               <p className="text-sm text-muted-foreground leading-relaxed mb-2.5">
                 Percentage-point change across election cycles in {province}
@@ -155,7 +161,7 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
 
           {yearA !== undefined ? (
             <div>
-              <h4 className="text-sm font-semibold mb-1">Swing votes in {province} by municipality</h4>
+              <h4 className="text-sm font-semibold mb-1">Vote-share swing in {province} by municipality</h4>
               <p className="text-sm text-muted-foreground leading-relaxed mb-2.5">
                 Percentage-point change in vote share in {province} by municipality
               </p>
@@ -163,7 +169,7 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
             </div>
           ) : (
             <p className="text-muted-foreground text-sm">
-              Needs at least two runs in this province to show municipality-level swing.
+              Needs at least two runs in this province to show municipality-level vote-share swing.
             </p>
           )}
         </div>

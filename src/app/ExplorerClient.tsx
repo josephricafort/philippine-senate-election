@@ -403,7 +403,7 @@ function ExplorerPageInner() {
                       }`}
                     >
                       <TrendingUp className="w-4 h-4" />
-                      Vote Share
+                      {selectedSenator.years.length > 1 ? 'Vote Share Trend' : 'Vote Share'}
                     </button>
                   </div>
                 </div>
@@ -469,6 +469,7 @@ function ExplorerPageInner() {
                   muniRowsByProvince={swingProps.muniRowsByProvince}
                   yearPair={swingYearPair}
                   onSwitchToTrends={() => handleProfileTabChange('trends')}
+                  chartStickyTopClassName="top-45.75"
                 />
               )}
 
@@ -479,7 +480,7 @@ function ExplorerPageInner() {
                 <>
                   <div>
                     <h3 className="text-base font-semibold mb-1">
-                      Vote Share
+                      {selectedSenator.years.length > 1 ? 'Vote Share Trend' : 'Vote Share'}
                     </h3>
                     {selectedSenator.years.length > 1 && (
                       <>
@@ -502,6 +503,7 @@ function ExplorerPageInner() {
                       topProvinceNames={nationalTrendsProps.topProvinceNames}
                       muniSharesByProvince={nationalTrendsProps.muniSharesByProvince}
                       singleRun={selectedSenator.years.length === 1}
+                      chartStickyTopClassName="top-45.75"
                     />
                   ) : (
                     <p className="text-muted-foreground text-sm">Loading…</p>
@@ -571,8 +573,8 @@ function ExplorerPageInner() {
         {metric === 'swing' && swingYears && selectedSenator && (
           <Link
             href={`/senator/${selectedSenator.senator_id}/share/map?yearA=${swingYears[0]}&yearB=${swingYears[1]}`}
-            title="Share this swing map"
-            aria-label="Share this swing map"
+            title="Share this vote-share swing map"
+            aria-label="Share this vote-share swing map"
             className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all shrink-0 ml-auto"
           >
             <Share2 className="w-3 h-3" />
@@ -668,8 +670,8 @@ function ExplorerPageInner() {
                   {selectedSenator && (
                     <Link
                       href={`/senator/${selectedSenator.senator_id}/share/map?yearA=${swingYears[0]}&yearB=${swingYears[1]}`}
-                      title="Share this swing map"
-                      aria-label="Share this swing map"
+                      title="Share this vote-share swing map"
+                      aria-label="Share this vote-share swing map"
                       className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all shrink-0"
                     >
                       <Share2 className="w-3 h-3" />

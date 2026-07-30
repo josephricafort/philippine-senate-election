@@ -349,7 +349,7 @@ function buildTooltipHtml(
   if (metric === 'swing') {
     const entry = swingMap?.get(psgc);
     if (entry) {
-      detail = `${formatSwingPt(entry.delta)} swing`;
+      detail = `${formatSwingPt(entry.delta)} vote-share change`;
       detailColor = swingColor(entry.delta);
     } else if (senatorId) {
       detail = 'No data';
