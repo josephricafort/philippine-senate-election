@@ -54,7 +54,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const maxShare = Math.max(...topResult.rows.map(r => r.vote_share), 0.0001);
     const barColor = yearColor(latestYear);
-    const topRows = topResult.rows.slice(0, 10);
+    // Full top-15 (not 10) — matched to the swing card's row count/height so both cards read as
+    // the same chart family instead of the top-provinces card looking sparser by comparison.
+    const topRows = topResult.rows.slice(0, 15);
 
     return new ImageResponse(
       (
@@ -79,23 +81,38 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
-            {topRows.map(row => {
-              const widthPct = (row.vote_share / maxShare) * 100;
-              return (
-                <div key={row.adm2_en} style={{ display: 'flex', alignItems: 'center', gap: 14, minHeight: 22 }}>
-                  <div style={{ display: 'flex', width: 220, fontSize: 18, lineHeight: 1.2, color: '#fafafa', justifyContent: 'flex-end', textAlign: 'right' }}>
-                    {row.adm2_en}
+          {/* Same tick-header + name/bar/value row shape as the province-swing card's right
+              column — 0/mid/max labels instead of −max/0/+max since share has no negative
+              side, same 180px name column and 82px value column so both card types line up. */}
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
+              <div style={{ display: 'flex', width: 180 }} />
+              <div style={{ display: 'flex', flex: 1, justifyContent: 'space-between', fontSize: 15, color: '#71717a', fontFamily: 'monospace' }}>
+                <span style={{ display: 'flex' }}>0%</span>
+                <span style={{ display: 'flex' }}>{`${(maxShare * 100 / 2).toFixed(0)}%`}</span>
+                <span style={{ display: 'flex' }}>{`${(maxShare * 100).toFixed(0)}%`}</span>
+              </div>
+              <div style={{ display: 'flex', width: 82 }} />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
+              {topRows.map(row => {
+                const widthPct = (row.vote_share / maxShare) * 100;
+                return (
+                  <div key={row.adm2_en} style={{ display: 'flex', alignItems: 'center', gap: 14, minHeight: 22 }}>
+                    <div style={{ display: 'flex', width: 180, fontSize: 18, lineHeight: 1.2, color: '#fafafa', justifyContent: 'flex-end', textAlign: 'right' }}>
+                      {row.adm2_en}
+                    </div>
+                    <div style={{ display: 'flex', flex: 1, height: 20, background: 'rgba(255,255,255,0.06)', borderRadius: 5, position: 'relative' }}>
+                      <div style={{ display: 'flex', position: 'absolute', left: 0, top: 0, bottom: 0, width: `${widthPct}%`, background: barColor, borderRadius: 3 }} />
+                    </div>
+                    <div style={{ display: 'flex', width: 82, fontSize: 16, fontWeight: 700, color: '#fafafa' }}>
+                      {(row.vote_share * 100).toFixed(1)}%
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', flex: 1, height: 20, background: 'rgba(255,255,255,0.06)', borderRadius: 5, position: 'relative' }}>
-                    <div style={{ display: 'flex', position: 'absolute', left: 0, top: 0, bottom: 0, width: `${widthPct}%`, background: barColor, borderRadius: 3 }} />
-                  </div>
-                  <div style={{ display: 'flex', width: 60, fontSize: 16, fontWeight: 700, color: '#fafafa' }}>
-                    {(row.vote_share * 100).toFixed(1)}%
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
       ),
