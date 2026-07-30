@@ -18,20 +18,9 @@ const FEEDBACK_URL = process.env.NEXT_PUBLIC_FEEDBACK_FORM_URL || '#feedback-for
 export default function InfoMenu() {
   return (
     <>
-      {/* Desktop (md+): plain inline links, no dropdown needed */}
+      {/* Desktop (md+): plain inline links, no dropdown needed. Feedback leads here (swapped
+          ahead of About/Data & methodology) — mobile keeps its own order below unchanged. */}
       <nav className="hidden md:flex items-center gap-4">
-        {links.map(l => (
-          <Link
-            key={l.href}
-            href={l.href}
-            onClick={() => trackEvent('click_info_menu', { link_target: l.href })}
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <l.icon className="w-3.5 h-3.5" />
-            {l.label}
-          </Link>
-        ))}
-        <span className="w-px h-3.5 bg-border" aria-hidden="true" />
         <a
           href={FEEDBACK_URL}
           target="_blank"
@@ -43,6 +32,18 @@ export default function InfoMenu() {
           Feedback
           <ExternalLink className="w-3 h-3" />
         </a>
+        <span className="w-px h-3.5 bg-border" aria-hidden="true" />
+        {links.map(l => (
+          <Link
+            key={l.href}
+            href={l.href}
+            onClick={() => trackEvent('click_info_menu', { link_target: l.href })}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <l.icon className="w-3.5 h-3.5" />
+            {l.label}
+          </Link>
+        ))}
       </nav>
 
       {/* Mobile: burger menu */}
