@@ -118,13 +118,16 @@ export default function CandidateCard({ senator, national, year, onSelectYear }:
             Did not run in {year}
           </p>
           {onSelectYear && (
-            <div className="mt-2 md:mt-3 overflow-x-auto">
-              <YearSelector
-                value={year}
-                onChange={onSelectYear}
-                availableYears={senator.years}
-                filterToAvailable
-              />
+            <div className="mt-2 md:mt-3">
+              <p className="text-xs text-muted-foreground mb-1.5">Go to year ran</p>
+              <div className="overflow-x-auto">
+                <YearSelector
+                  value={year}
+                  onChange={onSelectYear}
+                  availableYears={senator.years}
+                  filterToAvailable
+                />
+              </div>
             </div>
           )}
         </div>
