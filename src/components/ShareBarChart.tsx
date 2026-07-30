@@ -77,8 +77,8 @@ function Sparkline({ trend }: { trend: { year: number; vote_share: number }[] })
   // clearly wider than the stroke (2.2) so it reads as a distinct arrow shape rather than
   // blending into the line's own rounded cap.
   const angle = Math.atan2(lastY - prevY, lastX - prevX);
-  const arrowLen = 5;
-  const arrowWidth = 4.5;
+  const arrowLen = 7;
+  const arrowWidth = 6.3;
   const tipX = lastX;
   const tipY = lastY;
   const backX = lastX - Math.cos(angle) * arrowLen;
