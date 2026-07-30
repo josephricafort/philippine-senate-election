@@ -68,9 +68,11 @@ export default function CandidateCard({ senator, national, year, onSelectYear }:
               National rank
               <RankDisclaimerTooltip />
             </p>
-            <Badge variant="secondary" className="mt-0.5 md:mt-1.5 text-xs md:text-sm px-1.5 md:px-2 py-0 md:py-0.5">
-              #{national.national_rank}
-            </Badge>
+            <div className="mt-0.5 md:mt-1.5">
+              <Badge variant="secondary" className="text-xs md:text-sm px-1.5 md:px-2 py-0 md:py-0.5">
+                #{national.national_rank}
+              </Badge>
+            </div>
           </div>
           <div>
             <p className="text-muted-foreground text-[10px] md:text-xs uppercase tracking-wide">Year</p>
