@@ -64,7 +64,7 @@ export default function LeaderboardTable({ nationalData, senators, highlightId, 
           onSelectSenator ? 'cursor-pointer hover:bg-accent/50' : '',
         ].join(' ')}
       >
-        <TableCell>
+        <TableCell className="w-16">
           <Badge
             variant={isHighlight ? 'default' : 'secondary'}
             style={!isHighlight ? MEDAL_STYLES[row.national.national_rank] : undefined}
@@ -72,10 +72,10 @@ export default function LeaderboardTable({ nationalData, senators, highlightId, 
             #{row.national.national_rank}
           </Badge>
         </TableCell>
-        <TableCell className={`font-medium ${isHighlight ? 'text-primary' : ''}`}>
+        <TableCell className={`w-full max-w-0 truncate font-medium ${isHighlight ? 'text-primary' : ''}`}>
           {row.senator.senator_name}
         </TableCell>
-        <TableCell className="text-muted-foreground">
+        <TableCell className="w-12 text-muted-foreground">
           {row.senator.years.length}
         </TableCell>
       </TableRow>
@@ -87,17 +87,17 @@ export default function LeaderboardTable({ nationalData, senators, highlightId, 
       {/* containerClassName overrides Table's default overflow-x-auto wrapper — that wrapper
           is itself a scroll container, which breaks `sticky` on the header below because it
           sits between the header and the actual scrolling ancestor (this div). */}
-      <Table containerClassName="overflow-visible">
+      <Table containerClassName="overflow-visible" className="table-fixed">
         <TableHeader className="sticky top-0 bg-background z-10">
           <TableRow>
-            <TableHead>
+            <TableHead className="w-16 whitespace-normal">
               <span className="inline-flex items-center gap-1">
                 Nat. rank
                 <RankDisclaimerTooltip />
               </span>
             </TableHead>
             <TableHead>Candidate</TableHead>
-            <TableHead>Runs</TableHead>
+            <TableHead className="w-12">Runs</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -112,7 +112,7 @@ export default function LeaderboardTable({ nationalData, senators, highlightId, 
       {/* Sticky pinned row — shown only when highlight row is scrolled out of view */}
       {highlightRow && !highlightVisible && (
         <div className="sticky bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur-sm z-20">
-          <Table>
+          <Table className="table-fixed">
             <TableBody>
               {renderRow(highlightRow)}
             </TableBody>

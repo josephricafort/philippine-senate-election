@@ -3,6 +3,8 @@ import { AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { RankDisclaimerTooltip } from '@/components/InfoTooltip';
 import YearSelector from '@/components/YearSelector';
+import ProfileShareMenu from '@/components/ProfileShareMenu';
+import { headlineName } from '@/lib/display-name';
 import type { ElectionYear, NationalTotals, Senator } from '@/lib/types';
 
 type Props = {
@@ -28,12 +30,23 @@ function formatVotes(n: number) {
 }
 
 export function CandidateHeader({ senator, national }: { senator: Senator; national: NationalTotals | null }) {
+  const years = [...senator.years].sort((a, b) => a - b);
+  const shareText = years.length > 1
+    ? `${headlineName(senator.senator_name)}: how did your city or town vote since ${years[0]}? See the results here:`
+    : `${headlineName(senator.senator_name)}: how did your city or town vote? See the results here:`;
+
   return (
     <div className="flex items-center gap-3 md:gap-5">
       <div className={`w-9 h-9 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-sm md:text-base shrink-0 select-none ${national ? 'bg-primary text-primary-foreground' : 'bg-destructive/20 text-destructive'}`}>
         {initials(senator.senator_name)}
       </div>
       <h2 className="flex-1 min-w-0 font-bold text-xl md:text-2xl leading-tight truncate">{senator.senator_name}</h2>
+      <ProfileShareMenu
+        url={`/?candidate=${senator.senator_id}`}
+        text={shareText}
+        candidateId={senator.senator_id}
+        label="Share candidate"
+      />
     </div>
   );
 }

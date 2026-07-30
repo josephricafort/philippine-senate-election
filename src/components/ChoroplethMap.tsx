@@ -600,6 +600,12 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
           if (src !== 'ph-municipalities') {
             map.setLayoutProperty(layer.id, 'visibility', 'none');
           }
+        } else if (layer.id === 'water') {
+          // stamen_toner_lite's stock water fill (hsl(0, 0%, 85%)) sits almost exactly on top
+          // of NO_DATA_COLOR (#d4d4d8, ~85% lightness) and close to NEUTRAL (#a1a1aa, the
+          // near-zero-swing color) — the ocean read as "no data"/"flat swing" municipalities.
+          // Lightened so open water is unambiguously background, not a choropleth value.
+          map.setPaintProperty(layer.id, 'fill-color', '#eef0f2');
         }
       }
 

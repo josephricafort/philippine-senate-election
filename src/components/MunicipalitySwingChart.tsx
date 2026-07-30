@@ -35,12 +35,9 @@ export default function MunicipalitySwingChart({ rows, province, yearA, yearB }:
         <p className="text-sm font-semibold">
           Municipalities in {province} &middot; {yearA} &rarr; {yearB}
         </p>
-        <span className="text-[11px] font-mono text-muted-foreground border-b border-dotted border-muted-foreground/60 shrink-0 ml-2 whitespace-nowrap">
-          biggest drop first
-        </span>
       </div>
 
-      <div className="grid grid-cols-[84px_1fr_52px] gap-2.5 mb-2">
+      <div className="grid grid-cols-[128px_1fr_52px] gap-2.5 mb-2">
         <div />
         <div className="flex justify-between font-mono text-[9px] text-muted-foreground/70">
           <span>−{(maxAbsDelta * 100).toFixed(0)}pt</span>
@@ -57,7 +54,7 @@ export default function MunicipalitySwingChart({ rows, province, yearA, yearB }:
           const widthPct = (Math.abs(row.delta) / maxAbsDelta) * 50;
           const { sign, magnitude } = formatSwingParts(row.delta);
           return (
-            <div key={row.psgc} className="grid grid-cols-[84px_1fr_52px] gap-2.5 items-center">
+            <div key={row.psgc} className="grid grid-cols-[128px_1fr_52px] gap-2.5 items-center">
               <div className="min-w-0">
                 <p className="text-xs truncate" title={row.adm3_en}>{row.adm3_en}</p>
                 {!expanded && label && (

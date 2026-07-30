@@ -9,12 +9,11 @@ import SearchSelect from '@/components/SearchSelect';
 import CandidateCard, { CandidateHeader } from '@/components/CandidateCard';
 import YearSelector from '@/components/YearSelector';
 import MetricToggle from '@/components/MetricToggle';
-import TopMunicipalitiesTable from '@/components/TopMunicipalitiesTable';
-import TopProvincesTable from '@/components/TopProvincesTable';
 import LeaderboardTable from '@/components/LeaderboardTable';
 import SiteHeader from '@/components/SiteHeader';
 import SwingSection from '@/components/SwingSection';
 import SwingYearPairSelector from '@/components/SwingYearPairSelector';
+import NationalTrendsSection from '@/components/NationalTrendsSection';
 
 type MobileTab = 'leaderboard' | 'profile' | 'map';
 type ProfileTab = 'swing' | 'trends';
@@ -22,9 +21,10 @@ type ProfileTab = 'swing' | 'trends';
 import {
   loadCandidateData, loadNationalYear, loadMunicipalityNames, loadCandidateIndex,
   buildSenatorList, nationalTotalVotes,
-  candidateTopMunicipalities, candidateTopProvinces, candidateTrendData,
+  candidateTopProvinces, candidateTrendData,
   candidateNationwideMunicipalitySwing, candidateProvinceList, candidateProvinceShareTrend,
   candidateProvinceSwing, candidateMunicipalitySwing, resolveShareYearPair,
+  candidateAllProvinceShares, candidateAllMunicipalityShares,
 } from '@/lib/data';
 import {
   type ElectionYear, type Metric, type Senator,
@@ -208,14 +208,6 @@ function ExplorerPageInner() {
   const currentCandidateData = selectedSenator ? candidateCache.get(selectedSenator.senator_id) ?? null : null;
   const currentNationalData = nationalCache.get(year) ?? null;
 
-  const topMunis = currentCandidateData
-    ? candidateTopMunicipalities(currentCandidateData, year, 7)
-    : [];
-
-  const topProvs = currentCandidateData
-    ? candidateTopProvinces(currentCandidateData, year, 7)
-    : [];
-
   // Nationwide total votes cast per year, for the years the selected candidate ran — the
   // denominator trendData/provinceShareTrend need for national vote-share figures.
   const nationalTotalsByYear = useMemo(() => {
@@ -259,6 +251,22 @@ function ExplorerPageInner() {
     }
     return { provinceTrends, topProvinceNames, provinceRows, muniRowsByProvince };
   }, [selectedSenator, currentCandidateData, nationalTotalsByYear, swingYearPair]);
+
+  // National Trends tab's "share by province/municipality" data — every province/municipality
+  // the candidate has data for in `year`, each with its own multi-year share trend (for the
+  // sparkline). Same "reduce to plain props before handing to a client component" shape as
+  // swingProps, though size isn't a concern here since ExplorerClient already holds
+  // currentCandidateData in full.
+  const nationalTrendsProps = useMemo(() => {
+    if (!currentCandidateData) return null;
+    const provinceShares = candidateAllProvinceShares(currentCandidateData, year);
+    const topProvinceNames = candidateTopProvinces(currentCandidateData, year, 4).map(p => p.adm2_en);
+    const muniSharesByProvince: Record<string, ReturnType<typeof candidateAllMunicipalityShares>> = {};
+    for (const p of provinceShares) {
+      muniSharesByProvince[p.adm2_en] = candidateAllMunicipalityShares(currentCandidateData, year, p.adm2_en);
+    }
+    return { provinceShares, topProvinceNames, muniSharesByProvince };
+  }, [currentCandidateData, year]);
 
   // Track "did not run this year" as a friction event — fires once per candidate+year
   // combo that lands in this state, not on every render.
@@ -458,29 +466,16 @@ function ExplorerPageInner() {
                     )}
                   </div>
 
-                  <div>
-                    <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-                      The provinces where this candidate earned their highest vote share in {year},
-                      ranked against every other candidate in the same province.
-                    </p>
-                    {currentCandidateData ? (
-                      <TopProvincesTable rows={topProvs} metric={metric} year={year} />
-                    ) : (
-                      <p className="text-muted-foreground text-sm">Loading…</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-                      The individual towns and cities where this candidate performed best in {year},
-                      down to the municipality level.
-                    </p>
-                    {currentCandidateData ? (
-                      <TopMunicipalitiesTable rows={topMunis} metric={metric} year={year} />
-                    ) : (
-                      <p className="text-muted-foreground text-sm">Loading…</p>
-                    )}
-                  </div>
+                  {nationalTrendsProps ? (
+                    <NationalTrendsSection
+                      year={year}
+                      provinceShares={nationalTrendsProps.provinceShares}
+                      topProvinceNames={nationalTrendsProps.topProvinceNames}
+                      muniSharesByProvince={nationalTrendsProps.muniSharesByProvince}
+                    />
+                  ) : (
+                    <p className="text-muted-foreground text-sm">Loading…</p>
+                  )}
                 </>
               )}
             </>
@@ -551,7 +546,7 @@ function ExplorerPageInner() {
             className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all shrink-0 ml-auto"
           >
             <Share2 className="w-3 h-3" />
-            Share
+            Share map
           </Link>
         )}
       </div>
@@ -647,7 +642,7 @@ function ExplorerPageInner() {
                       className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-[11px] font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all shrink-0"
                     >
                       <Share2 className="w-3 h-3" />
-                      Share
+                      Share map
                     </Link>
                   )}
                 </>

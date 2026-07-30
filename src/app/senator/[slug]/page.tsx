@@ -6,16 +6,16 @@ import { ArrowLeft, MapPinned } from 'lucide-react';
 
 import CandidateCard, { CandidateHeader } from '@/components/CandidateCard';
 import TrendChart from '@/components/TrendChart';
-import TopProvincesTable from '@/components/TopProvincesTable';
-import TopMunicipalitiesTable from '@/components/TopMunicipalitiesTable';
 import SwingSection from '@/components/SwingSection';
+import NationalTrendsSection from '@/components/NationalTrendsSection';
 import ShareButton from '@/components/ShareButton';
 import SectionIntro from '@/components/SectionIntro';
 import { loadCandidateIndexServer, loadCandidateDataServer, loadNationalYearServer } from '@/lib/data-server';
 import {
   buildSenatorList, nationalTotalVotes,
-  candidateTopMunicipalities, candidateTopProvinces, candidateTrendData,
+  candidateTopProvinces, candidateTrendData,
   candidateProvinceList, candidateProvinceShareTrend, candidateProvinceSwing, candidateMunicipalitySwing,
+  candidateAllProvinceShares, candidateAllMunicipalityShares,
 } from '@/lib/data';
 import { yearColor } from '@/lib/year-colors';
 import { netSwing, consecutivePairs, type YearPair } from '@/lib/swing';
@@ -65,9 +65,6 @@ export default async function SenatorPage({ params }: Props) {
   const pairs = consecutivePairs(senator.years);
   const swingYearPair: YearPair | null = pairs.length > 0 ? pairs[pairs.length - 1] : null;
 
-  const topMunis = candidateTopMunicipalities(candidate, latestYear, 7);
-  const topProvs = candidateTopProvinces(candidate, latestYear, 7);
-
   // Nationwide total votes cast per year, for the years this senator ran — the denominator
   // candidateTrendData/candidateProvinceShareTrend need for national vote-share figures.
   const nationalYearResults = await Promise.all(
@@ -101,6 +98,15 @@ export default async function SenatorPage({ params }: Props) {
     }
   }
 
+  // National Trends tab's "share by province/municipality" data — see ExplorerClient's
+  // nationalTrendsProps for the equivalent client-side computation.
+  const provinceShares = candidateAllProvinceShares(candidate, latestYear);
+  const trendsTopProvinceNames = candidateTopProvinces(candidate, latestYear, 4).map(p => p.adm2_en);
+  const muniSharesByProvince: Record<string, ReturnType<typeof candidateAllMunicipalityShares>> = {};
+  for (const p of provinceShares) {
+    muniSharesByProvince[p.adm2_en] = candidateAllMunicipalityShares(candidate, latestYear, p.adm2_en);
+  }
+
   // One-sentence takeaways stating what each section's numbers actually show, computed from
   // the same data the chart/table below it renders — not a generic description of chart type.
   const trendSwing = netSwing(trend);
@@ -108,14 +114,6 @@ export default async function SenatorPage({ params }: Props) {
     ? `National vote share ${trendSwing >= 0 ? 'rose' : 'fell'} ${Math.abs(trendSwing * 100).toFixed(1)}pt from ${trend[0].year} to ${trend[trend.length - 1].year}, landing at ${(trend[trend.length - 1].vote_share * 100).toFixed(1)}% in ${latestYear}.`
     : trend.length === 1
     ? `${senator.senator_name} has only run once (${trend[0].year}), earning ${(trend[0].vote_share * 100).toFixed(1)}% of the national vote share — no prior run to compare against yet.`
-    : null;
-
-  const topProvinceTakeaway = topProvs.length > 0
-    ? `Strongest in ${topProvs[0].adm2_en} in ${latestYear}, at ${(topProvs[0].vote_share * 100).toFixed(1)}% of the vote (rank #${topProvs[0].rank}).`
-    : null;
-
-  const topMuniTakeaway = topMunis.length > 0
-    ? `Best single town was ${topMunis[0].adm3_en}, ${topMunis[0].adm2_en}, at ${(topMunis[0].vote_share * 100).toFixed(1)}% of the vote in ${latestYear}.`
     : null;
 
   const personJsonLd = {
@@ -195,19 +193,14 @@ export default async function SenatorPage({ params }: Props) {
           </div>
         )}
 
-        <div>
-          {topProvinceTakeaway && (
-            <p className="text-sm text-muted-foreground leading-relaxed mb-3">{topProvinceTakeaway}</p>
-          )}
-          <TopProvincesTable rows={topProvs} metric="vote_share" year={latestYear} />
-        </div>
-
-        <div>
-          {topMuniTakeaway && (
-            <p className="text-sm text-muted-foreground leading-relaxed mb-3">{topMuniTakeaway}</p>
-          )}
-          <TopMunicipalitiesTable rows={topMunis} metric="vote_share" year={latestYear} />
-        </div>
+        <Suspense fallback={null}>
+          <NationalTrendsSection
+            year={latestYear}
+            provinceShares={provinceShares}
+            topProvinceNames={trendsTopProvinceNames}
+            muniSharesByProvince={muniSharesByProvince}
+          />
+        </Suspense>
 
         <Link
           href={`/?candidate=${senator.senator_id}`}

@@ -556,6 +556,47 @@ export function candidateMunicipalitySwing(
     .sort((a, b) => a.delta - b.delta);
 }
 
+// Every province a senator has data for in a given year, with vote_share plus that province's
+// share trend across every year the senator ran — feeds the National Trends tab's "Share by
+// province" table (bar + sparkline), as opposed to candidateTopProvinces which only returns the
+// top N with rank, or candidateProvinceShareTrend which returns one province's own trend.
+export function candidateAllProvinceShares(
+  candidate: CandidateData,
+  year: number
+): { adm2_en: string; vote_share: number; trend: { year: number; vote_share: number }[] }[] {
+  const yearData = candidate.years[String(year)];
+  if (!yearData?.provinces) return [];
+  return Object.entries(yearData.provinces).map(([adm2_en, p]) => {
+    const trend = Object.entries(candidate.years)
+      .map(([yearStr, yd]) => ({ year: Number(yearStr), vote_share: yd.provinces?.[adm2_en]?.vote_share }))
+      .filter((t): t is { year: number; vote_share: number } => t.vote_share !== undefined)
+      .sort((a, b) => a.year - b.year);
+    return { adm2_en, vote_share: p.vote_share, trend };
+  });
+}
+
+// Every municipality a senator has data for within one province, in a given year, with
+// vote_share plus that municipality's share trend across every year the senator ran — the
+// municipality-level counterpart of candidateAllProvinceShares, scoped to a single province the
+// same way candidateMunicipalitySwing is.
+export function candidateAllMunicipalityShares(
+  candidate: CandidateData,
+  year: number,
+  adm2_en: string
+): { psgc: string; adm3_en: string; vote_share: number; trend: { year: number; vote_share: number }[] }[] {
+  const yearData = candidate.years[String(year)];
+  if (!yearData) return [];
+  return Object.entries(yearData.municipalities)
+    .filter(([, m]) => m.adm2_en === adm2_en)
+    .map(([psgc, m]) => {
+      const trend = Object.entries(candidate.years)
+        .map(([yearStr, yd]) => ({ year: Number(yearStr), vote_share: yd.municipalities[psgc]?.vote_share }))
+        .filter((t): t is { year: number; vote_share: number } => t.vote_share !== undefined)
+        .sort((a, b) => a.year - b.year);
+      return { psgc, adm3_en: m.adm3_en, vote_share: m.vote_share, trend };
+    });
+}
+
 // Vote-share swing for a senator across every municipality they have data for, between two
 // years — the map-wide counterpart to candidateMunicipalitySwing (no province filter), keyed by
 // psgc for direct lookup per map feature.

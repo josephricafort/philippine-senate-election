@@ -57,6 +57,53 @@ export default function AboutPage() {
         </div>
 
         <div className="space-y-4">
+          <h2 className="text-lg font-semibold tracking-tight">How Senate elections work</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            The Philippine Senate isn&apos;t elected by district. All 24 seats are elected at
+            large by voters nationwide, in staggered batches of 12: every candidate runs
+            against every other candidate for the same national pool of votes, and the top 12
+            finishers win, regardless of party. That&apos;s why this tool is built around a
+            single national map and ranking, rather than separate results per district.
+          </p>
+          <ol className="space-y-3 text-sm text-muted-foreground leading-relaxed list-decimal list-outside pl-5">
+            <li>
+              <span className="text-foreground font-medium">24 seats, elected at large.</span>{' '}
+              The Senate has 24 members, elected at large by qualified voters nationwide, not
+              by province or district like the House of Representatives.
+            </li>
+            <li>
+              <span className="text-foreground font-medium">Voters pick up to 12.</span> Each
+              election fills half the Senate (12 seats), and each voter can vote for up to 12
+              candidates. Every valid choice counts as a full vote for that candidate; there&apos;s
+              no ranking.
+            </li>
+            <li>
+              <span className="text-foreground font-medium">Plurality, no runoff.</span>{' '}
+              Whoever finishes in the top 12 by vote count wins a seat, counted from a single
+              nationwide electoral district. There&apos;s no majority threshold and no second
+              round.
+            </li>
+            <li>
+              <span className="text-foreground font-medium">Staggered 6-year terms.</span>{' '}
+              Senators serve six-year terms, capped at two consecutive terms. Only 12 of the 24
+              seats are up every three years, so the Senate is never fully replaced at once.
+            </li>
+          </ol>
+          <p className="text-xs text-muted-foreground/80 leading-relaxed">
+            Sources:{' '}
+            <a
+              href="https://www.comelec.gov.ph/index.html?r=References/RelatedLaws/Constitution/1987Constitution/Article6"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              1987 Constitution, Article VI, Sections 2 &amp; 4 (COMELEC)
+            </a>
+            ; Senate of the Philippines.
+          </p>
+        </div>
+
+        <div className="space-y-4">
           <h2 className="text-lg font-semibold tracking-tight">Why this is useful</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             National vote counts alone flatten a lot of interesting texture. A senator's
