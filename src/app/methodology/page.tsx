@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { SITE_URL } from '@/lib/site';
 import SiteHeader from '@/components/SiteHeader';
-import MethodologyToc, { type TocItem } from '@/components/MethodologyToc';
+import MethodologyToc, { type TocGroup } from '@/components/MethodologyToc';
 
 export const metadata: Metadata = {
   title: 'Data & Methodology — BotoSenado',
@@ -87,21 +87,37 @@ function Section({ id, n, title, children }: { id: string; n: number; title: str
   );
 }
 
-// Anchors the left-rail ToC jumps to — kept in one list so the rail and the section ids can
+// Anchors the left-rail ToC jumps to — kept in one place so the rail and the section ids can
 // never drift apart (every id here must exist exactly once as a heading's id below).
-const tocItems: TocItem[] = [
-  { id: 'sec-overview', label: 'Overview' },
-  { id: 'sec-source-data', label: 'Source data' },
-  { id: 'sec-standardizing', label: 'Standardizing the format' },
-  { id: 'sec-removing-non-vote', label: 'Removing non-vote data' },
-  { id: 'sec-location-code', label: 'Correcting a missing location code' },
-  { id: 'sec-name-resolution', label: 'Resolving candidate name inconsistencies' },
-  { id: 'sec-verification', label: 'Verification' },
-  { id: 'sec-final-structure', label: 'Final data structure' },
-  { id: 'sec-status', label: 'Status' },
-  { id: 'sec-definitions', label: 'What the numbers mean' },
-  { id: 'sec-faq', label: 'Frequently asked questions' },
-  { id: 'disclaimer', label: 'Disclaimer' },
+//
+// Split into two groups because the page holds two different kinds of content: a numbered,
+// sequential process narrative (how the dataset was built, step 0 through 8) and unnumbered
+// reference material (what the numbers mean, FAQ, disclaimer) that isn't part of that sequence.
+// A single flat list made the numbering look like it just stopped partway through; grouping
+// makes the shift explicit, both here and via the matching "Part" headers in the page body.
+const tocGroups: TocGroup[] = [
+  {
+    label: 'How the data was built',
+    items: [
+      { id: 'sec-overview', label: 'Overview' },
+      { id: 'sec-source-data', label: 'Source data' },
+      { id: 'sec-standardizing', label: 'Standardizing the format' },
+      { id: 'sec-removing-non-vote', label: 'Removing non-vote data' },
+      { id: 'sec-location-code', label: 'Correcting a missing location code' },
+      { id: 'sec-name-resolution', label: 'Resolving candidate name inconsistencies' },
+      { id: 'sec-verification', label: 'Verification' },
+      { id: 'sec-final-structure', label: 'Final data structure' },
+      { id: 'sec-status', label: 'Status' },
+    ],
+  },
+  {
+    label: 'Reference',
+    items: [
+      { id: 'sec-definitions', label: 'What the numbers mean' },
+      { id: 'sec-faq', label: 'Frequently asked questions' },
+      { id: 'disclaimer', label: 'Disclaimer' },
+    ],
+  },
 ];
 
 export default function MethodologyPage() {
@@ -137,10 +153,17 @@ export default function MethodologyPage() {
 
         <div className="md:grid md:grid-cols-[12rem_1fr] md:gap-10">
           <aside className="hidden md:block">
-            <MethodologyToc items={tocItems} />
+            <MethodologyToc groups={tocGroups} />
           </aside>
 
           <div className="max-w-2xl space-y-10">
+
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Part 1
+          </p>
+          <h2 className="text-xl font-semibold tracking-tight">How the data was built</h2>
+        </div>
 
         <Section id="sec-overview" n={0} title="Overview">
           <p>
@@ -345,6 +368,13 @@ export default function MethodologyPage() {
             incorporated following the same procedure to maintain consistency.
           </p>
         </Section>
+
+        <div className="space-y-1 pt-4">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Part 2
+          </p>
+          <h2 className="text-xl font-semibold tracking-tight">Reference</h2>
+        </div>
 
         <section id="sec-definitions" className="space-y-6 scroll-mt-6">
           <div className="space-y-2">
