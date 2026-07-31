@@ -440,7 +440,7 @@ export default function MethodologyPage() {
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div id="vote-share-swing" className="space-y-3 scroll-mt-6">
             <h3 className="text-base font-medium text-foreground">Vote-share swing</h3>
             <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
               <p>
@@ -514,10 +514,13 @@ export default function MethodologyPage() {
                 exactly 1.0x means the province matched their national performance exactly.
               </p>
               <p>
-                This is a different figure from vote-share swing above — it compares a
-                candidate against <em>themselves</em>, in one place versus the whole country,
-                within a single election, rather than comparing the same place across two
-                different elections.
+                This is a different figure from{' '}
+                <a href="#vote-share-swing" className="text-primary underline underline-offset-2 hover:no-underline">
+                  vote-share swing
+                </a>{' '}
+                above — it compares a candidate against <em>themselves</em>, in one place
+                versus the whole country, within a single election, rather than comparing the
+                same place across two different elections.
               </p>
             </div>
           </div>
@@ -541,7 +544,22 @@ export default function MethodologyPage() {
             {faqs.map(faq => (
               <div key={faq.question} className="space-y-1">
                 <p className="text-sm font-medium">{faq.question}</p>
-                <p className="text-sm text-muted-foreground leading-relaxed">{faq.answer}</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {/* JSON-LD (faqJsonLd) reads faq.answer directly as plain text, so the link
+                      below is a display-only override — the schema data stays a plain string. */}
+                  {faq.question.startsWith('Does the site show voter turnout') ? (
+                    <>
+                      No. The source files&rsquo; registered-voter and ballot-count columns were
+                      removed early in cleaning (see{' '}
+                      <a href="#sec-removing-non-vote" className="text-primary underline underline-offset-2 hover:no-underline">
+                        &quot;Removing non-vote data&quot;
+                      </a>{' '}
+                      above) because they were inconsistent and not needed for vote-share or rank
+                      calculations, so no turnout percentage or victory-margin figure is computed
+                      anywhere on the site.
+                    </>
+                  ) : faq.answer}
+                </p>
               </div>
             ))}
           </div>
@@ -565,7 +583,7 @@ export default function MethodologyPage() {
             Province-level charts, tables, and the map also list Highly Urbanized Cities
             (Davao City, Cebu City, Iloilo City, and others) as their own entries alongside
             their geographic province, since these cities are administratively independent
-            and are reported separately in the underlying data. See the FAQ below for details.
+            and are reported separately in the underlying data. See the FAQ above for details.
           </p>
         </div>
 

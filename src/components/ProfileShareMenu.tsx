@@ -65,7 +65,7 @@ export default function ProfileShareMenu({ url, text, candidateId }: Props) {
         className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all shrink-0"
       >
         <Share2 className="w-3 h-3" />
-        Share candidate
+        Share
       </button>
 
       {open && (
