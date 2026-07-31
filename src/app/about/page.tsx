@@ -72,7 +72,7 @@ export default function AboutPage() {
               by province or district like the House of Representatives.
             </li>
             <li>
-              <span className="text-foreground font-medium">Voters pick up to 12.</span> Each
+              <span className="text-foreground font-medium">Voters pick up to 12.</span>{' '}Each
               election fills half the Senate (12 seats), and each voter can vote for up to 12
               candidates. Every valid choice counts as a full vote for that candidate; there&apos;s
               no ranking.

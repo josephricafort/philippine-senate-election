@@ -369,7 +369,7 @@ export default function MethodologyPage() {
                 country.
               </p>
               <p>
-                It is <em>not</em> a share of registered voters or of total ballots cast.
+                It is <em>not</em>{' '}a share of registered voters or of total ballots cast.
                 Concretely: if a municipality cast 100,000 votes across all senatorial
                 candidates combined, and one candidate received 15,000 of those, that
                 candidate&apos;s vote share there is 15%. A candidate&apos;s national vote
