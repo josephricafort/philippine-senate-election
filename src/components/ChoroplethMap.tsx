@@ -5,6 +5,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { feature, mesh, merge } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
 import { ChevronLeft, Home, Plus, Minus } from 'lucide-react';
+import Spinner from '@/components/Spinner';
 import type { CandidateData, CandidateYearData, MunicipalityNames, Metric } from '@/lib/types';
 import { yearColor } from '@/lib/year-colors';
 import {
@@ -35,6 +36,11 @@ type Props = {
   senatorName: string | null;
   year: number | null;
   metric: Metric;
+  /** True while the selected candidate's own data file is still being fetched — distinguishes
+   *  "we don't have this yet" from "this candidate genuinely has no data for this year/metric",
+   *  which otherwise look identical (both render with candidate + null yearData/swingMap) and
+   *  the map would wrongly show the "did not run" overlay while the fetch is still in flight. */
+  candidateDataLoading?: boolean;
   /** Per-municipality swing (psgc -> delta), required when metric === 'swing'. */
   swingMap?: Map<string, SwingEntry> | null;
   /** The two years being compared for the swing metric, e.g. [2019, 2025]. */
@@ -504,12 +510,16 @@ function clearPaint(map: maplibregl.Map) {
   map.setFilter('municipalities-nodata', ['boolean', true]);
 }
 
-export default function ChoroplethMap({ candidate, municipalityNames, senatorId, senatorName, year, metric, swingMap, swingYears, senatorYears, onNavigateToProfile, onChangeMetric, onChangeYear, onChangeSwingYearPair }: Props) {
+export default function ChoroplethMap({ candidate, municipalityNames, senatorId, senatorName, year, metric, candidateDataLoading, swingMap, swingYears, senatorYears, onNavigateToProfile, onChangeMetric, onChangeYear, onChangeSwingYearPair }: Props) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const mapRef        = useRef<maplibregl.Map | null>(null);
   const loadedRef     = useRef(false);
   const topoRef = useRef<{ topo: Topology; municitiesObj: GeometryCollection<{ adm1_pcode: string; adm2_pcode: string }> } | null>(null);
   const labelsBuiltRef  = useRef(false);
+  // Drives the base-geometry loading overlay — the ~7MB municipality boundary fetch below is
+  // the largest asset in the app and, until it resolves, the map shows only bare basemap tiles
+  // with no fill/legend, which otherwise looks broken/empty rather than "still loading."
+  const [topoLoading, setTopoLoading] = useState(true);
   const yearData = candidate && year !== null ? candidate.years[String(year)] ?? null : null;
   // Keep latest props accessible inside stable event handlers
   const propsRef      = useRef({ yearData, municipalityNames, senatorId, metric, year, swingMap });
@@ -650,6 +660,7 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
         trackEvent('data_fetch_error', { resource: 'municipalities_geo', error_type: `http_${res.status}` });
       }
       const topo: Topology = await res.json();
+      setTopoLoading(false);
       const municitiesObj = topo.objects.municities as GeometryCollection<{ adm1_pcode: string; adm2_pcode: string }>;
       const geojson = feature(topo, municitiesObj);
 
@@ -1041,7 +1052,20 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
         </div>
       )}
 
-      {!senatorId && (
+      {/* Base municipality geometry (~7MB) is the largest fetch in the app and, until it
+          resolves, the map would otherwise show bare basemap tiles with no fill/legend at
+          all — indistinguishable from broken. Takes priority over every other overlay below,
+          since none of them mean anything until the geometry itself is in. */}
+      {topoLoading && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-white/60">
+          <div className="flex items-center gap-2 bg-white/95 text-zinc-600 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm">
+            <Spinner className="w-4 h-4" />
+            <span className="text-sm">Loading map…</span>
+          </div>
+        </div>
+      )}
+
+      {!topoLoading && !senatorId && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <p className="text-sm bg-white/90 text-zinc-600 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm">
             Select a candidate to see the choropleth
@@ -1049,7 +1073,20 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
         </div>
       )}
 
-      {senatorId && metric === 'swing' && (!swingMap || swingMap.size === 0) && (
+      {/* Selected candidate's own data file is still being fetched — show a spinner rather
+          than falling through to the "did not run"/"no swing data" overlays below, which
+          would otherwise render (candidate is set, yearData/swingMap are still null) and
+          wrongly tell the user this candidate has no data when it just hasn't arrived yet. */}
+      {!topoLoading && senatorId && candidateDataLoading && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="flex items-center gap-2 bg-white/95 text-zinc-600 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm">
+            <Spinner className="w-4 h-4" />
+            <span className="text-sm">Loading {senatorName ?? 'candidate'} data…</span>
+          </div>
+        </div>
+      )}
+
+      {!topoLoading && senatorId && !candidateDataLoading && metric === 'swing' && (!swingMap || swingMap.size === 0) && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-6">
           <div className="text-sm text-center bg-white/90 text-zinc-600 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm max-w-xs pointer-events-auto">
             <p>Swing values are only available for candidates who ran in 2 or more elections.</p>
@@ -1074,7 +1111,7 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
         </div>
       )}
 
-      {senatorId && metric !== 'swing' && !yearData && (
+      {!topoLoading && senatorId && !candidateDataLoading && metric !== 'swing' && !yearData && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-6">
           <div className="text-sm text-center bg-white/90 text-zinc-600 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm max-w-xs pointer-events-auto">
             <p>{senatorName ?? 'This candidate'} did not run in {year ?? 'this year'}.</p>
@@ -1109,7 +1146,7 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
           different kind of confusing (see applyPaint's yearData gate above, which blanks the
           map in exactly this case). Point at real consecutive year PAIRS, not bare years —
           a bare "2019" link wouldn't mean anything in a Swing-mode context. */}
-      {senatorId && metric === 'swing' && !yearData && swingMap && swingMap.size > 0 && (
+      {!topoLoading && senatorId && !candidateDataLoading && metric === 'swing' && !yearData && swingMap && swingMap.size > 0 && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-6">
           <div className="text-sm text-center bg-white/90 text-zinc-600 px-4 py-2 rounded-lg border border-zinc-200 shadow-sm max-w-xs pointer-events-auto">
             <p>{senatorName ?? 'This candidate'} did not run in {year ?? 'this year'}.</p>

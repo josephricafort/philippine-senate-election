@@ -14,6 +14,7 @@ import SiteHeader from '@/components/SiteHeader';
 import SwingSection from '@/components/SwingSection';
 import SwingYearPairSelector from '@/components/SwingYearPairSelector';
 import NationalTrendsSection from '@/components/NationalTrendsSection';
+import Spinner from '@/components/Spinner';
 
 type MobileTab = 'leaderboard' | 'profile' | 'map';
 type ProfileTab = 'swing' | 'trends';
@@ -460,16 +461,22 @@ function ExplorerPageInner() {
 
           {didRunSelectedYear ? (
             <>
-              {profileTab === 'swing' && swingProps && (
-                <SwingSection
-                  senator={selectedSenator}
-                  provinceTrends={swingProps.provinceTrends}
-                  topProvinceNames={swingProps.topProvinceNames}
-                  provinceRows={swingProps.provinceRows}
-                  muniRowsByProvince={swingProps.muniRowsByProvince}
-                  yearPair={swingYearPair}
-                  onSwitchToTrends={() => handleProfileTabChange('trends')}
-                />
+              {profileTab === 'swing' && (
+                swingProps ? (
+                  <SwingSection
+                    senator={selectedSenator}
+                    provinceTrends={swingProps.provinceTrends}
+                    topProvinceNames={swingProps.topProvinceNames}
+                    provinceRows={swingProps.provinceRows}
+                    muniRowsByProvince={swingProps.muniRowsByProvince}
+                    yearPair={swingYearPair}
+                    onSwitchToTrends={() => handleProfileTabChange('trends')}
+                  />
+                ) : (
+                  <div className="flex items-center justify-center py-12">
+                    <Spinner label="Loading swing data…" />
+                  </div>
+                )
               )}
 
               {/* Vote share trend, Top provinces, and Top municipalities all live under the
@@ -504,7 +511,9 @@ function ExplorerPageInner() {
                       singleRun={selectedSenator.years.length === 1}
                     />
                   ) : (
-                    <p className="text-muted-foreground text-sm">Loading…</p>
+                    <div className="flex items-center justify-center py-12">
+                      <Spinner label="Loading vote share data…" />
+                    </div>
                   )}
                 </>
               )}
@@ -530,6 +539,10 @@ function ExplorerPageInner() {
             )
           )}
         </>
+      ) : senators.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
+          <Spinner label="Loading candidates…" />
+        </div>
       ) : (
         <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
           <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center">
@@ -588,6 +601,7 @@ function ExplorerPageInner() {
           senatorName={selectedSenator?.senator_name ?? null}
           year={year}
           metric={metric}
+          candidateDataLoading={loading}
           swingMap={swingMap}
           swingYears={swingYears}
           senatorYears={selectedSenator?.years ?? null}
@@ -615,7 +629,9 @@ function ExplorerPageInner() {
             onSelectSenator={handleSelectFromLeaderboard}
           />
         ) : (
-          <p className="text-zinc-600 text-sm p-4">Loading…</p>
+          <div className="flex items-center justify-center p-4">
+            <Spinner label="Loading…" />
+          </div>
         )}
       </div>
     </div>
@@ -623,7 +639,7 @@ function ExplorerPageInner() {
 
   return (
     <div className="flex flex-col h-dvh bg-background text-foreground overflow-hidden">
-      <SiteHeader rightExtra={loading && <span className="animate-pulse">Loading data…</span>} />
+      <SiteHeader rightExtra={loading && <Spinner label="Loading data…" />} />
 
       {/* ── Desktop layout (md+): full-width year bar + 3 columns — Leaderboard | Profile | Map ── */}
       <div className="hidden md:flex md:flex-col flex-1 overflow-hidden">
@@ -687,6 +703,7 @@ function ExplorerPageInner() {
                 senatorName={selectedSenator?.senator_name ?? null}
                 year={year}
                 metric={metric}
+                candidateDataLoading={loading}
                 swingMap={swingMap}
                 swingYears={swingYears}
                 senatorYears={selectedSenator?.years ?? null}
