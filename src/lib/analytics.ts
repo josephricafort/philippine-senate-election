@@ -1,5 +1,5 @@
 // GA4 event tracking — thin wrapper around gtag so call sites stay typed and
-// consent/availability checks live in one place instead of being repeated at every call site.
+// availability checks live in one place instead of being repeated at every call site.
 
 type GtagEventParams = Record<string, string | number | boolean | undefined>;
 
