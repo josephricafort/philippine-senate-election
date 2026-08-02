@@ -43,3 +43,6 @@ next-env.d.ts
 
 # raw source data (large files — populate locally, do not commit)
 /data/raw/
+
+# local AI/editor agent settings
+.claude/
