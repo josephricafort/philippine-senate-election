@@ -3,19 +3,22 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Map as MapIcon, Share2, ArrowLeftRight, ChartPie, Globe2, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Map as MapIcon, Share2, ArrowLeftRight, ChartPie, Globe2, Users, Vote } from 'lucide-react';
 
 import SearchSelect from '@/components/SearchSelect';
 import CandidateCard, { CandidateHeader } from '@/components/CandidateCard';
 import YearSelector from '@/components/YearSelector';
 import MetricToggle from '@/components/MetricToggle';
 import LeaderboardTable from '@/components/LeaderboardTable';
+import CandidateAvatar from '@/components/CandidateAvatar';
 import SiteHeader from '@/components/SiteHeader';
 import SwingSection from '@/components/SwingSection';
 import SwingYearPairSelector from '@/components/SwingYearPairSelector';
 import NationalTrendsSection from '@/components/NationalTrendsSection';
 import Spinner from '@/components/Spinner';
 import CompareView from '@/components/CompareView';
+import { Badge } from '@/components/ui/badge';
+import { LEADERBOARD_MEDAL_STYLES, leaderboardYearColors } from '@/lib/leaderboard-colors';
 
 type MobileTab = 'leaderboard' | 'profile' | 'map';
 type ProfileTab = 'swing' | 'trends' | 'compare';
@@ -251,6 +254,18 @@ function ExplorerPageInner() {
   const currentCandidateData = selectedSenator ? candidateCache.get(selectedSenator.senator_id) ?? null : null;
   const currentVoteData = voteCache.get(year) ?? null;
   const currentNationalData = nationalCache.get(year) ?? null;
+  const tabletLeaderboardColors = useMemo(() => leaderboardYearColors(year), [year]);
+  const tabletLeaderboardRows = useMemo(() => (
+    currentNationalData
+      ? senators
+          .filter(s => currentNationalData[s.senator_id])
+          .map(s => ({
+            senator: s,
+            national: currentNationalData[s.senator_id],
+          }))
+          .sort((a, b) => a.national.national_rank - b.national.national_rank)
+      : []
+  ), [currentNationalData, senators]);
 
   // Nationwide total votes cast per year, for the years the selected candidate ran — the
   // denominator trendData/provinceShareTrend need for national vote-share figures.
@@ -448,7 +463,7 @@ function ExplorerPageInner() {
                       }`}
                     >
                       <ChartPie className="w-4 h-4" />
-                      {selectedSenator.years.length > 1 ? 'Vote Share Trend' : 'Vote Share'}
+                      Vote Share
                     </button>
                   </div>
                 </div>
@@ -531,9 +546,7 @@ function ExplorerPageInner() {
                   <div>
                     <div className="mb-1 flex items-center gap-2">
                       <ChartPie className="h-4 w-4 text-muted-foreground" />
-                      <h3 className="text-base font-semibold">
-                        {selectedSenator.years.length > 1 ? 'Vote Share Trend' : 'Vote Share'}
-                      </h3>
+                      <h3 className="text-base font-semibold">Vote Share</h3>
                     </div>
                     {selectedSenator.years.length > 1 && (
                       <>
@@ -699,12 +712,137 @@ function ExplorerPageInner() {
     </div>
   );
 
+  const desktopLikeMapPanel = (
+    <main className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="shrink-0 px-4 py-2 flex items-center gap-3 bg-white border-b border-zinc-200">
+        <span className="text-xs text-zinc-500 font-medium shrink-0">View By</span>
+        <MetricToggle value={metric} onChange={handleMetricChange} />
+        {metric === 'swing' && swingYears && (
+          <>
+            <span className="text-xs text-zinc-500 ml-auto">
+              {/* Comparing {swingYears[0]} → {swingYears[1]} — Election Years selector doesn&rsquo;t apply */}
+            </span>
+            {selectedSenator && (
+              <Link
+                href={`/senator/${selectedSenator.senator_id}/share/map?yearA=${swingYears[0]}&yearB=${swingYears[1]}`}
+                title="Share this vote-share swing map"
+                aria-label="Share this vote-share swing map"
+                className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all shrink-0"
+              >
+                <Share2 className="w-3 h-3" />
+                Share map
+              </Link>
+            )}
+          </>
+        )}
+      </div>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <ChoroplethMap
+          candidate={currentCandidateData}
+          municipalityNames={municipalityNames ?? {}}
+          senatorId={selectedSenator?.senator_id ?? null}
+          senatorName={selectedSenator?.senator_name ?? null}
+          year={year}
+          metric={metric}
+          candidateDataLoading={loading}
+          swingMap={swingMap}
+          swingYears={swingYears}
+          senatorYears={selectedSenator?.years ?? null}
+          onChangeMetric={handleMetricChange}
+          onChangeYear={y => handleYearChange(y as ElectionYear, 'candidate_pill')}
+          onChangeSwingYearPair={handleSwingYearPairChange}
+        />
+      </div>
+    </main>
+  );
+
   return (
     <div className="flex flex-col h-dvh bg-background text-foreground overflow-hidden">
       <SiteHeader rightExtra={loading && <Spinner label="Loading data…" />} />
 
-      {/* ── Desktop layout (md+): full-width year bar + 3 columns — Leaderboard | Profile | Map ── */}
-      <div className="hidden md:flex md:flex-col flex-1 overflow-hidden">
+      {/* ── Tablet layout (md to xl): year bar + leaderboard grid above Profile | Map ── */}
+      <div className="relative hidden md:flex xl:hidden md:flex-col flex-1 overflow-hidden">
+        <div className="shrink-0 border-b px-4 py-3 flex items-center gap-3">
+          <span className="text-xs text-muted-foreground font-medium shrink-0">Election Years</span>
+          <YearSelector value={year} onChange={handleYearChange} />
+        </div>
+
+        <div className="shrink-0 border-b px-4 py-3">
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Leaderboard</p>
+          {currentNationalData ? (
+            <div className="mt-3 max-h-[9.25rem] overflow-y-auto pr-1">
+              <div className="grid grid-cols-3 gap-3">
+                {tabletLeaderboardRows.map(row => {
+                  const isSelected = row.senator.senator_id === selectedSenator?.senator_id;
+
+                  return (
+                    <button
+                      key={row.senator.senator_id}
+                      type="button"
+                      onClick={() => handleSelectFromLeaderboard(row.senator)}
+                      className="rounded-xl border bg-card px-3 py-2.5 text-left transition-colors hover:bg-accent"
+                      style={isSelected
+                        ? {
+                            backgroundColor: tabletLeaderboardColors.highlightBackground,
+                            borderColor: tabletLeaderboardColors.highlightBorder,
+                          }
+                        : undefined}
+                    >
+                      <div className="flex min-w-0 items-center gap-2 whitespace-nowrap">
+                        <Badge
+                          variant={isSelected ? 'default' : 'secondary'}
+                          className="shrink-0"
+                          style={isSelected
+                            ? {
+                                backgroundColor: tabletLeaderboardColors.highlightBadgeBackground,
+                                color: '#ffffff',
+                                border: `1px solid ${tabletLeaderboardColors.highlightBorder}`,
+                              }
+                            : LEADERBOARD_MEDAL_STYLES[row.national.national_rank]}
+                        >
+                          #{row.national.national_rank}
+                        </Badge>
+                        <CandidateAvatar
+                          senatorId={row.senator.senator_id}
+                          senatorName={row.senator.senator_name}
+                          active={isSelected}
+                          className="h-7 w-7 shrink-0 text-xs"
+                          fallbackBackgroundColor={isSelected ? tabletLeaderboardColors.highlightAvatarColor : tabletLeaderboardColors.defaultAvatarColor}
+                          fallbackTextColor={isSelected ? '#111827' : '#ffffff'}
+                        />
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                          {row.senator.senator_name}
+                        </span>
+                        <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                          <Vote className="h-3.5 w-3.5" />
+                          {row.senator.years.length}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="mt-3 flex items-center justify-center p-4">
+              <Spinner label="Loading leaderboard…" />
+            </div>
+          )}
+        </div>
+
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          <aside className="basis-[40%] min-w-[21rem] max-w-[29rem] shrink-0 border-r flex min-h-0 flex-col overflow-y-auto">
+            {profilePanel}
+          </aside>
+
+          <div className="min-w-0 min-h-0 flex-1 basis-[60%]">
+            {desktopLikeMapPanel}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Desktop layout (xl+): full-width year bar + 3 columns — Leaderboard | Profile | Map ── */}
+      <div className="hidden xl:flex xl:flex-col flex-1 overflow-hidden">
         {/* Full-width year bar — py-3 (vs. py-2 elsewhere) matches MetricToggle's extra
             internal p-1 wrapper padding, so this bar is the same height as the metric
             toggle bar in column 3 */}
@@ -715,7 +853,7 @@ function ExplorerPageInner() {
 
         <div className="flex flex-1 overflow-hidden">
           {/* Column 1: leaderboard */}
-          <section className="w-96 shrink-0 border-r flex flex-col overflow-hidden">
+          <section className="basis-[27%] min-w-[18rem] max-w-[24rem] border-r flex flex-col overflow-hidden">
             {currentNationalData ? (
               <LeaderboardTable
                 nationalData={currentNationalData}
@@ -730,52 +868,14 @@ function ExplorerPageInner() {
           </section>
 
           {/* Column 2: candidate profile */}
-          <aside className="w-120 shrink-0 border-r flex flex-col overflow-y-auto">
+          <aside className="basis-[36%] min-w-[24rem] max-w-[31rem] border-r flex min-h-0 flex-col overflow-y-auto">
             {profilePanel}
           </aside>
 
           {/* Column 3: metric toggle + map */}
-          <main className="flex-1 flex flex-col overflow-hidden">
-            <div className="shrink-0 px-4 py-2 flex items-center gap-3 bg-white border-b border-zinc-200">
-              <span className="text-xs text-zinc-500 font-medium shrink-0">View By</span>
-              <MetricToggle value={metric} onChange={handleMetricChange} />
-              {metric === 'swing' && swingYears && (
-                <>
-                  <span className="text-xs text-zinc-500 ml-auto">
-                    {/* Comparing {swingYears[0]} → {swingYears[1]} — Election Years selector doesn&rsquo;t apply */}
-                  </span>
-                  {selectedSenator && (
-                    <Link
-                      href={`/senator/${selectedSenator.senator_id}/share/map?yearA=${swingYears[0]}&yearB=${swingYears[1]}`}
-                      title="Share this vote-share swing map"
-                      aria-label="Share this vote-share swing map"
-                      className="flex items-center gap-1 rounded-full bg-primary text-primary-foreground text-xs font-semibold px-2.5 py-1 hover:opacity-90 active:scale-95 transition-all shrink-0"
-                    >
-                      <Share2 className="w-3 h-3" />
-                      Share map
-                    </Link>
-                  )}
-                </>
-              )}
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <ChoroplethMap
-                candidate={currentCandidateData}
-                municipalityNames={municipalityNames ?? {}}
-                senatorId={selectedSenator?.senator_id ?? null}
-                senatorName={selectedSenator?.senator_name ?? null}
-                year={year}
-                metric={metric}
-                candidateDataLoading={loading}
-                swingMap={swingMap}
-                swingYears={swingYears}
-                senatorYears={selectedSenator?.years ?? null}
-                onChangeMetric={handleMetricChange}
-                onChangeYear={y => handleYearChange(y as ElectionYear, 'candidate_pill')}
-                onChangeSwingYearPair={handleSwingYearPairChange}
-              />
-            </div>
-          </main>
+          <div className="min-w-0 min-h-0 flex-1 basis-[37%]">
+            {desktopLikeMapPanel}
+          </div>
         </div>
       </div>
 

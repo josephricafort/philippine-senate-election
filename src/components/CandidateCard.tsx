@@ -25,6 +25,18 @@ function formatVotes(n: number) {
   return n.toLocaleString();
 }
 
+function splitStoredName(storedName: string) {
+  const commaIndex = storedName.indexOf(',');
+  if (commaIndex === -1) {
+    return { line1: storedName, line2: '' };
+  }
+
+  return {
+    line1: storedName.slice(0, commaIndex + 1).trim(),
+    line2: storedName.slice(commaIndex + 1).trim(),
+  };
+}
+
 export function CandidateHeader({
   senator,
   national,
@@ -53,6 +65,7 @@ export function CandidateHeader({
   // candidates with 2+ runs (resolveShareYearPair needs a pair); for a first-time candidate,
   // generateMetadata quietly falls back to the generic card, same as omitting it entirely.
   const shareUrl = `/?candidate=${senator.senator_id}${years.length > 1 ? '&view=map' : ''}`;
+  const tabletName = splitStoredName(senator.senator_name);
 
   return (
     <div className="flex items-center gap-3 md:gap-5">
@@ -62,7 +75,13 @@ export function CandidateHeader({
         active={!!national}
         className="w-14 h-14 md:w-16 md:h-16 text-base md:text-lg"
       />
-      <h2 className="flex-1 min-w-0 font-bold text-xl md:text-2xl leading-tight truncate">{senator.senator_name}</h2>
+      <h2 className="min-w-0 flex-1 font-bold text-xl leading-tight md:text-2xl">
+        <span className="block truncate md:hidden xl:block">{senator.senator_name}</span>
+        <span className="hidden md:flex xl:hidden flex-col">
+          <span className="truncate">{tabletName.line1}</span>
+          {tabletName.line2 && <span className="truncate">{tabletName.line2}</span>}
+        </span>
+      </h2>
       <ProfileShareMenu
         url={shareUrl}
         text={shareText}

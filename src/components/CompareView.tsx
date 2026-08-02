@@ -1,11 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { type CSSProperties, useMemo, useState } from 'react';
 import { Check, ChevronDown, ChevronsUpDown, Fingerprint, MapPinned, Trophy } from 'lucide-react';
 import Link from 'next/link';
-import {
-  Bar, BarChart, ResponsiveContainer, XAxis, YAxis,
-} from 'recharts';
 
 import CandidateAvatar from '@/components/CandidateAvatar';
 import Spinner from '@/components/Spinner';
@@ -136,6 +133,12 @@ function mixHexColors(colorA: string, colorB: string, weightB: number) {
   }).join('');
 
   return `#${mixed}`;
+}
+
+function alphaColor(hex: string, alpha: number) {
+  const rgb = toRgb(hex);
+  if (!rgb) return hex;
+  return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
 }
 
 function formatPartitionLabel(value: number, total: number) {
@@ -329,11 +332,15 @@ function CandidateCombobox({
   options,
   onChange,
   avatarFallbackColor,
+  className,
+  stackOnMobile,
 }: {
   value: CandidateOption;
   options: CandidateOption[];
   onChange: (value: string) => void;
   avatarFallbackColor: string;
+  className?: string;
+  stackOnMobile?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -347,9 +354,16 @@ function CandidateCombobox({
       <PopoverTrigger
         role="combobox"
         aria-expanded={open}
-        className="flex w-full items-center justify-between rounded-xl border bg-card px-4 py-4 hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background"
+        className={cn(
+          'flex w-full items-center justify-between rounded-xl border bg-card px-4 py-4 hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background',
+          stackOnMobile && 'relative min-h-[8.5rem] justify-center xl:min-h-0 xl:justify-between',
+          className
+        )}
       >
-        <div className="flex min-w-0 items-center gap-3">
+        <div className={cn(
+          'flex min-w-0 items-center gap-3',
+          stackOnMobile && 'flex-col gap-2 text-center xl:flex-row xl:text-left'
+        )}>
           <CandidateAvatar
             senatorId={value.senator_id}
             senatorName={value.senator_name}
@@ -358,9 +372,19 @@ function CandidateCombobox({
             fallbackBackgroundColor={avatarFallbackColor}
             fallbackTextColor="#ffffff"
           />
-          <span className="truncate text-left text-sm font-semibold">{value.senator_name}</span>
+          <span className={cn(
+            'text-sm font-semibold',
+            stackOnMobile
+              ? 'max-w-full whitespace-normal text-center leading-tight xl:truncate xl:text-left'
+              : 'truncate text-left'
+          )}>
+            {value.senator_name}
+          </span>
         </div>
-        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+        <ChevronsUpDown className={cn(
+          'h-4 w-4 shrink-0 opacity-50',
+          stackOnMobile && 'absolute right-4 top-4 xl:static'
+        )} />
       </PopoverTrigger>
       <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
         <Command>
@@ -449,8 +473,8 @@ function RankTable({
         <TableHeader>
           <TableRow>
             <TableHead className="w-full text-xs">Candidate</TableHead>
-            <TableHead className="w-24 text-xs text-right">Vote share</TableHead>
-            <TableHead className="w-24 text-xs text-right">Gap from Avg</TableHead>
+            <TableHead className="w-[4.1rem] px-1 text-xs text-right xl:w-24 xl:px-2">Vote share</TableHead>
+            <TableHead className="w-[4.35rem] px-1 text-xs text-right xl:w-24 xl:px-2">Gap from Avg</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -467,13 +491,13 @@ function RankTable({
                 )}
               >
                 <TableCell className={cn('w-full max-w-0 py-1.5 pr-2', isSelected && 'border-l-2 border-l-primary pl-1.5')}>
-                  <div className="flex min-w-0 items-center gap-2.5">
+                  <div className="flex min-w-0 items-center gap-2 xl:gap-2.5">
                     <span className="w-5 shrink-0 text-sm text-muted-foreground">{row.rank}</span>
                     <CandidateAvatar
                       senatorId={row.senator_id}
                       senatorName={row.senator_name}
                       active={isSelected}
-                      className="w-10 h-10 text-sm"
+                      className="h-9 w-9 text-xs xl:h-10 xl:w-10 xl:text-sm"
                       fallbackBackgroundColor={avatarFallbackColor}
                       fallbackTextColor="#ffffff"
                     />
@@ -488,7 +512,7 @@ function RankTable({
                     </Link>
                   </div>
                 </TableCell>
-                <TableCell className="w-24 py-1.5 pl-2 text-right text-sm font-semibold">
+                <TableCell className="w-[4.1rem] py-1.5 px-1 text-right text-xs font-semibold xl:w-24 xl:px-2 xl:text-sm">
                   {formatShare(row.vote_share)}
                 </TableCell>
                 {(() => {
@@ -496,7 +520,7 @@ function RankTable({
                   return (
                     <TableCell
                       className={cn(
-                        'w-24 py-1.5 pl-2 text-right text-sm font-semibold',
+                        'w-[4.35rem] py-1.5 px-1 text-right text-xs font-semibold xl:w-24 xl:px-2 xl:text-sm',
                         averageDelta > 0 && 'text-emerald-400',
                         averageDelta < 0 && 'text-rose-400',
                         averageDelta === 0 && 'text-foreground'
@@ -521,16 +545,30 @@ function CandidateCard({
   className,
   avatarFallbackColor,
   fullName,
+  stackOnMobile,
 }: {
   senatorId: string;
   senatorName: string;
   className?: string;
   avatarFallbackColor: string;
   fullName?: boolean;
+  stackOnMobile?: boolean;
 }) {
   return (
-    <div className={cn('rounded-xl border bg-card px-4 py-4', className)}>
-      <Link href={`/?candidate=${senatorId}`} className="flex items-center gap-3 hover:text-primary transition-colors">
+    <div
+      className={cn(
+        'rounded-xl border bg-card px-4 py-4',
+        stackOnMobile && 'flex items-center justify-center xl:block',
+        className
+      )}
+    >
+      <Link
+        href={`/?candidate=${senatorId}`}
+        className={cn(
+          'flex w-full items-center gap-3 hover:text-primary transition-colors',
+          stackOnMobile && 'justify-center flex-col items-center gap-2 text-center xl:flex-row xl:justify-start xl:text-left'
+        )}
+      >
         <CandidateAvatar
           senatorId={senatorId}
           senatorName={senatorName}
@@ -539,7 +577,12 @@ function CandidateCard({
           fallbackBackgroundColor={avatarFallbackColor}
           fallbackTextColor="#ffffff"
         />
-        <span className={cn('min-w-0 flex-1 truncate font-semibold', fullName ? 'text-base md:text-lg' : 'text-sm')}>
+        <span className={cn(
+          fullName ? 'text-base md:text-lg' : 'text-sm',
+          stackOnMobile
+            ? 'max-w-full whitespace-normal text-center font-semibold leading-tight xl:min-w-0 xl:flex-1 xl:truncate xl:text-left'
+            : 'min-w-0 flex-1 truncate font-semibold'
+        )}>
           {fullName ? senatorName : shortCandidateName(senatorName)}
         </span>
       </Link>
@@ -574,7 +617,7 @@ function SimilarityColumn({
             href={`/?candidate=${row.senator_id}`}
             className="flex items-center gap-2.5 rounded-xl border bg-card px-2.5 py-3 hover:bg-accent transition-colors"
           >
-            <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
               <CandidateAvatar
                 senatorId={row.senator_id}
                 senatorName={row.senator_name}
@@ -583,9 +626,14 @@ function SimilarityColumn({
                 fallbackBackgroundColor={avatarFallbackColor}
                 fallbackTextColor="#ffffff"
               />
-              <span className="min-w-0 flex-1 truncate text-sm font-medium">{shortCandidateName(row.senator_name)}</span>
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium">{shortCandidateName(row.senator_name)}</span>
+                <span className={cn('mt-0.5 block text-left text-sm font-semibold tabular-nums xl:hidden', textTone)}>
+                  {formatSimilarity(row.score)}
+                </span>
+              </div>
             </div>
-            <span className={cn('shrink-0 text-sm font-semibold tabular-nums', textTone)}>
+            <span className={cn('hidden shrink-0 text-sm font-semibold tabular-nums xl:block', textTone)}>
               {formatSimilarity(row.score)}
             </span>
           </Link>
@@ -600,17 +648,21 @@ function StrongholdList({
   items,
   expanded,
   accentColor,
+  cardStyle,
+  className,
 }: {
   title: string;
   items: StrongholdEntry[];
   expanded: boolean;
   accentColor?: string;
+  cardStyle?: CSSProperties;
+  className?: string;
 }) {
   const visibleItems = expanded ? items : items.slice(0, STRONGHOLD_PREVIEW_COUNT);
   const hiddenCount = items.length - visibleItems.length;
 
   return (
-    <div>
+    <div className={cn('rounded-xl border bg-card p-4', className)} style={cardStyle}>
       <p
         className="mb-2 text-xs font-semibold uppercase tracking-wide"
         style={accentColor ? { color: accentColor } : undefined}
@@ -620,10 +672,10 @@ function StrongholdList({
       <div className="space-y-0.5">
         {visibleItems.map(item => (
           <div key={item.province} className="flex items-center gap-3 border-b py-1.5 last:border-b-0">
-            <span className="min-w-0 flex-1 truncate text-[11px] font-medium md:text-xs" title={item.province}>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium" title={item.province}>
               {item.province}
             </span>
-            <span className="shrink-0 text-[10px] font-medium tabular-nums text-muted-foreground md:text-[11px]">
+            <span className="shrink-0 text-sm font-medium tabular-nums text-muted-foreground">
               {formatProvinceShare(item.vote_share)}
             </span>
           </div>
@@ -669,28 +721,23 @@ function LegendSwatch({
   kind: 'left' | 'shared' | 'right';
   year: number;
 }) {
-  const size = 16;
   const sharedStroke = mixHexColors(yearColor(year), '#27272a', 0.42);
   const sharedColor = mixHexColors(yearColor(year), sharedStroke, 0.3);
-  const patternId = `legend-${kind}-${year}`;
 
   if (kind === 'shared') {
     return (
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className="shrink-0">
-        <defs>
-          <pattern
-            id={patternId}
-            patternUnits="userSpaceOnUse"
-            width="8"
-            height="8"
-          >
-            <rect width="8" height="8" fill={sharedColor} />
-            <line x1="0" y1="0" x2="8" y2="8" stroke={sharedStroke} strokeWidth="1.75" />
-            <line x1="8" y1="0" x2="0" y2="8" stroke={sharedStroke} strokeWidth="1.75" />
-          </pattern>
-        </defs>
-        <circle cx={size / 2} cy={size / 2} r={size / 2 - 1} fill={`url(#${patternId})`} />
-      </svg>
+      <span
+        aria-hidden="true"
+        className="h-4 w-4 shrink-0 rounded-[4px] border"
+        style={{
+          borderColor: sharedStroke,
+          backgroundColor: sharedColor,
+          backgroundImage: [
+            `repeating-linear-gradient(45deg, transparent 0 4px, ${sharedStroke} 4px 6px, transparent 6px 10px)`,
+            `repeating-linear-gradient(135deg, transparent 0 4px, ${sharedStroke} 4px 6px, transparent 6px 10px)`,
+          ].join(', '),
+        }}
+      />
     );
   }
 
@@ -699,24 +746,18 @@ function LegendSwatch({
     ? mixHexColors(baseFill, '#27272a', 0.34)
     : mixHexColors(baseFill, '#71717a', 0.38);
   const fill = mixHexColors(baseFill, stroke, 0.24);
-  const rotation = kind === 'left' ? 45 : -45;
+  const angle = kind === 'left' ? '135deg' : '45deg';
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className="shrink-0">
-      <defs>
-        <pattern
-          id={patternId}
-          patternUnits="userSpaceOnUse"
-          width="8"
-          height="8"
-          patternTransform={`rotate(${rotation})`}
-        >
-          <rect width="8" height="8" fill={fill} />
-          <line x1="0" y1="0" x2="0" y2="8" stroke={stroke} strokeWidth="2.5" />
-        </pattern>
-      </defs>
-      <circle cx={size / 2} cy={size / 2} r={size / 2 - 1} fill={`url(#${patternId})`} />
-    </svg>
+    <span
+      aria-hidden="true"
+      className="h-4 w-4 shrink-0 rounded-[4px] border"
+      style={{
+        borderColor: stroke,
+        backgroundColor: fill,
+        backgroundImage: `repeating-linear-gradient(${angle}, transparent 0 4px, ${stroke} 4px 6px, transparent 6px 10px)`,
+      }}
+    />
   );
 }
 
@@ -743,67 +784,73 @@ function StrongholdPartitionChart({
   const sharedColor = mixHexColors(yearColor(year), sharedStroke, 0.3);
   const rightStroke = mixHexColors(STRONGHOLD_RIGHT_COLOR, '#71717a', 0.38);
   const rightColor = mixHexColors(STRONGHOLD_RIGHT_COLOR, rightStroke, 0.24);
-  const data = [{
-    name: 'partition',
-    left: leftCount,
-    shared: sharedCount,
-    right: rightCount,
-  }];
-  const leftPatternId = `stronghold-left-${year}`;
-  const sharedPatternId = `stronghold-shared-${year}`;
-  const rightPatternId = `stronghold-right-${year}`;
 
   const total = leftCount + sharedCount + rightCount;
+  const leftOnlyPercent = total > 0 ? (leftCount / total) * 100 : 0;
+  const sharedPercent = total > 0 ? (sharedCount / total) * 100 : 0;
+  const rightOnlyPercent = total > 0 ? (rightCount / total) * 100 : 0;
+  const leftRectWidth = total > 0 ? ((leftCount + sharedCount) / total) * 100 : 0;
+  const rightRectWidth = total > 0 ? ((sharedCount + rightCount) / total) * 100 : 0;
+  const overlapStart = leftOnlyPercent;
   const segments = [
-    { key: 'left', value: leftCount },
-    { key: 'shared', value: sharedCount },
-    { key: 'right', value: rightCount },
+    { key: 'left', value: leftCount, left: 0, width: leftOnlyPercent },
+    { key: 'shared', value: sharedCount, left: overlapStart, width: sharedPercent },
+    { key: 'right', value: rightCount, left: overlapStart + sharedPercent, width: rightOnlyPercent },
   ] as const;
 
   return (
     <div className="rounded-xl border bg-card p-4">
       <div className="relative h-12 overflow-hidden rounded-md">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={data}
-            layout="vertical"
-            margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
-            barCategoryGap={0}
-            barGap={0}
-          >
-            <defs>
-              <pattern id={leftPatternId} patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
-                <rect width="8" height="8" fill={leftColor} />
-                <line x1="0" y1="0" x2="0" y2="8" stroke={leftStroke} strokeWidth="2" />
-              </pattern>
-              <pattern id={sharedPatternId} patternUnits="userSpaceOnUse" width="8" height="8">
-                <rect width="8" height="8" fill={sharedColor} />
-                <line x1="0" y1="0" x2="8" y2="8" stroke={sharedStroke} strokeWidth="1.5" />
-                <line x1="8" y1="0" x2="0" y2="8" stroke={sharedStroke} strokeWidth="1.5" />
-              </pattern>
-              <pattern id={rightPatternId} patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(-45)">
-                <rect width="8" height="8" fill={rightColor} />
-                <line x1="0" y1="0" x2="0" y2="8" stroke={rightStroke} strokeWidth="2" />
-              </pattern>
-            </defs>
-            <XAxis type="number" hide domain={[0, total > 0 ? total : 1]} />
-            <YAxis type="category" dataKey="name" hide />
-            <Bar dataKey="left" stackId="partition" fill={`url(#${leftPatternId})`} radius={[6, 0, 0, 6]} />
-            <Bar dataKey="shared" stackId="partition" fill={`url(#${sharedPatternId})`} />
-            <Bar dataKey="right" stackId="partition" fill={`url(#${rightPatternId})`} radius={[0, 6, 6, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        <div
+          className="absolute"
+          style={{
+            bottom: 6,
+            left: 0,
+            top: 6,
+            width: `${leftRectWidth}%`,
+            border: `1px solid ${leftStroke}`,
+            borderRadius: 12,
+            backgroundColor: leftColor,
+            backgroundImage: `repeating-linear-gradient(135deg, transparent 0 8px, ${leftStroke} 8px 10px, transparent 10px 16px)`,
+          }}
+        />
+        <div
+          className="absolute"
+          style={{
+            bottom: 6,
+            left: `${overlapStart}%`,
+            top: 6,
+            width: `${rightRectWidth}%`,
+            border: `1px solid ${rightStroke}`,
+            borderRadius: 12,
+            backgroundColor: rightColor,
+            backgroundImage: `repeating-linear-gradient(45deg, transparent 0 8px, ${rightStroke} 8px 10px, transparent 10px 16px)`,
+          }}
+        />
+        <div
+          className="absolute"
+          style={{
+            bottom: 6,
+            left: `${overlapStart}%`,
+            top: 6,
+            width: `${sharedPercent}%`,
+            backgroundColor: sharedColor,
+            backgroundImage: [
+              `repeating-linear-gradient(45deg, transparent 0 7px, ${sharedStroke} 7px 9px, transparent 9px 16px)`,
+              `repeating-linear-gradient(135deg, transparent 0 7px, ${sharedStroke} 7px 9px, transparent 9px 16px)`,
+            ].join(', '),
+          }}
+        />
 
-        <div className="pointer-events-none absolute inset-0 flex text-white">
+        <div className="pointer-events-none absolute inset-0 text-white">
           {segments.map(segment => {
-            const widthPercent = total > 0 ? (segment.value / total) * 100 : 0;
-            const showLabel = widthPercent >= 14;
+            const showLabel = segment.width >= 14;
 
             return (
               <div
                 key={segment.key}
-                className="flex min-w-0 items-center justify-center px-1 text-center font-semibold tabular-nums"
-                style={{ width: `${widthPercent}%` }}
+                className="absolute inset-y-0 flex min-w-0 items-center justify-center px-1 text-center font-semibold tabular-nums"
+                style={{ left: `${segment.left}%`, width: `${segment.width}%` }}
               >
                 {segment.value > 0 && showLabel && (
                   <div className="truncate text-[11px] drop-shadow-md">
@@ -816,16 +863,16 @@ function StrongholdPartitionChart({
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-start gap-x-4 gap-y-2 text-xs font-semibold uppercase tracking-wide leading-none text-muted-foreground">
-        <div className="flex items-center gap-2 leading-none">
+      <div className="mt-3 grid gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:flex sm:flex-wrap sm:items-start sm:gap-x-4 sm:gap-y-2">
+        <div className="flex min-h-4 items-center gap-2">
           <LegendSwatch kind="left" year={year} />
           {formatPartitionLegend(leftLabel, leftCount, total)}
         </div>
-        <div className="flex items-center gap-2 leading-none">
+        <div className="flex min-h-4 items-center gap-2">
           <LegendSwatch kind="shared" year={year} />
           {formatPartitionLegend(sharedLabel, sharedCount, total)}
         </div>
-        <div className="flex items-center gap-2 leading-none">
+        <div className="flex min-h-4 items-center gap-2">
           <LegendSwatch kind="right" year={year} />
           {formatPartitionLegend(rightLabel, rightCount, total)}
         </div>
@@ -1032,6 +1079,10 @@ export default function CompareView({ selectedSenator, senators, nationalData, v
   }, [effectiveCompareCandidate, provinceProfiles, selectedSenator.senator_id]);
 
   const candidateLabel = headlineName(selectedSenator.senator_name);
+  const sharedCardStyle = {
+    backgroundColor: mixHexColors('#18181b', sharedColor, 0.14),
+    borderColor: alphaColor(sharedColor, 0.34),
+  } satisfies CSSProperties;
   const provincialOptions = provinces.map(province => ({ value: province, label: province }));
   const municipalityOptions = [
     { value: ALL_MUNICIPALITIES, label: 'All municipalities' },
@@ -1128,10 +1179,9 @@ export default function CompareView({ selectedSenator, senators, nationalData, v
               senatorId={selectedSenator.senator_id}
               senatorName={selectedSenator.senator_name}
               avatarFallbackColor={avatarFallbackColor}
-              fullName
             />
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-2 gap-4">
               <SimilarityColumn
                 title="Most Similar"
                 tone="similar"
@@ -1176,14 +1226,18 @@ export default function CompareView({ selectedSenator, senators, nationalData, v
           </div>
         ) : (
           <>
-            <div className="grid items-center gap-3 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
+            <div className="relative grid grid-cols-2 items-center gap-3 xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
               <CandidateCard
                 senatorId={selectedSenator.senator_id}
                 senatorName={selectedSenator.senator_name}
                 avatarFallbackColor={avatarFallbackColor}
-                fullName
+                stackOnMobile
+                className="min-h-[8.5rem] xl:min-h-0"
               />
-              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full border bg-card text-sm font-semibold text-muted-foreground">
+              <div className="pointer-events-none absolute left-1/2 top-[4.25rem] z-10 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border bg-card text-sm font-semibold text-muted-foreground xl:hidden">
+                &
+              </div>
+              <div className="mx-auto hidden h-10 w-10 items-center justify-center rounded-full border bg-card text-sm font-semibold text-muted-foreground xl:col-start-2 xl:flex">
                 &
               </div>
               <CandidateCombobox
@@ -1191,6 +1245,8 @@ export default function CompareView({ selectedSenator, senators, nationalData, v
                 options={compareCandidateOptions}
                 onChange={setSelectedCompareCandidateId}
                 avatarFallbackColor={avatarFallbackColor}
+                className="min-h-[8.5rem] xl:col-start-3 xl:min-h-0"
+                stackOnMobile
               />
             </div>
 
@@ -1209,22 +1265,25 @@ export default function CompareView({ selectedSenator, senators, nationalData, v
                 Top {sharedStrongholds.topQuartileCount} provinces/cities for each candidate, including the places they share.
               </p>
 
-              <div className="grid gap-6 md:grid-cols-3">
+              <div className="grid grid-cols-2 gap-6">
               <StrongholdList
                 title={`${surnameLabel(selectedSenator.senator_name)} only (${sharedStrongholds.selectedOnly.length})`}
                 items={sharedStrongholds.selectedOnly}
                 expanded={strongholdsExpanded}
+                className="order-2"
               />
               <StrongholdList
                 title={`Shared (${sharedStrongholds.shared.length})`}
                 items={sharedStrongholds.shared}
                 expanded={strongholdsExpanded}
-                accentColor={sharedColor}
+                cardStyle={sharedCardStyle}
+                className="order-1 col-span-2"
               />
               <StrongholdList
                 title={`${surnameLabel(effectiveCompareCandidate.senator_name)} only (${sharedStrongholds.compareOnly.length})`}
                 items={sharedStrongholds.compareOnly}
                 expanded={strongholdsExpanded}
+                className="order-3"
               />
             </div>
             </div>

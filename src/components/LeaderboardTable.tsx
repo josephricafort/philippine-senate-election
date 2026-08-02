@@ -6,7 +6,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { RankDisclaimerTooltip } from '@/components/InfoTooltip';
 import CandidateAvatar from '@/components/CandidateAvatar';
-import { yearColor } from '@/lib/year-colors';
+import { LEADERBOARD_MEDAL_STYLES, leaderboardYearColors } from '@/lib/leaderboard-colors';
 import type { NationalYearData, Senator } from '@/lib/types';
 
 type Props = {
@@ -17,41 +17,19 @@ type Props = {
   onSelectSenator?: (senator: Senator) => void;
 };
 
-// Gold / silver / bronze for the top 3 national ranks — everyone else keeps the plain badge
-const MEDAL_STYLES: Record<number, { background: string; color: string }> = {
-  1: { background: '#fdf3d8', color: '#b8860b' },
-  2: { background: '#eef1f3', color: '#78808c' },
-  3: { background: '#fbe9dc', color: '#a6591f' },
-};
-
-function mixHexColors(colorA: string, colorB: string, weightB: number) {
-  const a = colorA.replace('#', '');
-  const b = colorB.replace('#', '');
-  if (a.length !== 6 || b.length !== 6) return colorA;
-
-  const weightA = 1 - weightB;
-  const mixed = [0, 2, 4].map(offset => {
-    const channelA = parseInt(a.slice(offset, offset + 2), 16);
-    const channelB = parseInt(b.slice(offset, offset + 2), 16);
-    const value = Math.round(channelA * weightA + channelB * weightB);
-    return value.toString(16).padStart(2, '0');
-  }).join('');
-
-  return `#${mixed}`;
-}
-
 // National rank, independent of the Rank/Vote share/Raw votes metric used
 // by the Profile and Map columns — the leaderboard always ranks everyone nationally.
 export default function LeaderboardTable({ nationalData, senators, highlightId, year, onSelectSenator }: Props) {
   const [highlightVisible, setHighlightVisible] = useState(true);
   const highlightRef = useRef<HTMLTableRowElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const activeYearColor = yearColor(year);
-  const highlightBackground = mixHexColors(activeYearColor, '#18181b', 0.86);
-  const highlightBorder = mixHexColors(activeYearColor, '#f4f4f5', 0.24);
-  const highlightBadgeBackground = mixHexColors(activeYearColor, '#27272a', 0.48);
-  const defaultAvatarColor = mixHexColors(activeYearColor, '#52525b', 0.62);
-  const highlightAvatarColor = mixHexColors(activeYearColor, '#f4f4f5', 0.72);
+  const {
+    highlightBackground,
+    highlightBorder,
+    highlightBadgeBackground,
+    defaultAvatarColor,
+    highlightAvatarColor,
+  } = leaderboardYearColors(year);
 
   const rows = senators
     .filter(s => nationalData[s.senator_id])
@@ -104,7 +82,7 @@ export default function LeaderboardTable({ nationalData, senators, highlightId, 
                   color: '#ffffff',
                   border: `1px solid ${highlightBorder}`,
                 }
-              : MEDAL_STYLES[row.national.national_rank]}
+              : LEADERBOARD_MEDAL_STYLES[row.national.national_rank]}
           >
             #{row.national.national_rank}
           </Badge>
