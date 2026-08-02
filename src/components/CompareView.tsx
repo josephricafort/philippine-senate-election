@@ -1234,7 +1234,7 @@ export default function CompareView({ selectedSenator, senators, nationalData, v
                 stackOnMobile
                 className="min-h-[8.5rem] xl:min-h-0"
               />
-              <div className="pointer-events-none absolute left-1/2 top-[4.25rem] z-10 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border bg-card text-sm font-semibold text-muted-foreground xl:hidden">
+              <div className="pointer-events-none absolute left-1/2 top-[4.25rem] z-[1] flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border bg-card text-sm font-semibold text-muted-foreground xl:hidden">
                 &
               </div>
               <div className="mx-auto hidden h-10 w-10 items-center justify-center rounded-full border bg-card text-sm font-semibold text-muted-foreground xl:col-start-2 xl:flex">

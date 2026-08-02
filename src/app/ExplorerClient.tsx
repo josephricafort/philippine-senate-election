@@ -412,7 +412,7 @@ function ExplorerPageInner() {
 
       {selectedSenator ? (
         <>
-          <div className="sticky top-0 z-20 bg-background -mx-4 px-4 pt-2 pb-2">
+          <div className="sticky top-0 z-40 bg-background -mx-4 px-4 pt-2 pb-2">
             <CandidateHeader senator={selectedSenator} national={currentNationalData?.[selectedSenator.senator_id] ?? null} swingHeadline={swingHeadline} />
           </div>
 
@@ -427,7 +427,7 @@ function ExplorerPageInner() {
               this sticky block flush against CandidateHeader's sticky block above (no gap
               there) so the two sticky regions form one continuous opaque strip while
               scrolling — the padding is inside this block, not a margin that would break that. */}
-          <div className="sticky top-13 md:top-16 z-10 bg-background -mx-4 px-4 pt-4 pb-2 -mt-1">
+          <div className="sticky top-13 md:top-16 z-30 bg-background -mx-4 px-4 pt-4 pb-2 -mt-1">
             {didRunSelectedYear && (
               <div className="pt-3 border-t">
                 <div className="flex items-center gap-3 flex-wrap">
