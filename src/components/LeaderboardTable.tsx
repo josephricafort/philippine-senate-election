@@ -139,7 +139,7 @@ export default function LeaderboardTable({ nationalData, senators, highlightId, 
           <TableRow>
             <TableHead className="w-16 whitespace-normal">
               <span className="inline-flex items-center gap-1">
-                Nat. rank
+                Rank
                 <RankDisclaimerTooltip />
               </span>
             </TableHead>
