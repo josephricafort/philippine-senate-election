@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Activity, ArrowLeftRight, Building2, Map as MapIcon } from 'lucide-react';
 import ProvinceSelect from '@/components/ProvinceSelect';
 import ProvinceSwingChart from '@/components/ProvinceSwingChart';
 import ProvinceSwingBarChart from '@/components/ProvinceSwingBarChart';
@@ -49,15 +50,6 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
     return topProvinceNames[0] ?? null;
   });
 
-  // Two other top provinces (excluding the selected one) as dim context lines.
-  const contextTrends = useMemo(() => {
-    if (!province) return [];
-    return topProvinceNames
-      .filter(p => p !== province)
-      .slice(0, 2)
-      .map(adm2_en => ({ adm2_en, trend: trendByProvince.get(adm2_en) ?? [] }));
-  }, [province, topProvinceNames, trendByProvince]);
-
   const provinceTrend = province ? trendByProvince.get(province) ?? [] : [];
 
   function handleProvinceChange(p: string) {
@@ -76,9 +68,12 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
   if (senator.years.length < 2) {
     return (
       <div>
-        <h3 className="text-base font-semibold mb-1">
-          Vote-Share Swing
-        </h3>
+        <div className="mb-1 flex items-center gap-2">
+          <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
+          <h3 className="text-base font-semibold">
+            Vote-Share Swing
+          </h3>
+        </div>
         <p className="text-sm text-muted-foreground leading-relaxed">
           Vote-share swing is only available for candidates who ran in 2 or more elections.
           {' '}{senator.senator_name} has only run once ({senator.years[0]}), so there&rsquo;s
@@ -111,13 +106,20 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
 
   return (
     <div>
-      <h3 className="text-base font-semibold mb-1">
-        Vote-Share Swing
-      </h3>
+      <div className="mb-1 flex items-center gap-2">
+        <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-base font-semibold">
+          Vote-Share Swing
+        </h3>
+      </div>
 
-      <h4 className="text-sm font-semibold mt-4 mb-1">Vote-share swing by Province</h4>
+      <div className="mt-4 mb-1 flex items-center gap-2">
+        <MapIcon className="h-4 w-4 text-muted-foreground" />
+        <h4 className="text-sm font-semibold">Vote-Share Swing by Province</h4>
+      </div>
       <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-        {headlineName(senator.senator_name)}&rsquo;s percentage-point change in vote share by province nationwide
+        Shows whether {headlineName(senator.senator_name)} gained or lost vote share in each province
+        {yearA !== undefined && yearB !== undefined ? ` between ${yearA} and ${yearB}` : ''}.
       </p>
 
       {yearA !== undefined && (
@@ -133,7 +135,7 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
       )}
 
       <p className="text-sm text-muted-foreground leading-relaxed mb-2">
-        Select a province to see vote-share trends and swing by its municipality
+        Select a province to see how {headlineName(senator.senator_name)} performed there over time and how each municipality shifted.
       </p>
       <div className="mb-5">
         <ProvinceSelect provinces={provinces} value={province} onChange={handleProvinceChange} />
@@ -142,22 +144,29 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
       {province && (
         <div className="space-y-6">
           <div>
-            <h4 className="text-sm font-semibold mb-1">Vote-share swing trend in {province}</h4>
+            <div className="mb-1 flex items-center gap-2">
+              <Activity className="h-4 w-4 text-muted-foreground" />
+              <h4 className="text-sm font-semibold">Province Performance vs National Average in {province}</h4>
+            </div>
             {provinceIndexSwing !== null && latestProvinceIndex !== undefined && (
               <p className="text-sm text-muted-foreground leading-relaxed mb-2.5">
-                Percentage-point change across election cycles in {province}
+                Shows whether {headlineName(senator.senator_name)} performed above or below their national average in {province} across election years. Values above 1 mean stronger-than-average performance; values below 1 mean weaker-than-average performance.
               </p>
             )}
             <div className="rounded-xl border bg-card p-4">
-              <ProvinceSwingChart province={province} trend={provinceTrend} contextTrends={contextTrends} />
+              <ProvinceSwingChart province={province} trend={provinceTrend} />
             </div>
           </div>
 
           {yearA !== undefined ? (
             <div>
-              <h4 className="text-sm font-semibold mb-1">Vote-share swing in {province} by municipality</h4>
+              <div className="mb-1 flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+                <h4 className="text-sm font-semibold">Vote-Share Swing by Municipality in {province}</h4>
+              </div>
               <p className="text-sm text-muted-foreground leading-relaxed mb-2.5">
-                Percentage-point change in vote share in {province} by municipality
+                Shows which municipalities in {province} gave {headlineName(senator.senator_name)} a higher or lower vote share
+                {yearA !== undefined && yearB !== undefined ? ` between ${yearA} and ${yearB}` : ''}.
               </p>
               <MunicipalitySwingChart rows={muniRows} province={province} yearA={yearA} yearB={yearB} />
             </div>

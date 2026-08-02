@@ -62,6 +62,8 @@ type Props = {
 
 const PH_CENTER: [number, number] = [122, 12.8];
 const DEFAULT_ZOOM = 5;
+const DEFAULT_BEARING = 0;
+const DEFAULT_PITCH = 0;
 // Padded box around the default view — keeps panning from drifting past the
 // Philippines even at the min zoom, without pinning the map rigidly to center.
 const MAX_BOUNDS: maplibregl.LngLatBoundsLike = [
@@ -540,6 +542,8 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
       style: process.env.NEXT_PUBLIC_MAP_STYLE_URL ?? 'https://tiles.openfreemap.org/styles/positron',
       center: PH_CENTER,
       zoom: DEFAULT_ZOOM,
+      bearing: DEFAULT_BEARING,
+      pitch: DEFAULT_PITCH,
       minZoom: DEFAULT_ZOOM,
       maxBounds: MAX_BOUNDS,
       // Always start collapsed to an "i" icon — expands as an overlay on click.
@@ -578,7 +582,9 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
       const moved =
         Math.abs(center.lng - PH_CENTER[0]) > 0.01 ||
         Math.abs(center.lat - PH_CENTER[1]) > 0.01 ||
-        Math.abs(map.getZoom() - DEFAULT_ZOOM) > 0.01;
+        Math.abs(map.getZoom() - DEFAULT_ZOOM) > 0.01 ||
+        Math.abs(map.getBearing() - DEFAULT_BEARING) > 0.01 ||
+        Math.abs(map.getPitch() - DEFAULT_PITCH) > 0.01;
       setShowResetButton(moved);
     });
 
@@ -981,7 +987,12 @@ export default function ChoroplethMap({ candidate, municipalityNames, senatorId,
             <button
               onClick={() => {
                 trackEvent('map_reset_view', {});
-                mapRef.current?.flyTo({ center: PH_CENTER, zoom: DEFAULT_ZOOM });
+                mapRef.current?.flyTo({
+                  center: PH_CENTER,
+                  zoom: DEFAULT_ZOOM,
+                  bearing: DEFAULT_BEARING,
+                  pitch: DEFAULT_PITCH,
+                });
               }}
               title="Reset map view"
               aria-label="Reset map view"

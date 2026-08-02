@@ -2,8 +2,8 @@
 import type { Metric } from '@/lib/types';
 
 const OPTIONS: { value: Metric; label: string; shortLabel: string }[] = [
-  { value: 'swing',      label: 'Swing',      shortLabel: 'Swing' },
   { value: 'rank',       label: 'Rank',       shortLabel: 'Rank' },
+  { value: 'swing',      label: 'Swing',      shortLabel: 'Swing' },
   { value: 'vote_share', label: 'Vote share', shortLabel: 'Share' },
   { value: 'votes',      label: 'Raw votes',  shortLabel: 'Votes' },
 ];

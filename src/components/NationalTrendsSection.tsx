@@ -1,6 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Building2, Map as MapIcon } from 'lucide-react';
 import ProvinceSelect from '@/components/ProvinceSelect';
 import ShareBarChart from '@/components/ShareBarChart';
 import { trackEvent } from '@/lib/analytics';
@@ -11,6 +12,7 @@ type MuniShareRow = { psgc: string; adm3_en: string; vote_share: number; rank: n
 type Props = {
   year: number;
   candidateId: string;
+  candidateName: string;
   /** Every province the candidate has data for in `year`, for the top-level share table. */
   provinceShares: ShareRow[];
   /** This candidate's top provinces in `year`, most-voted first — picks the default selected
@@ -27,7 +29,15 @@ type Props = {
 // "Share by province" / "Share by municipality" — the Trends tab counterpart of SwingSection's
 // own province bar chart + dropdown + municipality breakdown, showing vote share itself rather
 // than the change in vote share between two runs.
-export default function NationalTrendsSection({ year, candidateId, provinceShares, topProvinceNames, muniSharesByProvince, singleRun }: Props) {
+export default function NationalTrendsSection({
+  year,
+  candidateId,
+  candidateName,
+  provinceShares,
+  topProvinceNames,
+  muniSharesByProvince,
+  singleRun,
+}: Props) {
   const searchParams = useSearchParams();
   const provinceParam = searchParams.get('province');
   const provinces = useMemo(() => provinceShares.map(p => p.adm2_en).sort(), [provinceShares]);
@@ -61,9 +71,12 @@ export default function NationalTrendsSection({ year, candidateId, provinceShare
   return (
     <div className="space-y-6">
       <div>
-        <h4 className="text-sm font-semibold mt-4 mb-1">Vote share by province</h4>
+        <div className="mt-4 mb-1 flex items-center gap-2">
+          <MapIcon className="h-4 w-4 text-muted-foreground" />
+          <h4 className="text-sm font-semibold">Vote Share by Province in {year}</h4>
+        </div>
         <p className="text-sm text-muted-foreground leading-relaxed mb-3">
-          Vote share earned in every province in {year}
+          Shows {candidateName}&rsquo;s share of votes in each province in {year}.
         </p>
         <ShareBarChart
           title={`Share by province · ${year}`}
@@ -79,16 +92,19 @@ export default function NationalTrendsSection({ year, candidateId, provinceShare
 
       <div>
         <p className="text-sm text-muted-foreground leading-relaxed mb-2">
-          Select a province to see vote share by its municipalities
+          Select a province to see {candidateName}&rsquo;s vote share in each municipality for {year}.
         </p>
         <ProvinceSelect provinces={provinces} value={province} onChange={handleProvinceChange} />
       </div>
 
       {province && (
         <div>
-          <h4 className="text-sm font-semibold mb-2">
-            Vote share across election cycles in {province} by municipality
-          </h4>
+          <div className="mb-2 flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <h4 className="text-sm font-semibold">
+              Vote Share by Municipality in {province}
+            </h4>
+          </div>
           <ShareBarChart
             title={`Share by municipality — ${province} · ${year}`}
             rows={muniRows}

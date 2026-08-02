@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { ChevronLeft, ChevronRight, Map as MapIcon, Share2, ArrowLeftRight, TrendingUp } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Map as MapIcon, Share2, ArrowLeftRight, ChartPie, Globe2, Users } from 'lucide-react';
 
 import SearchSelect from '@/components/SearchSelect';
 import CandidateCard, { CandidateHeader } from '@/components/CandidateCard';
@@ -15,12 +15,13 @@ import SwingSection from '@/components/SwingSection';
 import SwingYearPairSelector from '@/components/SwingYearPairSelector';
 import NationalTrendsSection from '@/components/NationalTrendsSection';
 import Spinner from '@/components/Spinner';
+import CompareView from '@/components/CompareView';
 
 type MobileTab = 'leaderboard' | 'profile' | 'map';
-type ProfileTab = 'swing' | 'trends';
+type ProfileTab = 'swing' | 'trends' | 'compare';
 
 import {
-  loadCandidateData, loadNationalYear, loadMunicipalityNames, loadCandidateIndex,
+  loadVotes, loadCandidateData, loadNationalYear, loadMunicipalityNames, loadCandidateIndex,
   buildSenatorList, nationalTotalVotes,
   candidateTopProvinces, candidateTrendData,
   candidateNationwideMunicipalitySwing, candidateProvinceList, candidateProvinceShareTrend,
@@ -30,7 +31,7 @@ import {
 } from '@/lib/data';
 import {
   type ElectionYear, type Metric, type Senator,
-  type CandidateData, type NationalYearData, type MunicipalityNames,
+  type VoteData, type CandidateData, type NationalYearData, type MunicipalityNames,
 } from '@/lib/types';
 import { trackEvent } from '@/lib/analytics';
 import { consecutivePairs, type YearPair } from '@/lib/swing';
@@ -39,6 +40,19 @@ import { headlineName } from '@/lib/display-name';
 // Browser-only components — SSR-disabled to avoid DOM/ResizeObserver errors
 const ChoroplethMap = dynamic(() => import('@/components/ChoroplethMap'), { ssr: false });
 const TrendChart = dynamic(() => import('@/components/TrendChart'), { ssr: false });
+
+function metricForProfileTab(tab: ProfileTab): Metric {
+  if (tab === 'compare') return 'rank';
+  if (tab === 'swing') return 'swing';
+  return 'vote_share';
+}
+
+function profileTabForMetric(metric: Metric): ProfileTab | null {
+  if (metric === 'rank') return 'compare';
+  if (metric === 'swing') return 'swing';
+  if (metric === 'vote_share') return 'trends';
+  return null;
+}
 
 export default function ExplorerClient() {
   return (
@@ -60,9 +74,9 @@ function ExplorerPageInner() {
   const [senators, setSenators] = useState<Senator[]>([]);
   const [selectedSenator, setSelectedSenator] = useState<Senator | null>(null);
   const [year, setYear] = useState<ElectionYear>(2025);
-  const [metric, setMetric] = useState<Metric>('swing');
+  const [metric, setMetric] = useState<Metric>('rank');
   const [mobileTab, setMobileTab] = useState<MobileTab>('leaderboard');
-  const [profileTab, setProfileTab] = useState<ProfileTab>('swing');
+  const [profileTab, setProfileTab] = useState<ProfileTab>('compare');
   // Which consecutive pair of runs the Swing view compares — independent of `year`, since a
   // swing pair spans two elections. Defaults to the candidate's most recent pair; reset whenever
   // the selected candidate changes (a stale pair from a previous candidate has no meaning here).
@@ -134,12 +148,8 @@ function ExplorerPageInner() {
     if (m === metric) return;
     trackEvent('select_metric', { metric: m, previous_metric: metric, candidate_id: selectedSenator?.senator_id });
     setMetric(m);
-    // Mirrors handleProfileTabChange's own map-metric nudge, in reverse: picking a metric on the
-    // map's own toggle keeps the profile tab in sync with it too, so Swing and Trends read as
-    // one selection surfaced in two places rather than two independent pickers that can drift
-    // apart. setProfileTab directly (not handleProfileTabChange) — that function calls back into
-    // handleMetricChange, which would be a no-op loop since m already equals metric.
-    setProfileTab(m === 'swing' ? 'swing' : 'trends');
+    const nextProfileTab = profileTabForMetric(m);
+    if (nextProfileTab) setProfileTab(nextProfileTab);
   }
 
   function handleMobileTabChange(tab: MobileTab) {
@@ -150,17 +160,14 @@ function ExplorerPageInner() {
   function handleProfileTabChange(tab: ProfileTab) {
     trackEvent('switch_profile_tab', { tab_name: tab });
     setProfileTab(tab);
-    // Nudge the map to the metric that matches the tab just switched to, so Swing and Trends
-    // each read as having their own map view — Swing pairs naturally with the swing metric,
-    // Trends with rank (its default "who's ahead" framing). This is just a default on switch,
-    // not a constraint: MetricToggle still lets the user pick any other metric afterward, and
-    // nothing here forces it back.
-    handleMetricChange(tab === 'swing' ? 'swing' : 'rank');
+    const nextMetric = metricForProfileTab(tab);
+    if (nextMetric !== metric) handleMetricChange(nextMetric);
   }
 
   // Per-candidate data, fetched on demand and cached by senator_id — replaces the old
   // "fetch every year up front" voteCache, which downloaded ~44MB before anything rendered.
   const [candidateCache, setCandidateCache] = useState<Map<string, CandidateData>>(new Map());
+  const [voteCache, setVoteCache] = useState<Map<number, VoteData>>(new Map());
   // Nationwide totals cache, keyed by year — small (~2-4KB) per-year files, fetched only for
   // the years actually needed (current year, for the leaderboard; selected candidate's run
   // years, for the trend chart's national-share denominator).
@@ -197,6 +204,19 @@ function ExplorerPageInner() {
     loadMunicipalityNames().then(setMunicipalityNames);
   }, []);
 
+  // Query-only navigations like "/?candidate=lapid_lito" keep the current route mounted, so the
+  // one-time default-selection effect above never reruns. Mirror the URL into selectedSenator
+  // once the senator list is loaded so in-app links from CompareView actually switch the profile.
+  useEffect(() => {
+    if (!candidateParam || senators.length === 0) return;
+    if (selectedSenator?.senator_id === candidateParam) return;
+    const next = senators.find(s => s.senator_id === candidateParam);
+    if (next) handleSelectSenator(next, 'url_param');
+  // handleSelectSenator is intentionally omitted: it is recreated every render, and this effect
+  // should only react to the URL/list/selected-id inputs above.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [candidateParam, senators, selectedSenator?.senator_id]);
+
   // Fetch the selected candidate's data file once, on selection — replaces the old eager
   // all-years preload. A candidate's file already covers every year they ran, so this is the
   // only per-candidate fetch needed regardless of how many years are involved.
@@ -229,6 +249,7 @@ function ExplorerPageInner() {
   }, [year, selectedSenator, nationalCache]);
 
   const currentCandidateData = selectedSenator ? candidateCache.get(selectedSenator.senator_id) ?? null : null;
+  const currentVoteData = voteCache.get(year) ?? null;
   const currentNationalData = nationalCache.get(year) ?? null;
 
   // Nationwide total votes cast per year, for the years the selected candidate ran — the
@@ -247,6 +268,18 @@ function ExplorerPageInner() {
     : [];
 
   const didRunSelectedYear = !!(currentNationalData && selectedSenator && currentNationalData[selectedSenator.senator_id]);
+
+  // Compare view needs the full candidate field for the selected year so it can show where the
+  // chosen candidate ranks against everyone else nationally, provincially, or within one
+  // municipality. Keep this lazy — only fetch the full year file once Compare is actually open.
+  useEffect(() => {
+    if (profileTab !== 'compare') return;
+    if (!selectedSenator || !didRunSelectedYear) return;
+    if (voteCache.has(year)) return;
+    loadVotes(year).then(data => {
+      setVoteCache(prev => new Map(prev).set(year, data));
+    });
+  }, [profileTab, selectedSenator, didRunSelectedYear, voteCache, year]);
 
   // Reduce the selected candidate's data down to just their province-level numbers before
   // handing off to SwingSection, same shape the static senator page precomputes server-side —
@@ -385,6 +418,17 @@ function ExplorerPageInner() {
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit shrink-0">
                     <button
+                      onClick={() => handleProfileTabChange('compare')}
+                      className={`h-8 px-3.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                        profileTab === 'compare'
+                          ? 'bg-background text-foreground shadow-sm'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Users className="w-4 h-4" />
+                      Compare
+                    </button>
+                    <button
                       onClick={() => handleProfileTabChange('swing')}
                       className={`h-8 px-3.5 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
                         profileTab === 'swing'
@@ -403,7 +447,7 @@ function ExplorerPageInner() {
                           : 'text-muted-foreground hover:text-foreground'
                       }`}
                     >
-                      <TrendingUp className="w-4 h-4" />
+                      <ChartPie className="w-4 h-4" />
                       {selectedSenator.years.length > 1 ? 'Vote Share Trend' : 'Vote Share'}
                     </button>
                   </div>
@@ -423,7 +467,7 @@ function ExplorerPageInner() {
                         onChange={handleSwingYearPairChange}
                       />
                     </>
-                  ) : (
+                  ) : profileTab === 'trends' || profileTab === 'compare' ? (
                     <>
                       <span className="text-xs text-muted-foreground font-medium shrink-0">Years Ran</span>
                       <YearSelector
@@ -433,16 +477,16 @@ function ExplorerPageInner() {
                         filterToAvailable
                       />
                     </>
-                  )}
+                  ) : null}
                 </div>
               </div>
             )}
           </div>
 
-          {(profileTab !== 'swing' || selectedSenator.years.length >= 2) && (
+          {profileTab !== 'compare' && (profileTab !== 'swing' || selectedSenator.years.length >= 2) && (
             <button
               onClick={() => {
-                handleMetricChange(profileTab === 'swing' ? 'swing' : 'rank');
+                handleMetricChange(metricForProfileTab(profileTab));
                 handleMobileTabChange('map');
               }}
               className="w-full flex items-center gap-3 rounded-xl border bg-card p-4 text-left hover:bg-accent transition-colors md:hidden"
@@ -485,16 +529,22 @@ function ExplorerPageInner() {
               {profileTab === 'trends' && (
                 <>
                   <div>
-                    <h3 className="text-base font-semibold mb-1">
-                      {selectedSenator.years.length > 1 ? 'Vote Share Trend' : 'Vote Share'}
-                    </h3>
+                    <div className="mb-1 flex items-center gap-2">
+                      <ChartPie className="h-4 w-4 text-muted-foreground" />
+                      <h3 className="text-base font-semibold">
+                        {selectedSenator.years.length > 1 ? 'Vote Share Trend' : 'Vote Share'}
+                      </h3>
+                    </div>
                     {selectedSenator.years.length > 1 && (
                       <>
-                        <h4 className="text-sm font-semibold mt-4 mb-1">
-                          Nationwide vote share trend across election cycle
-                        </h4>
+                        <div className="mt-4 mb-1 flex items-center gap-2">
+                          <Globe2 className="h-4 w-4 text-muted-foreground" />
+                          <h4 className="text-sm font-semibold">
+                            Nationwide Vote Share Across Election Cycles
+                          </h4>
+                        </div>
                         <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                          Overall trend nationwide of {headlineName(selectedSenator.senator_name)}&rsquo;s vote share.
+                          Shows how {headlineName(selectedSenator.senator_name)}&rsquo;s national vote share changed across election years.
                         </p>
                         <TrendChart data={trend} />
                       </>
@@ -505,6 +555,7 @@ function ExplorerPageInner() {
                     <NationalTrendsSection
                       year={year}
                       candidateId={selectedSenator.senator_id}
+                      candidateName={headlineName(selectedSenator.senator_name)}
                       provinceShares={nationalTrendsProps.provinceShares}
                       topProvinceNames={nationalTrendsProps.topProvinceNames}
                       muniSharesByProvince={nationalTrendsProps.muniSharesByProvince}
@@ -516,6 +567,16 @@ function ExplorerPageInner() {
                     </div>
                   )}
                 </>
+              )}
+
+              {profileTab === 'compare' && currentNationalData && selectedSenator && (
+                <CompareView
+                  selectedSenator={selectedSenator}
+                  senators={senators}
+                  nationalData={currentNationalData}
+                  voteData={currentVoteData}
+                  year={year}
+                />
               )}
             </>
           ) : (
@@ -626,6 +687,7 @@ function ExplorerPageInner() {
             nationalData={currentNationalData}
             senators={senators}
             highlightId={selectedSenator?.senator_id ?? null}
+            year={year}
             onSelectSenator={handleSelectFromLeaderboard}
           />
         ) : (
@@ -659,6 +721,7 @@ function ExplorerPageInner() {
                 nationalData={currentNationalData}
                 senators={senators}
                 highlightId={selectedSenator?.senator_id ?? null}
+                year={year}
                 onSelectSenator={handleSelectFromLeaderboard}
               />
             ) : (

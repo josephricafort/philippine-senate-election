@@ -36,6 +36,22 @@ const faqs = [
     answer: 'Rank and vote share are answering two different questions. Rank compares raw vote totals against every other candidate that year and place, so it shifts whenever the field around a candidate changes, even if their own vote share barely does — for example, a strong new candidate entering a race can push someone from rank 3 to rank 5 without that person losing a single voter. Vote share, by contrast, only looks at one candidate’s own slice of the vote, so it moves only when their own support actually changes.',
   },
   {
+    question: 'What does “Gap from Avg” mean in the Compare tab?',
+    answer: 'It shows how far a candidate’s vote share is above or below the average candidate in that same national, provincial, or municipal field. The average is simply 100% divided by the number of candidates being compared there. A positive value means the candidate did better than the field average; a negative value means worse.',
+  },
+  {
+    question: 'What does a similarity score like 0.84 or -0.55 mean?',
+    answer: 'It is a pattern score, not a vote-share percentage. Scores closer to 1 mean two candidates tended to be strong and weak in the same provinces/cities. Scores near 0 mean their support patterns were not closely related. Scores closer to -1 mean one candidate tended to be strong where the other was weak.',
+  },
+  {
+    question: 'What counts as a “shared stronghold”?',
+    answer: 'For each candidate, the site ranks all province/city units by vote share in the selected year and keeps only that candidate’s top quarter of places. Any place that appears in both candidates’ top-quarter lists is counted as a shared stronghold. Places that appear in only one list are shown on that candidate’s side only.',
+  },
+  {
+    question: 'Why does the shared-strongholds list show one percentage for a place if two candidates are being compared?',
+    answer: 'For shared places, the list shows the average of the two candidates’ vote shares there. This gives one compact number for sorting and display. The overlap itself is based on whether both candidates made their own top-quarter lists, not on this average.',
+  },
+  {
     question: 'Does the site show voter turnout or margin of victory?',
     answer: 'No. The source files’ registered-voter and ballot-count columns were removed early in cleaning (see "Removing non-vote data" above) because they were inconsistent and not needed for vote-share or rank calculations, so no turnout percentage or victory-margin figure is computed anywhere on the site.',
   },
@@ -475,6 +491,30 @@ export default function MethodologyPage() {
             </div>
           </div>
 
+          <div className="space-y-3">
+            <h3 className="text-base font-medium text-foreground">Compare: “Gap from Avg”</h3>
+            <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+              <p>
+                In the Compare tab&apos;s ranking table, <span className="text-foreground">Gap from Avg</span>{' '}
+                shows how far a candidate&apos;s vote share is above or below the average candidate
+                in that same field.
+              </p>
+              <p>
+                The calculation is simple: because all candidate vote shares in one place add up
+                to about 100%, the average candidate share is roughly{' '}
+                <span className="text-foreground">100% divided by the number of candidates</span>.
+                If 40 candidates are in the field, the average share is about 2.5%. A candidate
+                at 4.0% would therefore be shown as about{' '}
+                <span className="text-foreground">+1.5 points</span>; a candidate at 1.0% would
+                be about <span className="text-foreground">−1.5 points</span>.
+              </p>
+              <p>
+                This number is useful because it gives a quick sense of whether a candidate was
+                performing above or below the pack, even when the size of the field changes.
+              </p>
+            </div>
+          </div>
+
           <div id="vote-share-swing" className="space-y-3 scroll-mt-6">
             <h3 className="text-base font-medium text-foreground">Vote-share swing</h3>
             <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
@@ -532,6 +572,90 @@ export default function MethodologyPage() {
                 sample instead (the biggest drop, the biggest gain, and a few points in between),
                 but the counts and percentages in the summary text always reflect the full
                 dataset.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-base font-medium text-foreground">Compare: support-pattern score</h3>
+            <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+              <p>
+                The Compare tab&apos;s <span className="text-foreground">Similar Support Pattern</span>{' '}
+                section asks a different question from rank or vote share: not &quot;Who got more
+                votes?&quot; but <span className="text-foreground">&quot;Who was strong and weak in the same places?&quot;</span>
+              </p>
+              <p>
+                To do this, the site builds one province/city vote-share profile per candidate
+                for the selected year. It then compares those profiles using a standard
+                correlation score that runs from{' '}
+                <span className="text-foreground">-1 to +1</span>.
+              </p>
+              <ul className="list-disc list-outside pl-5 space-y-1.5">
+                <li>
+                  <span className="text-foreground">Closer to +1</span> — the two candidates
+                  tended to be strong and weak in the same places.
+                </li>
+                <li>
+                  <span className="text-foreground">Around 0</span> — their support patterns were
+                  not closely related.
+                </li>
+                <li>
+                  <span className="text-foreground">Closer to -1</span> — one tended to be strong
+                  where the other was weak.
+                </li>
+              </ul>
+              <p>
+                This is a pattern score, not a popularity score. Two candidates can have very
+                different national ranks but still score as similar if their support rises and
+                falls in many of the same places. Likewise, a high score can suggest similar
+                regional appeal, but it does not by itself prove any political alliance.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-base font-medium text-foreground">Compare: shared strongholds</h3>
+            <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+              <p>
+                In the Compare tab, a <span className="text-foreground">stronghold</span> means a
+                place where a candidate performed especially well in the selected year, measured
+                by vote share.
+              </p>
+              <p>
+                The site ranks every province/city unit for each candidate by vote share, then
+                keeps only that candidate&apos;s <span className="text-foreground">top quarter</span>{' '}
+                of places. This is what <span className="text-foreground">top quartile</span>{' '}
+                means here. If there are 116 province/city units in the data for that year, each
+                candidate&apos;s stronghold list contains the top 29 places after rounding up.
+              </p>
+              <p>
+                The comparison then splits those places into three groups:
+              </p>
+              <ul className="list-disc list-outside pl-5 space-y-1.5">
+                <li>
+                  <span className="text-foreground">Candidate A only</span> — places in the first
+                  candidate&apos;s top-quarter list but not the second candidate&apos;s.
+                </li>
+                <li>
+                  <span className="text-foreground">Shared</span> — places appearing in both
+                  candidates&apos; top-quarter lists.
+                </li>
+                <li>
+                  <span className="text-foreground">Candidate B only</span> — places in the second
+                  candidate&apos;s top-quarter list but not the first candidate&apos;s.
+                </li>
+              </ul>
+              <p>
+                The horizontal bar summarizes how many places fall into each group and what share
+                of the combined stronghold lists each group represents.
+              </p>
+              <p>
+                In the province lists below that bar, &quot;only&quot; columns show each candidate&apos;s
+                own vote share in that place. The <span className="text-foreground">Shared</span>{' '}
+                column shows one percentage because it uses the average of the two candidates&apos;
+                vote shares there, giving a single number for sorting and display. A place counts
+                as shared because both candidates made their own top-quarter lists there, not
+                because of this average.
               </p>
             </div>
           </div>

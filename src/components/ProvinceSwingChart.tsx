@@ -11,7 +11,6 @@ type Point = { year: number; vote_share: number; national_share: number };
 type Props = {
   province: string;
   trend: Point[]; // selected province, highlighted
-  contextTrends: { adm2_en: string; trend: Point[] }[]; // other top provinces, dimmed
 };
 
 // Index = province share ÷ that year's national share. 1.0 = performs exactly at their national
@@ -21,7 +20,7 @@ function toIndex(p: Point): number | undefined {
   return p.national_share > 0 ? p.vote_share / p.national_share : undefined;
 }
 
-export default function ProvinceSwingChart({ province, trend, contextTrends }: Props) {
+export default function ProvinceSwingChart({ province, trend }: Props) {
   if (trend.length === 0) return (
     <div className="h-40 flex items-center justify-center text-muted-foreground text-sm">
       No data for {province}
@@ -33,23 +32,11 @@ export default function ProvinceSwingChart({ province, trend, contextTrends }: P
   // Index-unit delta (province-vs-national multiplier), not a percentage-point share —
   // scale=1 so "rounds to zero" matches SwingPill's own 1-decimal "x" display below.
   const lineColor = getSwingColor(swing, 1);
+  // Always keep the 1.0x national-average baseline inside the plotted range, even when every
+  // observed point sits below it; otherwise Recharts clips the ReferenceLine entirely.
+  const yMax = Math.max(1.1, ...indexed.map(point => point.index)) * 1.04;
 
-  // Merge all series onto one set of year rows so recharts can share an x-axis.
-  const years = Array.from(new Set([
-    ...trend.map(t => t.year),
-    ...contextTrends.flatMap(c => c.trend.map(t => t.year)),
-  ])).sort((a, b) => a - b);
-
-  const rows = years.map(year => {
-    const row: Record<string, number | undefined> = { year };
-    const mainPoint = trend.find(t => t.year === year);
-    row.main = mainPoint ? toIndex(mainPoint) : undefined;
-    contextTrends.forEach((c, i) => {
-      const ctxPoint = c.trend.find(t => t.year === year);
-      row[`ctx${i}`] = ctxPoint ? toIndex(ctxPoint) : undefined;
-    });
-    return row;
-  });
+  const rows = trend.map(t => ({ year: t.year, main: toIndex(t) }));
 
   return (
     <div>
@@ -67,7 +54,7 @@ export default function ProvinceSwingChart({ province, trend, contextTrends }: P
               dataKey="year"
               type="number"
               domain={['dataMin', 'dataMax']}
-              ticks={years}
+              ticks={trend.map(t => t.year)}
               tick={{ fill: '#71717a', fontSize: 11 }}
               axisLine={false}
               tickLine={false}
@@ -77,7 +64,7 @@ export default function ProvinceSwingChart({ province, trend, contextTrends }: P
               tick={{ fill: '#71717a', fontSize: 11 }}
               axisLine={false}
               tickLine={false}
-              domain={[0, 'auto']}
+              domain={[0, yMax]}
             />
             <ReferenceLine
               y={1}
@@ -88,23 +75,11 @@ export default function ProvinceSwingChart({ province, trend, contextTrends }: P
             <Tooltip
               contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 8 }}
               labelStyle={{ color: '#a1a1aa', fontSize: 12 }}
-              formatter={(v, name) => [
+              formatter={v => [
                 v == null ? '—' : `${Number(v).toFixed(2)}x national avg`,
-                name === 'main' ? province : contextTrends.find((_, i) => `ctx${i}` === name)?.adm2_en ?? name,
+                province,
               ]}
             />
-            {contextTrends.map((c, i) => (
-              <Line
-                key={c.adm2_en}
-                type="monotone"
-                dataKey={`ctx${i}`}
-                stroke="#3f3f46"
-                strokeWidth={1.5}
-                strokeDasharray="3 3"
-                dot={false}
-                connectNulls
-              />
-            ))}
             <Line
               type="monotone"
               dataKey="main"
@@ -118,21 +93,6 @@ export default function ProvinceSwingChart({ province, trend, contextTrends }: P
           </LineChart>
         </ResponsiveContainer>
       </div>
-
-      {contextTrends.length > 0 && (
-        <div className="flex gap-3.5 mt-2.5 pt-3 border-t flex-wrap">
-          <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
-            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: lineColor }} />
-            {province}
-          </div>
-          <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
-            <svg width="14" height="2" className="shrink-0" aria-hidden="true">
-              <line x1="0" y1="1" x2="14" y2="1" stroke="#3f3f46" strokeWidth="1.5" strokeDasharray="3 3" />
-            </svg>
-            {contextTrends.map(c => c.adm2_en).join(', ')} (context)
-          </div>
-        </div>
-      )}
     </div>
   );
 }
