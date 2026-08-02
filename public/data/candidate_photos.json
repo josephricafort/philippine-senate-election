@@ -1,0 +1,291 @@
+{
+  "angara_edgardo": "/images/candidates/angara_edgardo.jpg",
+  "angara_sonny": "/images/candidates/angara_sonny.jpg",
+  "aquino_noynoy": {
+    "path": "/images/candidates/aquino_noynoy.jpg",
+    "position": "center 18%"
+  },
+  "binay_nancy": "/images/candidates/binay_nancy.jpg",
+  "cayetano_alanpeter": "/images/candidates/cayetano_alanpeter.png",
+  "defensorsantiago_miriam": "/images/candidates/defensorsantiago_miriam.jpg",
+  "delarosa_bato": "/images/candidates/delarosa_bato.png",
+  "ejercito_jv": "/images/candidates/ejercito_jv.png",
+  "enrile_juanponce_sr": {
+    "path": "/images/candidates/enrile_juanponce_sr.jpg",
+    "position": "center 28%"
+  },
+  "estrada_jinggoy": "/images/candidates/estrada_jinggoy.png",
+  "gatchalian_win": {
+    "path": "/images/candidates/gatchalian_win.jpg",
+    "position": "center 18%"
+  },
+  "go_bong": "/images/candidates/go_bong.png",
+  "honasan_gringo": {
+    "path": "/images/candidates/honasan_gringo.jpg",
+    "position": "center 28%"
+  },
+  "hontiveros_risa": "/images/candidates/hontiveros_risa.png",
+  "lacson_ping": "/images/candidates/lacson_ping.png",
+  "lapid_lito": "/images/candidates/lapid_lito.png",
+  "legarda_loren": "/images/candidates/legarda_loren.png",
+  "magsaysay_ramon_jr": "/images/candidates/magsaysay_ramon_jr.jpg",
+  "marcoleta_rodante": "/images/candidates/marcoleta_rodante.png",
+  "marcos_ferdinand_jr": {
+    "path": "/images/candidates/marcos_ferdinand_jr.png",
+    "position": "center 28%"
+  },
+  "mitra_ramon": {
+    "path": "/images/candidates/mitra_ramon.jpg",
+    "position": "center 15%"
+  },
+  "oreta_tessie": {
+    "path": "/images/candidates/oreta_tessie.jpg",
+    "position": "center 18%"
+  },
+  "osmena_john": "/images/candidates/osmena_john.jpg",
+  "padilla_robin": {
+    "path": "/images/candidates/padilla_robin.png",
+    "position": "center 12%"
+  },
+  "pacquiao_manny": {
+    "path": "/images/candidates/pacquiao_manny.jpg",
+    "position": "center 18%"
+  },
+  "pangilinan_kiko": "/images/candidates/pangilinan_kiko.jpg",
+  "pimentel_koko": "/images/candidates/pimentel_koko.jpg",
+  "poe_grace": {
+    "path": "/images/candidates/poe_grace.png",
+    "position": "center 28%"
+  },
+  "recto_ralph": "/images/candidates/recto_ralph.jpg",
+  "revilla_bong": "/images/candidates/revilla_bong.png",
+  "roxas_mar": "/images/candidates/roxas_mar.jpg",
+  "sotto_tito": "/images/candidates/sotto_tito.png",
+  "tatad_francisco": "/images/candidates/tatad_francisco.jpg",
+  "tulfo_raffy": "/images/candidates/tulfo_raffy.png",
+  "tolentino_francis": {
+    "path": "/images/candidates/tolentino_francis.jpg",
+    "position": "center 18%"
+  },
+  "trillanes_antonio_iv": "/images/candidates/trillanes_antonio_iv.jpg",
+  "villanueva_joel": "/images/candidates/villanueva_joel.png",
+  "villar_camille": "/images/candidates/villar_camille.jpg",
+  "villar_cynthia": "/images/candidates/villar_cynthia.jpg",
+  "villar_manny": "/images/candidates/villar_manny.jpg",
+  "villar_mark": "/images/candidates/villar_mark.png",
+  "zubiri_migz": "/images/candidates/zubiri_migz.png",
+  "drilon_frank": {
+    "path": "/images/candidates/drilon_frank.jpg",
+    "position": "center 28%"
+  },
+  "gordon_dick": {
+    "path": "/images/candidates/gordon_dick.jpg",
+    "position": "center 18%"
+  },
+  "escudero_chiz": {
+    "path": "/images/candidates/escudero_chiz.jpg",
+    "position": "center 18%"
+  },
+  "arroyo_joker": "/images/candidates/arroyo_joker.gif",
+  "binay_jejomar": "/images/candidates/binay_jejomar.jpg",
+  "binay_abby": {
+    "path": "/images/candidates/binay_abby.png",
+    "position": "center 18%"
+  },
+  "tulfo_ben": {
+    "path": "/images/candidates/tulfo_ben.jpg",
+    "position": "center 22%"
+  },
+  "bautista_herbert": "/images/candidates/bautista_herbert.jpg",
+  "biazon_rozzano_rufino": {
+    "path": "/images/candidates/biazon_rozzano_rufino.jpg",
+    "zoom": 1.1
+  },
+  "devenecia_jose_iii": {
+    "path": "/images/candidates/devenecia_jose_iii.jpg",
+    "position": "center 18%",
+    "zoom": 1.1
+  },
+  "defensor_mike": {
+    "path": "/images/candidates/defensor_mike.jpg",
+    "position": "center 18%"
+  },
+  "pichay_prospero": "/images/candidates/pichay_prospero.jpg",
+  "romualdez_martin": {
+    "path": "/images/candidates/romualdez_martin.jpg",
+    "position": "center 28%"
+  },
+  "teodoro_gilberto": "/images/candidates/teodoro_gilberto.jpg",
+  "abalos_benhur": "/images/candidates/abalos_benhur.jpg",
+  "domagoso_isko_moreno": {
+    "path": "/images/candidates/domagoso_isko_moreno.jpg",
+    "position": "center 18%",
+    "zoom": 2
+  },
+  "eleazar_guillermo": {
+    "path": "/images/candidates/eleazar_guillermo.jpg",
+    "position": "center 28%"
+  },
+  "remulla_gilbert_cesar": {
+    "path": "/images/candidates/remulla_gilbert_cesar.jpg"
+  },
+  "bondoc_jimmy": {
+    "path": "/images/candidates/bondoc_jimmy.jpg",
+    "position": "center 28%"
+  },
+  "lim_danilo": "/images/candidates/lim_danilo.jpg",
+  "montano_cesar": "/images/candidates/montano_cesar.jpg",
+  "colmenares_neri": "/images/candidates/colmenares_neri.jpg",
+  "manicad_jiggy": {
+    "path": "/images/candidates/manicad_jiggy.jpg",
+    "position": "center 28%"
+  },
+  "coseteng_nikki": {
+    "path": "/images/candidates/coseteng_nikki.jpg",
+    "position": "center 28%"
+  },
+  "revillame_willie_wil": {
+    "path": "/images/candidates/revillame_willie_wil.jpg",
+    "position": "center 28%"
+  },
+  "romulo_roman": "/images/candidates/romulo_roman.jpg",
+  "alejano_gary": {
+    "path": "/images/candidates/alejano_gary.jpg",
+    "position": "center 18%"
+  },
+  "ople_susan": "/images/candidates/ople_susan.jpg",
+  "rodriguez_vic": "/images/candidates/rodriguez_vic.jpg",
+  "singson_chavit": "/images/candidates/singson_chavit.jpg",
+  "tamano_adel": "/images/candidates/tamano_adel.jpg",
+  "cojuangco_tingting": "/images/candidates/cojuangco_tingting.jpg",
+  "lambino_raul": "/images/candidates/lambino_raul.jpg",
+  "gomez_richard": "/images/candidates/gomez_richard.jpg",
+  "guingona_teofisto_iii": {
+    "path": "/images/candidates/guingona_teofisto_iii.png",
+    "position": "center 18%"
+  },
+  "gutoc_samira": {
+    "path": "/images/candidates/gutoc_samira.jpg",
+    "position": "center 18%"
+  },
+  "maza_liza": {
+    "path": "/images/candidates/maza_liza.jpg",
+    "position": "center 18%"
+  },
+  "ocampo_saturnino": "/images/candidates/ocampo_saturnino.jpg",
+  "panelo_salvador": {
+    "path": "/images/candidates/panelo_salvador.jpg",
+    "position": "center 22%"
+  },
+  "belgica_greco": {
+    "path": "/images/candidates/belgica_greco.jpg",
+    "position": "center 28%"
+  },
+  "baguilat_teddy": "/images/candidates/baguilat_teddy.jpg",
+  "langit_rey": "/images/candidates/langit_rey.jpg",
+  "delrosario_monsour": "/images/candidates/delrosario_monsour.jpg",
+  "espiritu_luke": "/images/candidates/espiritu_luke.png",
+  "hilbay_pilo": {
+    "path": "/images/candidates/hilbay_pilo.jpg",
+    "position": "center 18%"
+  },
+  "aguilar_freddie": "/images/candidates/aguilar_freddie.jpg",
+  "aquino_bam": {
+    "path": "/images/candidates/aquino_bam.jpg",
+    "position": "center 18%"
+  },
+  "kapunan_lorna": "/images/candidates/kapunan_lorna.jpg",
+  "bello_silvestre_iii": {
+    "path": "/images/candidates/bello_silvestre_iii.jpg",
+    "position": "center 18%"
+  },
+  "chong_glenn": "/images/candidates/chong_glenn.jpg",
+  "quiboloy_apollo": "/images/candidates/quiboloy_apollo.jpg",
+  "pagdilao_samuel": {
+    "path": "/images/candidates/pagdilao_samuel.jpg",
+    "position": "center 28%"
+  },
+  "brosas_arlene": "/images/candidates/brosas_arlene.jpg",
+  "mangondato_faisal": "/images/candidates/mangondato_faisal.jpg",
+  "cayetano_pia": {
+    "path": "/images/candidates/cayetano_pia.jpg",
+    "position": "center 18%"
+  },
+  "diokno_chel": {
+    "path": "/images/candidates/diokno_chel.jpg",
+    "position": "center 22%",
+    "zoom": 1.2
+  },
+  "enrile_juanponce_jr": {
+    "path": "/images/candidates/enrile_juanponce_jr.jpg",
+    "position": "center 18%"
+  },
+  "gadon_larry": {
+    "path": "/images/candidates/gadon_larry.jpg",
+    "position": "center 18%"
+  },
+  "papin_imelda": {
+    "path": "/images/candidates/papin_imelda.jpg",
+    "position": "center 28%"
+  },
+  "delima_leila": {
+    "path": "/images/candidates/delima_leila.jpg",
+    "position": "center 18%"
+  },
+  "marcos_imee": {
+    "path": "/images/candidates/marcos_imee.png",
+    "position": "center 18%"
+  },
+  "ong_willie": {
+    "path": "/images/candidates/ong_willie.jpg",
+    "position": "center 18%"
+  },
+  "roque_harry": {
+    "path": "/images/candidates/roque_harry.jpg",
+    "position": "center 18%"
+  },
+  "salvador_phillip_ipe": {
+    "path": "/images/candidates/salvador_phillip_ipe.jpg",
+    "position": "center 18%"
+  },
+  "pinol_emmanuel": {
+    "path": "/images/candidates/pinol_emmanuel.jpg",
+    "position": "center 28%"
+  },
+  "tulfo_erwin": {
+    "path": "/images/candidates/tulfo_erwin.jpg",
+    "position": "center 18%"
+  },
+  "deguzman_leody": {
+    "path": "/images/candidates/deguzman_leody.png",
+    "position": "center 20%"
+  },
+  "ramos_danilo": "/images/candidates/ramos_danilo.jpg",
+  "bello_walden": "/images/candidates/bello_walden.jpg",
+  "guico_ramon_jr": "/images/candidates/guico_ramon_jr.jpg",
+  "sison_jopet": "/images/candidates/sison_jopet.jpg",
+  "palparan_jovito_jr": "/images/candidates/palparan_jovito_jr.jpg",
+  "madrigal_jamby": {
+    "path": "/images/candidates/madrigal_jamby.gif",
+    "position": "center 18%"
+  },
+  "acosta_nereus_jr": "/images/candidates/acosta_nereus_jr.jpg",
+  "magsaysay_mitos": "/images/candidates/magsaysay_mitos.jpg",
+  "magsaysay_vic": {
+    "path": "/images/candidates/magsaysay_vic.jpg",
+    "position": "center 28%"
+  },
+  "manzano_edu": "/images/candidates/manzano_edu.jpg",
+  "osmena_serge": {
+    "path": "/images/candidates/osmena_serge.jpg",
+    "position": "center 18%"
+  },
+  "balita_carl": {
+    "path": "/images/candidates/balita_carl.jpg",
+    "position": "center 12%"
+  },
+  "padilla_minguita": "/images/candidates/padilla_minguita.jpg",
+  "lao_yasmin": "/images/candidates/lao_yasmin.jpg",
+  "seneres_christian": "/images/candidates/seneres_christian.jpg",
+  "matula_sonny": "/images/candidates/matula_sonny.jpg"
+}

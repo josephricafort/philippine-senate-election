@@ -5,6 +5,7 @@ import { RankDisclaimerTooltip } from '@/components/InfoTooltip';
 import YearSelector from '@/components/YearSelector';
 import ProfileShareMenu from '@/components/ProfileShareMenu';
 import { headlineName } from '@/lib/display-name';
+import CandidateAvatar from '@/components/CandidateAvatar';
 import type { ElectionYear, NationalTotals, Senator } from '@/lib/types';
 
 type Props = {
@@ -17,11 +18,6 @@ type Props = {
   year: ElectionYear;
   onSelectYear?: (year: ElectionYear) => void;
 };
-
-function initials(name: string) {
-  const parts = name.replace(/\(.*?\)/g, '').trim().split(/[\s,]+/).filter(Boolean);
-  return parts.slice(0, 2).map(p => p[0].toUpperCase()).join('');
-}
 
 function formatVotes(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
@@ -60,9 +56,12 @@ export function CandidateHeader({
 
   return (
     <div className="flex items-center gap-3 md:gap-5">
-      <div className={`w-9 h-9 md:w-12 md:h-12 rounded-full flex items-center justify-center font-bold text-sm md:text-base shrink-0 select-none ${national ? 'bg-primary text-primary-foreground' : 'bg-destructive/20 text-destructive'}`}>
-        {initials(senator.senator_name)}
-      </div>
+      <CandidateAvatar
+        senatorId={senator.senator_id}
+        senatorName={senator.senator_name}
+        active={!!national}
+        className="w-14 h-14 md:w-16 md:h-16 text-base md:text-lg"
+      />
       <h2 className="flex-1 min-w-0 font-bold text-xl md:text-2xl leading-tight truncate">{senator.senator_name}</h2>
       <ProfileShareMenu
         url={shareUrl}

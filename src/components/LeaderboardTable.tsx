@@ -5,6 +5,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { RankDisclaimerTooltip } from '@/components/InfoTooltip';
+import CandidateAvatar from '@/components/CandidateAvatar';
 import type { NationalYearData, Senator } from '@/lib/types';
 
 type Props = {
@@ -72,8 +73,16 @@ export default function LeaderboardTable({ nationalData, senators, highlightId, 
             #{row.national.national_rank}
           </Badge>
         </TableCell>
-        <TableCell className={`w-full max-w-0 truncate font-medium ${isHighlight ? 'text-primary' : ''}`}>
-          {row.senator.senator_name}
+        <TableCell className={`w-full max-w-0 font-medium ${isHighlight ? 'text-primary' : ''}`}>
+          <div className="flex items-center gap-2 min-w-0">
+            <CandidateAvatar
+              senatorId={row.senator.senator_id}
+              senatorName={row.senator.senator_name}
+              active={isHighlight}
+              className="w-7 h-7 text-xs"
+            />
+            <span className="truncate">{row.senator.senator_name}</span>
+          </div>
         </TableCell>
         <TableCell className="w-12 text-muted-foreground">
           {row.senator.years.length}

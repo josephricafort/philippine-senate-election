@@ -230,6 +230,41 @@ export default function MethodologyPage() {
               </a>.
             </li>
           </ul>
+          <p>
+            Candidate profile photos shown elsewhere on the site are a separate, auxiliary
+            asset set, not part of the vote-count spreadsheets above.
+          </p>
+          <ul className="list-disc list-outside pl-5 space-y-1.5">
+            <li>
+              Photo files used by the app are downloaded from{' '}
+              <span className="text-foreground">Wikimedia Commons</span>{' '}
+              (<a href="https://commons.wikimedia.org" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2 hover:no-underline">commons.wikimedia.org</a>)
+              {' '}and its standard thumbnail CDN at{' '}
+              <span className="text-foreground">upload.wikimedia.org</span>.
+            </li>
+            <li>
+              The app only uses Commons files whose file pages indicate a reusable license,
+              most commonly{' '}
+              <span className="text-foreground">public domain Philippine government works</span>,
+              {' '}<span className="text-foreground">public domain / CC0 / PD-self uploads</span>,
+              {' '}or <span className="text-foreground">Creative Commons licenses</span>{' '}
+              such as CC BY or CC BY-SA.
+            </li>
+            <li>
+              A smaller number of legacy Commons files may also carry other reusable licenses
+              such as the <span className="text-foreground">GNU Free Documentation License</span>.
+            </li>
+            <li>
+              Some Commons files were originally uploaded there from official government office
+              pages, agency archives, Flickr, or uploader-owned photographs, but this project
+              relies on the reusable license disclosed on the Commons file page rather than
+              treating the upstream website itself as automatically reusable.
+            </li>
+            <li>
+              If no clearly reusable single-person photo can be verified, the site falls back
+              to initials instead of displaying an unverified image.
+            </li>
+          </ul>
         </Section>
 
         <Section id="sec-standardizing" n={2} title="Standardizing the format">
