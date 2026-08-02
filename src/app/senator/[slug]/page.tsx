@@ -205,6 +205,7 @@ export default async function SenatorPage({ params }: Props) {
           <NationalTrendsSection
             year={latestYear}
             candidateId={senator.senator_id}
+            candidateName={headlineName(senator.senator_name)}
             provinceShares={provinceShares}
             topProvinceNames={trendsTopProvinceNames}
             muniSharesByProvince={muniSharesByProvince}
