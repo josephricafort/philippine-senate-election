@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -20,7 +20,10 @@ type Props = {
 // National rank, independent of the Rank/Vote share/Raw votes metric used
 // by the Profile and Map columns — the leaderboard always ranks everyone nationally.
 export default function LeaderboardTable({ nationalData, senators, highlightId, year, onSelectSenator }: Props) {
-  const [highlightVisible, setHighlightVisible] = useState(true);
+  const [highlightVisibility, setHighlightVisibility] = useState<{ highlightId: string | null; visible: boolean }>({
+    highlightId: null,
+    visible: true,
+  });
   const highlightRef = useRef<HTMLTableRowElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const {
@@ -31,24 +34,30 @@ export default function LeaderboardTable({ nationalData, senators, highlightId, 
     highlightAvatarColor,
   } = leaderboardYearColors(year);
 
-  const rows = senators
-    .filter(s => nationalData[s.senator_id])
-    .map(s => ({
-      senator: s,
-      national: nationalData[s.senator_id],
-    }))
-    .sort((a, b) => a.national.national_rank - b.national.national_rank);
+  const rows = useMemo(() => (
+    senators
+      .filter(s => nationalData[s.senator_id])
+      .map(s => ({
+        senator: s,
+        national: nationalData[s.senator_id],
+      }))
+      .sort((a, b) => a.national.national_rank - b.national.national_rank)
+  ), [nationalData, senators]);
 
   const highlightRow = highlightId ? rows.find(r => r.senator.senator_id === highlightId) : null;
+  const highlightVisible = highlightVisibility.highlightId === highlightId ? highlightVisibility.visible : true;
 
   // Track whether the highlighted row is visible in the scroll container
   useEffect(() => {
     const container = scrollRef.current;
     const row = highlightRef.current;
-    if (!container || !row || !highlightId) { setHighlightVisible(true); return; }
+    if (!container || !row || !highlightId) {
+      setHighlightVisibility({ highlightId, visible: true });
+      return;
+    }
 
     const observer = new IntersectionObserver(
-      ([entry]) => setHighlightVisible(entry.isIntersecting),
+      ([entry]) => setHighlightVisibility({ highlightId, visible: entry.isIntersecting }),
       { root: container, threshold: 0.5 }
     );
     observer.observe(row);
