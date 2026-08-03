@@ -131,7 +131,7 @@ export default function ProvinceSwingBarChart({ rows, senatorId, senatorName, ye
               <div className="min-w-0">
                 <p className="text-sm truncate" title={row.adm2_en}>{row.adm2_en}</p>
                 {!expanded && label && (
-                  <p className="text-xs text-muted-foreground/70 uppercase tracking-wide truncate">
+                  <p className="label-eyebrow text-muted-foreground/70 truncate">
                     {label}
                   </p>
                 )}

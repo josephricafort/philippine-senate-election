@@ -55,26 +55,27 @@ export default function ProvinceSwingChart({ province, trend }: Props) {
               type="number"
               domain={['dataMin', 'dataMax']}
               ticks={trend.map(t => t.year)}
-              tick={{ fill: '#71717a', fontSize: 11 }}
+              tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontFamily: 'var(--font-mono)' }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
               tickFormatter={v => `${v.toFixed(1)}x`}
-              tick={{ fill: '#71717a', fontSize: 11 }}
+              tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontFamily: 'var(--font-mono)' }}
               axisLine={false}
               tickLine={false}
               domain={[0, yMax]}
             />
             <ReferenceLine
               y={1}
-              stroke="#52525b"
+              stroke="var(--border)"
               strokeDasharray="2 2"
-              label={{ value: 'national avg', fill: '#71717a', fontSize: 10, position: 'insideTopLeft' }}
+              label={{ value: 'national avg', fill: 'var(--muted-foreground)', fontSize: 10, fontFamily: 'var(--font-sans)', position: 'insideTopLeft' }}
             />
             <Tooltip
-              contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 8 }}
-              labelStyle={{ color: '#a1a1aa', fontSize: 12 }}
+              contentStyle={{ background: 'var(--popover)', border: '1px solid var(--border)', borderRadius: 8 }}
+              labelStyle={{ color: 'var(--muted-foreground)', fontSize: 12, fontFamily: 'var(--font-sans)' }}
+              itemStyle={{ fontFamily: 'var(--font-mono)' }}
               formatter={v => [
                 v == null ? '—' : `${Number(v).toFixed(2)}x national avg`,
                 province,

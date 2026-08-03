@@ -73,7 +73,7 @@ export default function NationalTrendsSection({
       <div>
         <div className="mt-4 mb-1 flex items-center gap-2">
           <MapIcon className="h-4 w-4 text-muted-foreground" />
-          <h4 className="text-sm font-semibold">Vote Share by Province in {year}</h4>
+          <h4 className="font-heading text-sm font-semibold">Vote Share by Province in {year}</h4>
         </div>
         <p className="text-sm text-muted-foreground leading-relaxed mb-3">
           Shows {candidateName}&rsquo;s share of votes in each province in {year}.
@@ -101,7 +101,7 @@ export default function NationalTrendsSection({
         <div>
           <div className="mb-2 flex items-center gap-2">
             <Building2 className="h-4 w-4 text-muted-foreground" />
-            <h4 className="text-sm font-semibold">
+            <h4 className="font-heading text-sm font-semibold">
               Vote Share by Municipality in {province}
             </h4>
           </div>

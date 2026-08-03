@@ -29,7 +29,7 @@ export default function ProvinceSelect({ provinces, value, onChange }: Props) {
         className="flex w-full items-center justify-between rounded-lg border border-input bg-card px-3.5 py-2.5 hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ring-offset-background"
       >
         <div className="text-left">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">Province</p>
+          <p className="label-eyebrow text-muted-foreground">Province</p>
           <p className="text-sm font-semibold mt-0.5">
             {value ?? <span className="text-muted-foreground font-normal">Select a province…</span>}
           </p>

@@ -75,12 +75,9 @@ export function CandidateHeader({
         active={!!national}
         className="w-14 h-14 md:w-16 md:h-16 text-base md:text-lg"
       />
-      <h2 className="min-w-0 flex-1 font-bold text-xl leading-tight md:text-2xl">
-        <span className="block truncate md:hidden xl:block">{senator.senator_name}</span>
-        <span className="hidden md:flex xl:hidden flex-col">
-          <span className="truncate">{tabletName.line1}</span>
-          {tabletName.line2 && <span className="truncate">{tabletName.line2}</span>}
-        </span>
+      <h2 className="font-heading min-w-0 flex-1 font-bold text-xl leading-tight md:text-2xl flex flex-col">
+        <span className="truncate">{tabletName.line1}</span>
+        {tabletName.line2 && <span className="truncate">{tabletName.line2}</span>}
       </h2>
       <ProfileShareMenu
         url={shareUrl}
@@ -99,19 +96,19 @@ export default function CandidateCard({ senator, national, year, onSelectYear }:
           <thead>
             <tr>
               <th scope="col" className="font-normal pr-6 md:pr-10 pb-0.5 md:pb-1.5">
-                <span className="text-muted-foreground text-xs uppercase tracking-wide inline-flex items-center gap-1">
+                <span className="label-eyebrow text-muted-foreground inline-flex items-center gap-1">
                   National votes
                   <RankDisclaimerTooltip />
                 </span>
               </th>
               <th scope="col" className="font-normal pr-6 md:pr-10 pb-0.5 md:pb-1.5">
-                <span className="text-muted-foreground text-xs uppercase tracking-wide inline-flex items-center gap-1">
+                <span className="label-eyebrow text-muted-foreground inline-flex items-center gap-1">
                   National rank
                   <RankDisclaimerTooltip />
                 </span>
               </th>
               <th scope="col" className="font-normal pb-0.5 md:pb-1.5">
-                <span className="text-muted-foreground text-xs uppercase tracking-wide">
+                <span className="label-eyebrow text-muted-foreground">
                   Year
                 </span>
               </th>
@@ -119,13 +116,13 @@ export default function CandidateCard({ senator, national, year, onSelectYear }:
           </thead>
           <tbody>
             <tr>
-              <td className="pr-6 md:pr-10 text-sm md:text-base font-semibold">{formatVotes(national.national_votes)}</td>
+              <td className="pr-6 md:pr-10 text-sm md:text-base xl:text-lg 2xl:text-xl font-medium">{formatVotes(national.national_votes)}</td>
               <td className="pr-6 md:pr-10">
-                <Badge variant="secondary" className="text-xs md:text-sm px-1.5 md:px-2 py-0 md:py-0.5">
+                <Badge variant="secondary" className="text-xs md:text-sm xl:text-base 2xl:text-lg font-medium px-1.5 md:px-2 xl:px-2.5 py-0 md:py-0.5 xl:py-1">
                   #{national.national_rank}
                 </Badge>
               </td>
-              <td className="text-sm md:text-base font-semibold">{year}</td>
+              <td className="text-sm md:text-base xl:text-lg 2xl:text-xl font-medium">{year}</td>
             </tr>
           </tbody>
         </table>

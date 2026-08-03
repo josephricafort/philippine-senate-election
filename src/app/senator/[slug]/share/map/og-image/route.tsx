@@ -5,9 +5,10 @@ import {
   buildSenatorList, candidateMunicipalitySwingHeadline, candidateTopProvincesHeadline, resolveShareYearPair,
 } from '@/lib/data';
 import { buildMunicipalityPaths } from '@/lib/map-svg-server';
-import { GAIN, LOSS, NEUTRAL, swingBucketColor, swingMaxAbs } from '@/lib/swing';
+import { GAIN, LOSS, NEUTRAL, swingBucketColor, swingMaxAbs, wordIsNumeric } from '@/lib/swing';
 import { yearColor } from '@/lib/year-colors';
 import { siteUrlFromHeaders } from '@/lib/site';
+import { loadOgFonts } from '@/lib/og-fonts';
 
 // Same Route Handler reasoning as the province-swing og-image: needs searchParams (yearA/yearB),
 // which the opengraph-image.tsx file convention can't see in this Next.js version.
@@ -21,19 +22,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const index = await loadCandidateIndexServer();
   const senator = buildSenatorList(index).find(s => s.senator_id === slug);
+  const fonts = await loadOgFonts();
 
   const fallback = (
     <div
       style={{
         width: '100%', height: '100%', display: 'flex', alignItems: 'center',
         justifyContent: 'center', background: '#0a0a0a', color: '#fafafa', fontSize: 40,
+        fontFamily: 'Source Serif',
       }}
     >
       BotoSenado
     </div>
   );
 
-  if (!senator) return new ImageResponse(fallback, SIZE);
+  if (!senator) return new ImageResponse(fallback, { ...SIZE, fonts });
 
   const candidate = await loadCandidateDataServer(senator.senator_id);
 
@@ -50,7 +53,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     // why this can't return null for any candidate with real votes.
     const latestYear = Math.max(...senator.years);
     const topResult = candidateTopProvincesHeadline(candidate, senator, latestYear);
-    if (!topResult) return new ImageResponse(fallback, SIZE);
+    if (!topResult) return new ImageResponse(fallback, { ...SIZE, fonts });
 
     const maxShare = Math.max(...topResult.rows.map(r => r.vote_share), 0.0001);
     const barColor = yearColor(latestYear);
@@ -63,19 +66,23 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         <div
           style={{
             width: '100%', height: '100%', display: 'flex', background: '#0a0a0a', color: '#fafafa',
-            padding: '48px 56px', fontFamily: 'sans-serif',
+            padding: '48px 56px', fontFamily: 'Source Sans',
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', width: 356, marginRight: 40 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', fontSize: 40, fontWeight: 700, lineHeight: 1.2, letterSpacing: -0.5 }}>
-              {topResult.headline}
+              {topResult.headline.split(' ').filter(word => word !== '').map((word, i) => (
+                <span key={i} style={{ display: 'flex', whiteSpace: 'pre', fontFamily: wordIsNumeric(word) ? 'Source Code' : 'Source Sans' }}>
+                  {`${word} `}
+                </span>
+              ))}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', marginTop: 'auto', paddingTop: 24, borderTop: '2px solid rgba(255,255,255,0.1)', gap: 8 }}>
               <span style={{ display: 'flex', fontSize: 24, color: '#fafafa', fontWeight: 600 }}>
                 Explore all senate election data since 2007 up to present —
               </span>
-              <span style={{ display: 'flex', fontFamily: 'monospace', fontSize: 24, color: '#a1a1aa' }}>
+              <span style={{ display: 'flex', fontFamily: 'Source Code', fontSize: 24, color: '#a1a1aa' }}>
                 {siteUrlFromHeaders(request.headers).replace(/^https?:\/\//, '')}
               </span>
             </div>
@@ -87,7 +94,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 10 }}>
               <div style={{ display: 'flex', width: 180 }} />
-              <div style={{ display: 'flex', flex: 1, justifyContent: 'space-between', fontSize: 15, color: '#71717a', fontFamily: 'monospace' }}>
+              <div style={{ display: 'flex', flex: 1, justifyContent: 'space-between', fontSize: 15, color: '#71717a', fontFamily: 'Source Code' }}>
                 <span style={{ display: 'flex' }}>0%</span>
                 <span style={{ display: 'flex' }}>{`${(maxShare * 100 / 2).toFixed(0)}%`}</span>
                 <span style={{ display: 'flex' }}>{`${(maxShare * 100).toFixed(0)}%`}</span>
@@ -106,7 +113,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
                     <div style={{ display: 'flex', flex: 1, height: 20, background: 'rgba(255,255,255,0.06)', borderRadius: 5, position: 'relative' }}>
                       <div style={{ display: 'flex', position: 'absolute', left: 0, top: 0, bottom: 0, width: `${widthPct}%`, background: barColor, borderRadius: 3 }} />
                     </div>
-                    <div style={{ display: 'flex', width: 82, fontSize: 16, fontWeight: 700, color: '#fafafa' }}>
+                    <div style={{ display: 'flex', width: 82, fontFamily: 'Source Code', fontSize: 16, fontWeight: 600, color: '#fafafa' }}>
                       {(row.vote_share * 100).toFixed(1)}%
                     </div>
                   </div>
@@ -116,7 +123,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           </div>
         </div>
       ),
-      { ...SIZE, headers: {
+      { ...SIZE, fonts, headers: {
         'Cache-Control': 'public, max-age=0, must-revalidate',
         'CDN-Cache-Control': 'public, s-maxage=31536000, stale-while-revalidate=86400',
       } }
@@ -166,16 +173,26 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           background: '#0a0a0a',
           color: '#fafafa',
           padding: '48px 56px',
-          fontFamily: 'sans-serif',
+          fontFamily: 'Source Sans',
         }}
       >
         {/* Left column: headline + footer — now 2/3 of the canvas width (flex: 1 against the
-            map's fixed 360px), with a larger headline to fill the extra room. */}
+            map's fixed 360px), with a larger headline to fill the extra room. Each word gets
+            its own font on top of its own emphasis color — Source Code for any word touching
+            a digit (counts, percentages, years), Source Sans for the surrounding prose. */}
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, marginRight: 40 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', fontSize: 52, fontWeight: 700, lineHeight: 1.2, letterSpacing: -0.5 }}>
             {result.headlineParts.flatMap((part, i) =>
               part.text.split(' ').filter(word => word !== '').map((word, j) => (
-                <span key={`${i}-${j}`} style={{ display: 'flex', whiteSpace: 'pre', color: part.emphasis === 'loss' ? LOSS : part.emphasis === 'gain' ? GAIN : part.emphasis === 'flat' ? NEUTRAL : '#fafafa' }}>
+                <span
+                  key={`${i}-${j}`}
+                  style={{
+                    display: 'flex',
+                    whiteSpace: 'pre',
+                    fontFamily: wordIsNumeric(word) ? 'Source Code' : 'Source Sans',
+                    color: part.emphasis === 'loss' ? LOSS : part.emphasis === 'gain' ? GAIN : part.emphasis === 'flat' ? NEUTRAL : '#fafafa',
+                  }}
+                >
                   {`${word} `}
                 </span>
               ))
@@ -186,7 +203,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             <span style={{ display: 'flex', fontSize: 24, color: '#fafafa', fontWeight: 600 }}>
               Explore all senate election data since 2007 up to present —
             </span>
-            <span style={{ display: 'flex', fontFamily: 'monospace', fontSize: 24, color: '#a1a1aa' }}>
+            <span style={{ display: 'flex', fontFamily: 'Source Code', fontSize: 24, color: '#a1a1aa' }}>
               {siteUrlFromHeaders(request.headers).replace(/^https?:\/\//, '')}
             </span>
           </div>
@@ -207,6 +224,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         </div>
       </div>
     ),
-    { ...SIZE, headers }
+    { ...SIZE, headers, fonts }
   );
 }

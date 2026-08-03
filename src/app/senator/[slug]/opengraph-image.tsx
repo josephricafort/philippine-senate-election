@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og';
 import { loadCandidateIndexServer, loadCandidateDataServer, loadNationalYearServer } from '@/lib/data-server';
 import { buildSenatorList, nationalTotalVotes, candidateTopProvinces, candidateTrendData } from '@/lib/data';
 import { yearColor } from '@/lib/year-colors';
+import { loadOgFonts } from '@/lib/og-fonts';
 import type { ElectionYear } from '@/lib/types';
 
 export const alt = 'BotoSenado — Philippine Senate Election Results (2007 - 2025)';
@@ -18,6 +19,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
   const { slug } = await params;
   const index = await loadCandidateIndexServer();
   const senator = buildSenatorList(index).find(s => s.senator_id === slug);
+  const fonts = await loadOgFonts();
 
   if (!senator) {
     return new ImageResponse(
@@ -26,12 +28,13 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           style={{
             width: '100%', height: '100%', display: 'flex', alignItems: 'center',
             justifyContent: 'center', background: '#0a0a0a', color: '#fafafa', fontSize: 48,
+            fontFamily: 'Source Serif',
           }}
         >
           BotoSenado
         </div>
       ),
-      size
+      { ...size, fonts }
     );
   }
 
@@ -64,21 +67,21 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           background: '#0a0a0a',
           color: '#fafafa',
           padding: 72,
-          fontFamily: 'sans-serif',
+          fontFamily: 'Source Sans',
         }}
       >
-        {/* Eyebrow */}
+        {/* Eyebrow — prose, sans */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 22, color: '#a1a1aa' }}>
           <div style={{ width: 10, height: 10, borderRadius: 5, background: yearColor(latestYear), display: 'flex' }} />
-          BotoSenado &middot; {latestYear}
+          BotoSenado &middot; <span style={{ fontFamily: 'Source Code' }}>{latestYear}</span>
         </div>
 
-        {/* Name */}
-        <div style={{ display: 'flex', fontSize: 76, fontWeight: 700, marginTop: 28, lineHeight: 1.05, letterSpacing: -1.5 }}>
+        {/* Name — headline, serif */}
+        <div style={{ display: 'flex', fontFamily: 'Source Serif', fontSize: 76, fontWeight: 700, marginTop: 28, lineHeight: 1.05, letterSpacing: -1.5 }}>
           {senator.senator_name}
         </div>
 
-        {/* Stats row */}
+        {/* Stats row — labels sans, values mono (every number on this card) */}
         <div style={{ display: 'flex', gap: 56, marginTop: 48 }}>
           {national ? (
             <div style={{ display: 'flex', gap: 56 }}>
@@ -86,17 +89,17 @@ export default async function Image({ params }: { params: Promise<{ slug: string
                 <div style={{ display: 'flex', fontSize: 20, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: 1 }}>
                   National rank
                 </div>
-                <div style={{ display: 'flex', fontSize: 56, fontWeight: 700 }}>#{national.national_rank}</div>
+                <div style={{ display: 'flex', fontFamily: 'Source Code', fontSize: 56, fontWeight: 600 }}>#{national.national_rank}</div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ display: 'flex', fontSize: 20, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: 1 }}>
                   National votes
                 </div>
-                <div style={{ display: 'flex', fontSize: 56, fontWeight: 700 }}>{formatVotes(national.national_votes)}</div>
+                <div style={{ display: 'flex', fontFamily: 'Source Code', fontSize: 56, fontWeight: 600 }}>{formatVotes(national.national_votes)}</div>
               </div>
             </div>
           ) : (
-            <div style={{ display: 'flex', fontSize: 28, color: '#f87171' }}>Did not run in {latestYear}</div>
+            <div style={{ display: 'flex', fontSize: 28, color: '#f87171' }}>Did not run in <span style={{ fontFamily: 'Source Code' }}>{latestYear}</span></div>
           )}
           {topProvince && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -104,13 +107,13 @@ export default async function Image({ params }: { params: Promise<{ slug: string
                 Top province
               </div>
               <div style={{ display: 'flex', fontSize: 34, fontWeight: 700, maxWidth: 380 }}>
-                {topProvince.adm2_en} ({(topProvince.vote_share * 100).toFixed(0)}%)
+                {topProvince.adm2_en} (<span style={{ fontFamily: 'Source Code' }}>{(topProvince.vote_share * 100).toFixed(0)}%</span>)
               </div>
             </div>
           )}
         </div>
 
-        {/* Trend sparkline across all runs */}
+        {/* Trend sparkline across all runs — year labels are numbers, mono */}
         {trend.length > 1 && (
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, marginTop: 'auto', height: 120 }}>
             {trend.map(t => (
@@ -124,13 +127,13 @@ export default async function Image({ params }: { params: Promise<{ slug: string
                     borderRadius: 6,
                   }}
                 />
-                <div style={{ display: 'flex', fontSize: 18, color: '#71717a' }}>{t.year}</div>
+                <div style={{ display: 'flex', fontFamily: 'Source Code', fontSize: 18, color: '#71717a' }}>{t.year}</div>
               </div>
             ))}
           </div>
         )}
       </div>
     ),
-    size
+    { ...size, fonts }
   );
 }

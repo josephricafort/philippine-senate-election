@@ -53,24 +53,25 @@ export default function TrendChart({ data }: Props) {
               type="number"
               domain={['dataMin', 'dataMax']}
               ticks={axisTicks(data)}
-              tick={{ fill: '#71717a', fontSize: 11 }}
+              tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontFamily: 'var(--font-mono)' }}
               axisLine={false}
               tickLine={false}
             />
             <YAxis
               tickFormatter={v => v === 0 ? '' : `${(v * 100).toFixed(0)}%`}
-              tick={{ fill: '#71717a', fontSize: 11 }}
+              tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontFamily: 'var(--font-mono)' }}
               axisLine={false}
               tickLine={false}
               domain={[0, 'auto']}
             />
             <Tooltip
-              contentStyle={{ background: '#18181b', border: '1px solid #3f3f46', borderRadius: 8 }}
-              labelStyle={{ color: '#a1a1aa', fontSize: 12 }}
+              contentStyle={{ background: 'var(--popover)', border: '1px solid var(--border)', borderRadius: 8 }}
+              labelStyle={{ color: 'var(--muted-foreground)', fontSize: 12, fontFamily: 'var(--font-sans)' }}
+              itemStyle={{ fontFamily: 'var(--font-mono)' }}
               formatter={(v) => [`${(Number(v) * 100).toFixed(2)}%`, 'Vote share']}
             />
             {showGapMarker && (
-              <ReferenceLine x={2010} stroke="#3f3f46" strokeDasharray="3 3" label={{ value: 'no election', fill: '#52525b', fontSize: 10, position: 'top' }} />
+              <ReferenceLine x={2010} stroke="var(--border)" strokeDasharray="3 3" label={{ value: 'no election', fill: 'var(--muted-foreground)', fontSize: 10, fontFamily: 'var(--font-sans)', position: 'top' }} />
             )}
             <Line
               type="monotone"

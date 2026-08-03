@@ -21,7 +21,7 @@ export default function SiteHeader({ rightExtra }: Props) {
       <Link href="/" className="flex items-center gap-2.5">
         <Vote className="w-6 h-6 text-primary shrink-0" strokeWidth={2} />
         <div>
-          <h1 className="text-base font-semibold leading-tight">
+          <h1 className="font-heading text-base font-semibold leading-tight">
             BotoSenado
           </h1>
           <p className="text-xs text-muted-foreground">Philippine Senate Election Results (2007 - 2025)</p>

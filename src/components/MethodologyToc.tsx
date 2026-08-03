@@ -46,7 +46,7 @@ export default function MethodologyToc({ groups }: { groups: TocGroup[] }) {
       <p className="font-medium text-foreground">On this page</p>
       {groups.map(group => (
         <div key={group.label}>
-          <p className="text-xs font-medium text-muted-foreground/70 uppercase tracking-wide mb-1.5">
+          <p className="label-eyebrow text-muted-foreground/70 mb-1.5">
             {group.label}
           </p>
           <ul className="space-y-1 border-l">

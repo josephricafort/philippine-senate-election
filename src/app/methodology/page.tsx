@@ -92,7 +92,7 @@ const faqJsonLd = {
 function Section({ id, n, title, children }: { id: string; n: number; title: string; children: React.ReactNode }) {
   return (
     <section id={id} className="space-y-3 scroll-mt-6">
-      <h2 className="text-lg font-semibold tracking-tight">
+      <h2 className="font-heading text-lg font-semibold tracking-tight">
         <span className="text-muted-foreground font-normal tabular-nums">{n}. </span>
         {title}
       </h2>
@@ -159,7 +159,7 @@ export default function MethodologyPage() {
         </Link>
 
         <div className="space-y-2 mt-6 mb-10">
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">
             Data Processing Methodology
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -175,10 +175,10 @@ export default function MethodologyPage() {
           <div className="max-w-2xl space-y-10">
 
         <div className="space-y-1">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          <p className="label-eyebrow text-muted-foreground">
             Part 1
           </p>
-          <h2 className="text-xl font-semibold tracking-tight">How the data was built</h2>
+          <h2 className="font-heading text-xl font-semibold tracking-tight">How the data was built</h2>
         </div>
 
         <Section id="sec-overview" n={0} title="Overview">
@@ -421,15 +421,15 @@ export default function MethodologyPage() {
         </Section>
 
         <div className="space-y-1 pt-4">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          <p className="label-eyebrow text-muted-foreground">
             Part 2
           </p>
-          <h2 className="text-xl font-semibold tracking-tight">Reference</h2>
+          <h2 className="font-heading text-xl font-semibold tracking-tight">Reference</h2>
         </div>
 
         <section id="sec-definitions" className="space-y-6 scroll-mt-6">
           <div className="space-y-2">
-            <h2 className="text-lg font-semibold tracking-tight">
+            <h2 className="font-heading text-lg font-semibold tracking-tight">
               What the numbers on this site mean
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -441,7 +441,7 @@ export default function MethodologyPage() {
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-base font-medium text-foreground">Vote share</h3>
+            <h3 className="font-heading text-base font-medium text-foreground">Vote share</h3>
             <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
               <p>
                 <span className="text-foreground">Vote share</span>{' '}is the percentage of votes
@@ -465,7 +465,7 @@ export default function MethodologyPage() {
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-base font-medium text-foreground">Rank</h3>
+            <h3 className="font-heading text-base font-medium text-foreground">Rank</h3>
             <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
               <p>
                 <span className="text-foreground">Rank</span>{' '}is a candidate&apos;s position
@@ -492,7 +492,7 @@ export default function MethodologyPage() {
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-base font-medium text-foreground">Compare: “Gap from Avg”</h3>
+            <h3 className="font-heading text-base font-medium text-foreground">Compare: “Gap from Avg”</h3>
             <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
               <p>
                 In the Compare tab&apos;s ranking table, <span className="text-foreground">Gap from Avg</span>{' '}
@@ -516,7 +516,7 @@ export default function MethodologyPage() {
           </div>
 
           <div id="vote-share-swing" className="space-y-3 scroll-mt-6">
-            <h3 className="text-base font-medium text-foreground">Vote-share swing</h3>
+            <h3 className="font-heading text-base font-medium text-foreground">Vote-share swing</h3>
             <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
               <p>
                 <span className="text-foreground">Swing</span>{' '}is how much a candidate&apos;s
@@ -552,7 +552,7 @@ export default function MethodologyPage() {
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-base font-medium text-foreground">
+            <h3 className="font-heading text-base font-medium text-foreground">
               How swing colors and summaries are decided
             </h3>
             <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
@@ -577,7 +577,7 @@ export default function MethodologyPage() {
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-base font-medium text-foreground">Compare: support-pattern score</h3>
+            <h3 className="font-heading text-base font-medium text-foreground">Compare: support-pattern score</h3>
             <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
               <p>
                 The Compare tab&apos;s <span className="text-foreground">Similar Support Pattern</span>{' '}
@@ -614,7 +614,7 @@ export default function MethodologyPage() {
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-base font-medium text-foreground">Compare: shared strongholds</h3>
+            <h3 className="font-heading text-base font-medium text-foreground">Compare: shared strongholds</h3>
             <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
               <p>
                 In the Compare tab, a <span className="text-foreground">stronghold</span> means a
@@ -660,7 +660,7 @@ export default function MethodologyPage() {
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-base font-medium text-foreground">
+            <h3 className="font-heading text-base font-medium text-foreground">
               Province strength (&quot;1.4x national average&quot;)
             </h3>
             <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
@@ -684,7 +684,7 @@ export default function MethodologyPage() {
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-base font-medium text-foreground">&quot;Did not run&quot;</h3>
+            <h3 className="font-heading text-base font-medium text-foreground">&quot;Did not run&quot;</h3>
             <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
               <p>
                 A candidate is shown as &quot;did not run&quot; in a given year simply when
@@ -697,7 +697,7 @@ export default function MethodologyPage() {
         </section>
 
         <section id="sec-faq" className="space-y-4 scroll-mt-6">
-          <h2 className="text-lg font-semibold tracking-tight">Frequently asked questions</h2>
+          <h2 className="font-heading text-lg font-semibold tracking-tight">Frequently asked questions</h2>
           <div className="space-y-4">
             {faqs.map(faq => (
               <div key={faq.question} className="space-y-1">

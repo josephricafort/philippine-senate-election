@@ -34,6 +34,16 @@ export function swingColor(delta: number, scale: number = 100): string {
 
 export type SwingHeadlineDirection = 'loss' | 'gain' | 'mixed' | 'flat';
 
+// A headlinePart's `text` is a full clause (words + punctuation), but OG cards render it
+// word-by-word (see the two share/*/og-image routes) so each word can carry its own font —
+// prose in Source Sans, any word touching a digit (a count, a percentage, a year) in Source
+// Code — matching how the rest of the app treats numbers as a distinct visual register from
+// body text. A word "counts" as numeric if it contains any digit, so "(67%)" and "2019" both
+// qualify without needing to strip surrounding punctuation first.
+export function wordIsNumeric(word: string): boolean {
+  return /\d/.test(word);
+}
+
 // Shared "N out of TOTAL (%) <unit> <verb> between yearA and yearB" headline builder — used by
 // every "how did this candidate's support move" summary (province-level and municipality-level,
 // both the general VoteData version and the per-candidate CandidateData version in lib/data.ts)

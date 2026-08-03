@@ -98,8 +98,15 @@ function ExplorerPageInner() {
     setYearState(nextYear);
   }
 
+  // window.history.replaceState (unlike router.replace) doesn't update useSearchParams(), so
+  // candidateParam below stays stale after a leaderboard click. Track the candidate id we last
+  // wrote ourselves so the URL-sync effect can tell "we just wrote this" apart from "the URL
+  // changed under us" instead of comparing against a candidateParam that never moved.
+  const lastWrittenCandidateIdRef = useRef<string | null>(candidateParam);
+
   function replaceExplorerUrl(params: URLSearchParams) {
     const query = params.toString();
+    lastWrittenCandidateIdRef.current = params.get('candidate');
     window.history.replaceState(window.history.state, '', query ? `${pathname}?${query}` : pathname);
   }
 
@@ -234,6 +241,10 @@ function ExplorerPageInner() {
   useEffect(() => {
     if (!candidateParam || senators.length === 0) return;
     if (selectedSenator?.senator_id === candidateParam) return;
+    // candidateParam is stale (see replaceExplorerUrl) whenever it merely reflects our own last
+    // write rather than a real navigation (back/forward, external link) — skip resyncing then,
+    // or every in-app selection would immediately snap back to the previous candidate.
+    if (lastWrittenCandidateIdRef.current === selectedSenator?.senator_id) return;
     const next = senators.find(s => s.senator_id === candidateParam);
     if (next) handleSelectSenator(next, 'url_param');
   // handleSelectSenator is intentionally omitted: it is recreated every render, and this effect
@@ -567,13 +578,13 @@ function ExplorerPageInner() {
                   <div>
                     <div className="mb-1 flex items-center gap-2">
                       <ChartPie className="h-4 w-4 text-muted-foreground" />
-                      <h3 className="text-base font-semibold">Vote Share</h3>
+                      <h3 className="font-heading text-base font-semibold">Vote Share</h3>
                     </div>
                     {selectedSenator.years.length > 1 && (
                       <>
                         <div className="mt-4 mb-1 flex items-center gap-2">
                           <Globe2 className="h-4 w-4 text-muted-foreground" />
-                          <h4 className="text-sm font-semibold">
+                          <h4 className="font-heading text-sm font-semibold">
                             Nationwide Vote Share Across Election Cycles
                           </h4>
                         </div>
@@ -616,7 +627,7 @@ function ExplorerPageInner() {
           ) : (
             topCandidatesThisYear.length > 0 && (
               <div>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3 font-medium">
+                <p className="label-eyebrow text-muted-foreground mb-3">
                   Top candidates in {year}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -789,7 +800,7 @@ function ExplorerPageInner() {
         </div>
 
         <div className="shrink-0 border-b px-4 py-3">
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Leaderboard</p>
+          <p className="label-eyebrow text-muted-foreground">Leaderboard</p>
           {currentNationalData ? (
             <div className="mt-3 max-h-[9.25rem] overflow-y-auto pr-1">
               <div className="grid grid-cols-3 gap-3">

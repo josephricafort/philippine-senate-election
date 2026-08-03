@@ -380,11 +380,11 @@ function buildTooltipHtml(
   }
 
   return `
-    <div style="font-family:Inter,system-ui,sans-serif;font-size:13px;line-height:1.5;padding:6px 10px;min-width:130px">
+    <div style="font-family:var(--font-sans),system-ui,sans-serif;font-size:13px;line-height:1.5;padding:6px 10px;min-width:130px">
       <div style="font-weight:600;color:#f4f4f5;margin-bottom:1px">${name}</div>
       ${province ? `<div style="color:#d4d4d8;font-size:12px;margin-bottom:3px">${province}</div>` : ''}
-      ${detail ? `<div style="color:${detailColor};font-size:15px;font-weight:600">${detail}</div>` : ''}
-      ${subDetail ? `<div style="color:#a1a1aa;font-size:11px">${subDetail}</div>` : ''}
+      ${detail ? `<div style="font-family:var(--font-mono),ui-monospace,monospace;color:${detailColor};font-size:15px;font-weight:600">${detail}</div>` : ''}
+      ${subDetail ? `<div style="font-family:var(--font-mono),ui-monospace,monospace;color:#a1a1aa;font-size:11px">${subDetail}</div>` : ''}
     </div>`;
 }
 

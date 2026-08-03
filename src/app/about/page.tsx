@@ -23,7 +23,7 @@ function Feature({
         <Icon className="w-4.5 h-4.5 text-primary" />
       </div>
       <div className="space-y-1">
-        <h3 className="font-semibold text-sm leading-tight">{title}</h3>
+        <h3 className="font-heading font-semibold text-sm leading-tight">{title}</h3>
         <p className="text-sm text-muted-foreground leading-relaxed">{children}</p>
       </div>
     </div>
@@ -45,7 +45,7 @@ export default function AboutPage() {
         </Link>
 
         <div className="space-y-3">
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="font-heading text-2xl font-semibold tracking-tight">
             BotoSenado
           </h1>
           <p className="text-base text-muted-foreground leading-relaxed">
@@ -57,7 +57,7 @@ export default function AboutPage() {
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">How Senate elections work</h2>
+          <h2 className="font-heading text-lg font-semibold tracking-tight">How Senate elections work</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             The Philippine Senate isn&apos;t elected by district. All 24 seats are elected at
             large by voters nationwide, in staggered batches of 12: every candidate runs
@@ -104,7 +104,7 @@ export default function AboutPage() {
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">Why this is useful</h2>
+          <h2 className="font-heading text-lg font-semibold tracking-tight">Why this is useful</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             National vote counts alone flatten a lot of interesting texture. A senator's
             national rank doesn't tell you whether their votes were concentrated in a few
@@ -117,7 +117,7 @@ export default function AboutPage() {
         </div>
 
         <div className="space-y-5">
-          <h2 className="text-lg font-semibold tracking-tight">What you can explore</h2>
+          <h2 className="font-heading text-lg font-semibold tracking-tight">What you can explore</h2>
 
           <Feature icon={Search} title="Look up any candidate">
             Search by name to pull up every senatorial run they've made since 2007 — no need
@@ -176,7 +176,7 @@ export default function AboutPage() {
         </div>
 
         <div className="space-y-1.5">
-          <h2 className="text-lg font-semibold tracking-tight">Credits</h2>
+          <h2 className="font-heading text-lg font-semibold tracking-tight">Credits</h2>
           <p className="text-sm text-muted-foreground leading-relaxed">
             Made by{' '}
             <a

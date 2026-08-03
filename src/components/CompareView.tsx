@@ -468,7 +468,7 @@ function RankTable({
 
   return (
     <div className="rounded-xl border bg-card p-4">
-      <Table className="table-fixed">
+      <Table containerClassName="overflow-x-hidden" className="table-fixed">
         <TableHeader>
           <TableRow>
             <TableHead className="w-full text-xs">Candidate</TableHead>
@@ -605,7 +605,7 @@ function SimilarityColumn({
 
   return (
     <div className="space-y-2.5">
-      <div className={cn('flex items-center gap-2 text-xs font-semibold uppercase tracking-wide', textTone)}>
+      <div className={cn('label-eyebrow flex items-center gap-2', textTone)}>
         <span className={cn('h-2.5 w-2.5 rounded-full', dotTone)} />
         {title}
       </div>
@@ -677,17 +677,17 @@ function StrongholdList({
   return (
     <div className={cn('rounded-xl border bg-card p-4', className)} style={cardStyle}>
       <p
-        className="mb-2 text-xs font-semibold uppercase tracking-wide"
+        className="label-eyebrow mb-2"
         style={accentColor ? { color: accentColor } : undefined}
       >
         {title}
       </p>
       {columns.length > 0 && (
         <div
-          className="mb-2 grid items-center gap-3 border-b pb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+          className="label-eyebrow mb-2 grid items-center gap-3 border-b pb-2 text-muted-foreground"
           style={{ gridTemplateColumns }}
         >
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+          <span className="label-eyebrow text-muted-foreground/80">
             Province
           </span>
           {columns.map(column => (
@@ -697,7 +697,7 @@ function StrongholdList({
                 'flex flex-col items-end gap-1 text-right'
               )}
             >
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+              <span className="label-eyebrow text-muted-foreground/80">
                 Top prov.
               </span>
               <div className="flex items-center justify-end gap-1.5">
@@ -709,9 +709,6 @@ function StrongholdList({
                   fallbackBackgroundColor={column.candidate.avatarFallbackColor}
                   fallbackTextColor="#ffffff"
                 />
-                {columns.length > 1 && (
-                  <span className="hidden truncate xl:inline">{surnameLabel(column.candidate.senatorName)}</span>
-                )}
               </div>
             </div>
           ))}
@@ -793,8 +790,8 @@ function LegendSwatch({
           borderColor: sharedStroke,
           backgroundColor: sharedColor,
           backgroundImage: [
-            `repeating-linear-gradient(45deg, transparent 0 4px, ${sharedStroke} 4px 6px, transparent 6px 10px)`,
-            `repeating-linear-gradient(135deg, transparent 0 4px, ${sharedStroke} 4px 6px, transparent 6px 10px)`,
+            `repeating-linear-gradient(45deg, transparent 0 1.33px, ${sharedStroke} 1.33px 3.33px, transparent 3.33px 4.67px)`,
+            `repeating-linear-gradient(135deg, transparent 0 1.33px, ${sharedStroke} 1.33px 3.33px, transparent 3.33px 4.67px)`,
           ].join(', '),
         }}
       />
@@ -815,7 +812,7 @@ function LegendSwatch({
       style={{
         borderColor: stroke,
         backgroundColor: fill,
-        backgroundImage: `repeating-linear-gradient(${angle}, transparent 0 4px, ${stroke} 4px 6px, transparent 6px 10px)`,
+        backgroundImage: `repeating-linear-gradient(${angle}, transparent 0 1.33px, ${stroke} 1.33px 3.33px, transparent 3.33px 4.67px)`,
       }}
     />
   );
@@ -871,7 +868,7 @@ function StrongholdPartitionChart({
             border: `1px solid ${leftStroke}`,
             borderRadius: 12,
             backgroundColor: leftColor,
-            backgroundImage: `repeating-linear-gradient(135deg, transparent 0 8px, ${leftStroke} 8px 10px, transparent 10px 16px)`,
+            backgroundImage: `repeating-linear-gradient(135deg, transparent 0 2.67px, ${leftStroke} 2.67px 4.67px, transparent 4.67px 6.67px)`,
           }}
         />
         <div
@@ -884,7 +881,7 @@ function StrongholdPartitionChart({
             border: `1px solid ${rightStroke}`,
             borderRadius: 12,
             backgroundColor: rightColor,
-            backgroundImage: `repeating-linear-gradient(45deg, transparent 0 8px, ${rightStroke} 8px 10px, transparent 10px 16px)`,
+            backgroundImage: `repeating-linear-gradient(45deg, transparent 0 2.67px, ${rightStroke} 2.67px 4.67px, transparent 4.67px 6.67px)`,
           }}
         />
         <div
@@ -896,8 +893,8 @@ function StrongholdPartitionChart({
             width: `${sharedPercent}%`,
             backgroundColor: sharedColor,
             backgroundImage: [
-              `repeating-linear-gradient(45deg, transparent 0 7px, ${sharedStroke} 7px 9px, transparent 9px 16px)`,
-              `repeating-linear-gradient(135deg, transparent 0 7px, ${sharedStroke} 7px 9px, transparent 9px 16px)`,
+              `repeating-linear-gradient(45deg, transparent 0 2.33px, ${sharedStroke} 2.33px 4.33px, transparent 4.33px 6.33px)`,
+              `repeating-linear-gradient(135deg, transparent 0 2.33px, ${sharedStroke} 2.33px 4.33px, transparent 4.33px 6.33px)`,
             ].join(', '),
           }}
         />
@@ -923,7 +920,7 @@ function StrongholdPartitionChart({
         </div>
       </div>
 
-      <div className="mt-3 grid gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground sm:flex sm:flex-wrap sm:items-start sm:gap-x-4 sm:gap-y-2">
+      <div className="label-eyebrow mt-3 grid gap-2 text-muted-foreground sm:flex sm:flex-wrap sm:items-start sm:gap-x-4 sm:gap-y-2">
         <div className="flex min-h-4 items-center gap-2">
           <LegendSwatch kind="left" year={year} />
           {formatPartitionLegend(leftLabel, leftCount, total)}
@@ -1170,7 +1167,7 @@ export default function CompareView({ selectedSenator, senators, nationalData, v
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Trophy className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-base font-semibold">Where They Rank</h3>
+            <h3 className="font-heading text-base font-semibold">Where They Rank</h3>
           </div>
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
             See how {candidateLabel} ranks against other candidates.
@@ -1230,7 +1227,7 @@ export default function CompareView({ selectedSenator, senators, nationalData, v
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Fingerprint className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-base font-semibold">Similar Support Pattern</h3>
+            <h3 className="font-heading text-base font-semibold">Similar Support Pattern</h3>
           </div>
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
             See which candidates had support patterns most similar to, or most different from,{' '}
@@ -1282,7 +1279,7 @@ export default function CompareView({ selectedSenator, senators, nationalData, v
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <MapPinned className="h-4 w-4 text-muted-foreground" />
-            <h3 className="text-base font-semibold">Shared Strongholds</h3>
+            <h3 className="font-heading text-base font-semibold">Shared Strongholds</h3>
           </div>
           <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">
             See which provinces were among {candidateLabel}&apos;s strongest areas in {year}, and where

@@ -70,7 +70,7 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
       <div>
         <div className="mb-1 flex items-center gap-2">
           <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-base font-semibold">
+          <h3 className="font-heading text-base font-semibold">
             Vote-Share Swing
           </h3>
         </div>
@@ -108,14 +108,14 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
     <div>
       <div className="mb-1 flex items-center gap-2">
         <ArrowLeftRight className="h-4 w-4 text-muted-foreground" />
-        <h3 className="text-base font-semibold">
+        <h3 className="font-heading text-base font-semibold">
           Vote-Share Swing
         </h3>
       </div>
 
       <div className="mt-4 mb-1 flex items-center gap-2">
         <MapIcon className="h-4 w-4 text-muted-foreground" />
-        <h4 className="text-sm font-semibold">Vote-Share Swing by Province</h4>
+        <h4 className="font-heading text-sm font-semibold">Vote-Share Swing by Province</h4>
       </div>
       <p className="text-sm text-muted-foreground leading-relaxed mb-4">
         Shows whether {headlineName(senator.senator_name)} gained or lost vote share in each province
@@ -146,7 +146,7 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
           <div>
             <div className="mb-1 flex items-center gap-2">
               <Activity className="h-4 w-4 text-muted-foreground" />
-              <h4 className="text-sm font-semibold">Province Performance vs National Average in {province}</h4>
+              <h4 className="font-heading text-sm font-semibold">Province Performance vs National Average in {province}</h4>
             </div>
             {provinceIndexSwing !== null && latestProvinceIndex !== undefined && (
               <p className="text-sm text-muted-foreground leading-relaxed mb-2.5">
@@ -162,7 +162,7 @@ export default function SwingSection({ senator, provinceTrends, topProvinceNames
             <div>
               <div className="mb-1 flex items-center gap-2">
                 <Building2 className="h-4 w-4 text-muted-foreground" />
-                <h4 className="text-sm font-semibold">Vote-Share Swing by Municipality in {province}</h4>
+                <h4 className="font-heading text-sm font-semibold">Vote-Share Swing by Municipality in {province}</h4>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed mb-2.5">
                 Shows which municipalities in {province} gave {headlineName(senator.senator_name)} a higher or lower vote share

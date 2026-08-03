@@ -116,7 +116,7 @@ export default function MunicipalitySwingChart({ rows, province, yearA, yearB }:
               <div className="min-w-0">
                 <p className="text-sm truncate" title={row.adm3_en}>{row.adm3_en}</p>
                 {!expanded && label && (
-                  <p className="text-xs text-muted-foreground/70 uppercase tracking-wide truncate">
+                  <p className="label-eyebrow text-muted-foreground/70 truncate">
                     {label}
                   </p>
                 )}

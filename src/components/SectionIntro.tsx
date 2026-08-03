@@ -9,7 +9,7 @@ type Props = {
 export default function SectionIntro({ label, children }: Props) {
   return (
     <div className="mb-3">
-      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1 font-medium">
+      <p className="label-eyebrow text-muted-foreground mb-1">
         {label}
       </p>
       <p className="text-sm text-muted-foreground leading-relaxed">

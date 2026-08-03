@@ -1,21 +1,27 @@
 import type { Metadata } from "next";
-import { Inter, IBM_Plex_Mono } from "next/font/google";
+import { Source_Sans_3, Source_Serif_4, Source_Code_Pro } from "next/font/google";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import "./globals.css";
 import { SITE_URL } from "@/lib/site";
 
 const GA_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 
-const inter = Inter({
+const sourceSans = Source_Sans_3({
   variable: "--font-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
-const ibmPlexMono = IBM_Plex_Mono({
+const sourceSerif = Source_Serif_4({
+  variable: "--font-heading",
+  subsets: ["latin"],
+  weight: ["600", "700"],
+});
+
+const sourceCodePro = Source_Code_Pro({
   variable: "--font-mono",
   subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: ["400", "500", "600"],
 });
 
 const title = "BotoSenado — Philippine Senate Election Results (2007 - 2025)";
@@ -54,7 +60,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${ibmPlexMono.variable} h-full antialiased dark`}
+      className={`${sourceSans.variable} ${sourceSerif.variable} ${sourceCodePro.variable} h-full antialiased dark`}
     >
       <head>
         <script
