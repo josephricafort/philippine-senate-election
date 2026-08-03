@@ -10,11 +10,13 @@ import {
 import { siteUrlFromHeaders } from '@/lib/site';
 
 type Props = {
-  searchParams: Promise<{ candidate?: string; yearA?: string; yearB?: string; view?: string }>;
+  searchParams: Promise<{ candidate?: string; year?: string; yearA?: string; yearB?: string; view?: string }>;
 };
 
 const title = 'BotoSenado — Philippine Senate Election Results (2007 - 2025)';
 const description = "Explore every Philippine senatorial election from 2007–2025, broken down to the municipality level. Look up any candidate's vote share, rank, strongholds, and trend over time.";
+const DEFAULT_CANDIDATE_ID = 'go_bong';
+const DEFAULT_YEAR = '2025';
 
 // Links shared from the swing-map/province-swing cards point here (?candidate=&yearA=&yearB=&view=)
 // so followers land directly in the live interactive view — but that means THIS url, not the card
@@ -24,8 +26,16 @@ const description = "Explore every Philippine senatorial election from 2007–20
 // two headline/og-image pairs to use — map and province shares otherwise produce the identical
 // ?candidate=&yearA=&yearB= shape and this page can't tell them apart.
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
-  const { candidate, yearA, yearB, view } = await searchParams;
-  if (!candidate) return { title, description };
+  const { candidate, year, yearA, yearB, view } = await searchParams;
+  const origin = siteUrlFromHeaders(await headers());
+  const defaultPageUrl = `${origin}/?candidate=${DEFAULT_CANDIDATE_ID}&year=${DEFAULT_YEAR}`;
+  if (!candidate) {
+    return {
+      title,
+      description,
+      alternates: { canonical: defaultPageUrl },
+    };
+  }
 
   const index = await loadCandidateIndexServer();
   const senator = buildSenatorList(index).find(s => s.senator_id === candidate);
@@ -46,7 +56,6 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   // matches it. Built against the actual request host (not the static SITE_URL/metadataBase
   // fallback) so this keeps working when served from a domain other than production, e.g. a
   // Vercel preview URL used while the production domain is temporarily offline pre-launch.
-  const origin = siteUrlFromHeaders(await headers());
   // The root layout's metadata sets openGraph.url to the static SITE_URL (botosenado.ph, which
   // is offline pre-launch) and Next.js does NOT merge that into this page's own returned
   // metadata — og:url ends up simply absent here. Facebook/LinkedIn tolerate a missing og:url
@@ -56,6 +65,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   // just the origin, so the tag matches what was really fetched.
   const shareUrlParams = new URLSearchParams();
   shareUrlParams.set('candidate', candidate);
+  if (year) shareUrlParams.set('year', year);
   if (yearA) shareUrlParams.set('yearA', yearA);
   if (yearB) shareUrlParams.set('yearB', yearB);
   if (view) shareUrlParams.set('view', view);
