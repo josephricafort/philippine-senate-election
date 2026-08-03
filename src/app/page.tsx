@@ -34,12 +34,20 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       title,
       description,
       alternates: { canonical: defaultPageUrl },
+      openGraph: { title, description, url: defaultPageUrl },
     };
   }
 
   const index = await loadCandidateIndexServer();
   const senator = buildSenatorList(index).find(s => s.senator_id === candidate);
-  if (!senator) return { title, description };
+  if (!senator) {
+    return {
+      title,
+      description,
+      alternates: { canonical: defaultPageUrl },
+      openGraph: { title, description, url: defaultPageUrl },
+    };
+  }
 
   const candidateData = await loadCandidateDataServer(senator.senator_id);
   const isProvince = view === 'province';
@@ -70,6 +78,11 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   if (yearB) shareUrlParams.set('yearB', yearB);
   if (view) shareUrlParams.set('view', view);
   const pageUrl = `${origin}/?${shareUrlParams.toString()}`;
+  const canonicalUrlParams = new URLSearchParams(shareUrlParams);
+  if (candidate === DEFAULT_CANDIDATE_ID && !canonicalUrlParams.has('year')) {
+    canonicalUrlParams.set('year', DEFAULT_YEAR);
+  }
+  const canonicalUrl = `${origin}/?${canonicalUrlParams.toString()}`;
 
   let shareTitle: string;
   let shareDescription: string;
@@ -123,7 +136,7 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
       // image works fine as a bare-string og:image for Facebook.
       images: [{ url: imageUrl, alt: shareTitle, type: 'image/png', width: 1200, height: 630 }],
     },
-    alternates: { canonical: pageUrl },
+    alternates: { canonical: canonicalUrl },
   };
 }
 
