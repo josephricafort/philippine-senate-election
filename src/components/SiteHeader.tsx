@@ -14,6 +14,8 @@ type Props = {
 // A server component (no 'use client') so it can be used from async server pages directly;
 // InfoMenu is its own client component underneath, which is fine to nest either way.
 export default function SiteHeader({ rightExtra }: Props) {
+  const hasRightExtraSlot = rightExtra !== undefined;
+
   return (
     <header className="shrink-0 border-b px-4 md:px-6 py-3 flex items-center gap-4">
       <Link href="/" className="flex items-center gap-2.5">
@@ -26,7 +28,11 @@ export default function SiteHeader({ rightExtra }: Props) {
         </div>
       </Link>
       <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground">
-        {rightExtra}
+        {hasRightExtraSlot && (
+          <div className="hidden w-[8.5rem] shrink-0 justify-end sm:flex" aria-live="polite">
+            {rightExtra}
+          </div>
+        )}
         <InfoMenu />
       </div>
     </header>

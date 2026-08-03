@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Map as MapIcon, Share2, ArrowLeftRight, ChartPie, Globe2, Users, Vote } from 'lucide-react';
 
 import SearchSelect from '@/components/SearchSelect';
@@ -72,7 +72,6 @@ export default function ExplorerClient() {
 }
 
 function ExplorerPageInner() {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const candidateParam = searchParams.get('candidate');
@@ -99,6 +98,11 @@ function ExplorerPageInner() {
     setYearState(nextYear);
   }
 
+  function replaceExplorerUrl(params: URLSearchParams) {
+    const query = params.toString();
+    window.history.replaceState(window.history.state, '', query ? `${pathname}?${query}` : pathname);
+  }
+
   function handleSelectFromLeaderboard(s: Senator) {
     handleSelectSenator(s, 'leaderboard_row');
     setMobileTab('profile');
@@ -123,8 +127,7 @@ function ExplorerPageInner() {
       if (s) params.set('candidate', s.senator_id);
       else params.delete('candidate');
       params.set('year', String(targetYear));
-      const query = params.toString();
-      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+      replaceExplorerUrl(params);
     }
 
     if (!s) { setSwingYearPair(null); return; }
@@ -163,8 +166,7 @@ function ExplorerPageInner() {
     const params = new URLSearchParams(searchParams.toString());
     if (selectedSenator) params.set('candidate', selectedSenator.senator_id);
     params.set('year', String(y));
-    const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    replaceExplorerUrl(params);
   }
 
   function handleMetricChange(m: Metric) {

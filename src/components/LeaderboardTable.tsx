@@ -64,12 +64,13 @@ export default function LeaderboardTable({ nationalData, senators, highlightId, 
     return () => observer.disconnect();
   }, [highlightId, rows]);
 
-  function renderRow(row: typeof rows[0]) {
+  function renderRow(row: typeof rows[0], options: { attachHighlightRef?: boolean } = {}) {
+    const { attachHighlightRef = true } = options;
     const isHighlight = row.senator.senator_id === highlightId;
     return (
       <TableRow
         key={row.senator.senator_id}
-        ref={isHighlight ? highlightRef : undefined}
+        ref={isHighlight && attachHighlightRef ? highlightRef : undefined}
         onClick={onSelectSenator ? () => onSelectSenator(row.senator) : undefined}
         style={isHighlight ? {
           backgroundColor: highlightBackground,
@@ -144,7 +145,7 @@ export default function LeaderboardTable({ nationalData, senators, highlightId, 
         <div className="sticky bottom-0 left-0 right-0 border-t bg-background/95 backdrop-blur-sm z-20">
           <Table className="table-fixed">
             <TableBody>
-              {renderRow(highlightRow)}
+              {renderRow(highlightRow, { attachHighlightRef: false })}
             </TableBody>
           </Table>
         </div>
