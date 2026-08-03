@@ -53,7 +53,9 @@ type SimilarityRow = {
 
 type StrongholdEntry = {
   province: string;
-  vote_share: number;
+  leftRank?: number;
+  rightRank?: number;
+  sortRank: number;
 };
 
 type Props = {
@@ -68,6 +70,7 @@ const TOP_ROW_COUNT = 7;
 const ALL_MUNICIPALITIES = '__all__';
 const DEFAULT_SIMILARITY_COUNT = 3;
 const STRONGHOLD_PREVIEW_COUNT = 3;
+const STRONGHOLD_LIST_COUNT = 30;
 const STRONGHOLD_LEFT_COLOR = '#71717a';
 const STRONGHOLD_RIGHT_COLOR = '#a1a1aa';
 
@@ -144,10 +147,6 @@ function alphaColor(hex: string, alpha: number) {
 function formatPartitionLabel(value: number, total: number) {
   if (value <= 0 || total <= 0) return '';
   return `${value} (${Math.round((value / total) * 100)}%)`;
-}
-
-function formatProvinceShare(share: number) {
-  return `${(share * 100).toFixed(1)}%`;
 }
 
 function formatPartitionLegend(label: string, value: number, total: number) {
@@ -647,6 +646,8 @@ function StrongholdList({
   title,
   items,
   expanded,
+  leftCandidate,
+  rightCandidate,
   accentColor,
   cardStyle,
   className,
@@ -654,12 +655,24 @@ function StrongholdList({
   title: string;
   items: StrongholdEntry[];
   expanded: boolean;
+  leftCandidate?: { senatorId: string; senatorName: string; avatarFallbackColor: string };
+  rightCandidate?: { senatorId: string; senatorName: string; avatarFallbackColor: string };
   accentColor?: string;
   cardStyle?: CSSProperties;
   className?: string;
 }) {
   const visibleItems = expanded ? items : items.slice(0, STRONGHOLD_PREVIEW_COUNT);
   const hiddenCount = items.length - visibleItems.length;
+  const columns = [
+    leftCandidate && { key: 'leftRank' as const, candidate: leftCandidate },
+    rightCandidate && { key: 'rightRank' as const, candidate: rightCandidate },
+  ].filter(Boolean) as Array<{
+    key: 'leftRank' | 'rightRank';
+    candidate: { senatorId: string; senatorName: string; avatarFallbackColor: string };
+  }>;
+  const gridTemplateColumns = columns.length > 1
+    ? 'minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr)'
+    : 'minmax(0, 3fr) minmax(0, 1fr)';
 
   return (
     <div className={cn('rounded-xl border bg-card p-4', className)} style={cardStyle}>
@@ -669,17 +682,64 @@ function StrongholdList({
       >
         {title}
       </p>
+      {columns.length > 0 && (
+        <div
+          className="mb-2 grid items-center gap-3 border-b pb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+          style={{ gridTemplateColumns }}
+        >
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+            Province
+          </span>
+          {columns.map(column => (
+            <div
+              key={column.key}
+              className={cn(
+                'flex flex-col items-end gap-1 text-right'
+              )}
+            >
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/80">
+                Top prov.
+              </span>
+              <div className="flex items-center justify-end gap-1.5">
+                <CandidateAvatar
+                  senatorId={column.candidate.senatorId}
+                  senatorName={column.candidate.senatorName}
+                  active={false}
+                  className="h-6 w-6 text-[11px]"
+                  fallbackBackgroundColor={column.candidate.avatarFallbackColor}
+                  fallbackTextColor="#ffffff"
+                />
+                {columns.length > 1 && (
+                  <span className="hidden truncate xl:inline">{surnameLabel(column.candidate.senatorName)}</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       <div className="space-y-0.5">
-        {visibleItems.map(item => (
-          <div key={item.province} className="flex items-center gap-3 border-b py-1.5 last:border-b-0">
-            <span className="min-w-0 flex-1 truncate text-sm font-medium" title={item.province}>
-              {item.province}
-            </span>
-            <span className="shrink-0 text-sm font-medium tabular-nums text-muted-foreground">
-              {formatProvinceShare(item.vote_share)}
-            </span>
-          </div>
-        ))}
+        {visibleItems.length > 0 ? (
+          visibleItems.map(item => (
+            <div
+              key={item.province}
+              className="grid items-center gap-3 border-b py-1.5 last:border-b-0"
+              style={{ gridTemplateColumns }}
+            >
+              <span className="min-w-0 truncate text-sm font-medium" title={item.province}>
+                {item.province}
+              </span>
+              {columns.map(column => (
+                <span key={column.key} className="shrink-0 text-right text-sm font-medium tabular-nums text-muted-foreground">
+                  {item[column.key] ?? '—'}
+                </span>
+              ))}
+            </div>
+          ))
+        ) : (
+          <p className="py-3 text-sm text-muted-foreground">
+            No shared top 30 province/city
+          </p>
+        )}
       </div>
       {!expanded && hiddenCount > 0 && (
         <p className="mt-3 text-xs font-medium text-muted-foreground">
@@ -1045,33 +1105,43 @@ export default function CompareView({ selectedSenator, senators, nationalData, v
     const compareProfile = provinceProfiles.profiles.get(effectiveCompareCandidate.senator_id);
     if (!selectedProfile || !compareProfile) return null;
 
-    const topQuartileCount = Math.ceil(provinceProfiles.provinceNames.length / 4);
-    const selectedTop = selectedProfile.rankedShares.slice(0, topQuartileCount);
-    const compareTop = compareProfile.rankedShares.slice(0, topQuartileCount);
+    const topStrongholdCount = Math.min(STRONGHOLD_LIST_COUNT, provinceProfiles.provinceNames.length);
+    const selectedTop = selectedProfile.rankedShares.slice(0, topStrongholdCount);
+    const compareTop = compareProfile.rankedShares.slice(0, topStrongholdCount);
 
-    const selectedMap = new Map(selectedTop.map(entry => [entry.province, entry.vote_share]));
-    const compareMap = new Map(compareTop.map(entry => [entry.province, entry.vote_share]));
+    const selectedMap = new Map(selectedTop.map((entry, index) => [entry.province, { rank: index + 1, vote_share: entry.vote_share }]));
+    const compareMap = new Map(compareTop.map((entry, index) => [entry.province, { rank: index + 1, vote_share: entry.vote_share }]));
 
     const shared = selectedTop
       .filter(entry => compareMap.has(entry.province))
       .map(entry => ({
         province: entry.province,
-        vote_share: (entry.vote_share + (compareMap.get(entry.province) ?? 0)) / 2,
+        leftRank: selectedMap.get(entry.province)?.rank,
+        rightRank: compareMap.get(entry.province)?.rank,
+        sortRank: ((selectedMap.get(entry.province)?.rank ?? topStrongholdCount) + (compareMap.get(entry.province)?.rank ?? topStrongholdCount)) / 2,
       }))
-      .sort((a, b) => b.vote_share - a.vote_share || a.province.localeCompare(b.province));
+      .sort((a, b) => a.sortRank - b.sortRank || a.province.localeCompare(b.province));
 
     const selectedOnly = selectedTop
       .filter(entry => !compareMap.has(entry.province))
-      .map(entry => ({ province: entry.province, vote_share: entry.vote_share }))
-      .sort((a, b) => b.vote_share - a.vote_share || a.province.localeCompare(b.province));
+      .map(entry => ({
+        province: entry.province,
+        leftRank: selectedMap.get(entry.province)?.rank,
+        sortRank: selectedMap.get(entry.province)?.rank ?? topStrongholdCount,
+      }))
+      .sort((a, b) => a.sortRank - b.sortRank || a.province.localeCompare(b.province));
 
     const compareOnly = compareTop
       .filter(entry => !selectedMap.has(entry.province))
-      .map(entry => ({ province: entry.province, vote_share: entry.vote_share }))
-      .sort((a, b) => b.vote_share - a.vote_share || a.province.localeCompare(b.province));
+      .map(entry => ({
+        province: entry.province,
+        rightRank: compareMap.get(entry.province)?.rank,
+        sortRank: compareMap.get(entry.province)?.rank ?? topStrongholdCount,
+      }))
+      .sort((a, b) => a.sortRank - b.sortRank || a.province.localeCompare(b.province));
 
     return {
-      topQuartileCount,
+      topStrongholdCount,
       selectedOnly,
       shared,
       compareOnly,
@@ -1262,7 +1332,7 @@ export default function CompareView({ selectedSenator, senators, nationalData, v
 
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Top {sharedStrongholds.topQuartileCount} provinces/cities for each candidate, including the places they share.
+                Top {sharedStrongholds.topStrongholdCount} provinces/cities for each candidate, including the places they share.
               </p>
 
               <div className="grid grid-cols-2 gap-6">
@@ -1270,12 +1340,27 @@ export default function CompareView({ selectedSenator, senators, nationalData, v
                 title={`${surnameLabel(selectedSenator.senator_name)} only (${sharedStrongholds.selectedOnly.length})`}
                 items={sharedStrongholds.selectedOnly}
                 expanded={strongholdsExpanded}
+                leftCandidate={{
+                  senatorId: selectedSenator.senator_id,
+                  senatorName: selectedSenator.senator_name,
+                  avatarFallbackColor,
+                }}
                 className="order-2"
               />
               <StrongholdList
                 title={`Shared (${sharedStrongholds.shared.length})`}
                 items={sharedStrongholds.shared}
                 expanded={strongholdsExpanded}
+                leftCandidate={{
+                  senatorId: selectedSenator.senator_id,
+                  senatorName: selectedSenator.senator_name,
+                  avatarFallbackColor,
+                }}
+                rightCandidate={{
+                  senatorId: effectiveCompareCandidate.senator_id,
+                  senatorName: effectiveCompareCandidate.senator_name,
+                  avatarFallbackColor,
+                }}
                 cardStyle={sharedCardStyle}
                 className="order-1 col-span-2"
               />
@@ -1283,6 +1368,11 @@ export default function CompareView({ selectedSenator, senators, nationalData, v
                 title={`${surnameLabel(effectiveCompareCandidate.senator_name)} only (${sharedStrongholds.compareOnly.length})`}
                 items={sharedStrongholds.compareOnly}
                 expanded={strongholdsExpanded}
+                rightCandidate={{
+                  senatorId: effectiveCompareCandidate.senator_id,
+                  senatorName: effectiveCompareCandidate.senator_name,
+                  avatarFallbackColor,
+                }}
                 className="order-3"
               />
             </div>
@@ -1302,7 +1392,7 @@ export default function CompareView({ selectedSenator, senators, nationalData, v
               open={strongholdsExplanationOpen}
               onToggle={() => setStrongholdsExplanationOpen(current => !current)}
             >
-              {sharedStrongholds.shared.length} of their top {sharedStrongholds.topQuartileCount}{' '}
+              {sharedStrongholds.shared.length} of their top {sharedStrongholds.topStrongholdCount}{' '}
               provinces/cities are the same. {strongholdOverlapAssessment(sharedStrongholds.shared.length)}
             </ExplanationDisclosure>
           </>

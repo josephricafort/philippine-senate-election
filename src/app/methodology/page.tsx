@@ -623,10 +623,9 @@ export default function MethodologyPage() {
               </p>
               <p>
                 The site ranks every province/city unit for each candidate by vote share, then
-                keeps only that candidate&apos;s <span className="text-foreground">top quarter</span>{' '}
-                of places. This is what <span className="text-foreground">top quartile</span>{' '}
-                means here. If there are 116 province/city units in the data for that year, each
-                candidate&apos;s stronghold list contains the top 29 places after rounding up.
+                keeps only that candidate&apos;s <span className="text-foreground">top 30</span>{' '}
+                places. This keeps the comparison size consistent across years, instead of
+                changing between 29 and 30 as province/city coverage changes.
               </p>
               <p>
                 The comparison then splits those places into three groups:
@@ -634,15 +633,15 @@ export default function MethodologyPage() {
               <ul className="list-disc list-outside pl-5 space-y-1.5">
                 <li>
                   <span className="text-foreground">Candidate A only</span> — places in the first
-                  candidate&apos;s top-quarter list but not the second candidate&apos;s.
+                  candidate&apos;s top-30 list but not the second candidate&apos;s.
                 </li>
                 <li>
                   <span className="text-foreground">Shared</span> — places appearing in both
-                  candidates&apos; top-quarter lists.
+                  candidates&apos; top-30 lists.
                 </li>
                 <li>
                   <span className="text-foreground">Candidate B only</span> — places in the second
-                  candidate&apos;s top-quarter list but not the first candidate&apos;s.
+                  candidate&apos;s top-30 list but not the first candidate&apos;s.
                 </li>
               </ul>
               <p>
