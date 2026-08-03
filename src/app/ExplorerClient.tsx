@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
@@ -33,6 +33,7 @@ import {
   candidateMunicipalitySwingHeadline,
 } from '@/lib/data';
 import {
+  ELECTION_YEARS,
   type ElectionYear, type Metric, type Senator,
   type VoteData, type CandidateData, type NationalYearData, type MunicipalityNames,
 } from '@/lib/types';
@@ -57,6 +58,11 @@ function profileTabForMetric(metric: Metric): ProfileTab | null {
   return null;
 }
 
+function parseElectionYear(value: string | null): ElectionYear | null {
+  const parsed = Number(value);
+  return ELECTION_YEARS.includes(parsed as ElectionYear) ? parsed as ElectionYear : null;
+}
+
 export default function ExplorerClient() {
   return (
     <Suspense fallback={null}>
@@ -70,13 +76,16 @@ function ExplorerPageInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const candidateParam = searchParams.get('candidate');
+  const yearParam = searchParams.get('year');
   // Present on links shared from the map/province swing-share cards — reproduces the exact
   // year pair those cards depicted, instead of defaulting to the candidate's most recent pair.
   const yearAParam = searchParams.get('yearA');
   const yearBParam = searchParams.get('yearB');
   const [senators, setSenators] = useState<Senator[]>([]);
   const [selectedSenator, setSelectedSenator] = useState<Senator | null>(null);
-  const [year, setYear] = useState<ElectionYear>(2025);
+  const initialYear = parseElectionYear(yearParam) ?? 2025;
+  const [year, setYearState] = useState<ElectionYear>(initialYear);
+  const yearRef = useRef<ElectionYear>(initialYear);
   const [metric, setMetric] = useState<Metric>('rank');
   const [mobileTab, setMobileTab] = useState<MobileTab>('leaderboard');
   const [profileTab, setProfileTab] = useState<ProfileTab>('compare');
@@ -84,6 +93,11 @@ function ExplorerPageInner() {
   // swing pair spans two elections. Defaults to the candidate's most recent pair; reset whenever
   // the selected candidate changes (a stale pair from a previous candidate has no meaning here).
   const [swingYearPair, setSwingYearPair] = useState<YearPair | null>(null);
+
+  function setActiveYear(nextYear: ElectionYear) {
+    yearRef.current = nextYear;
+    setYearState(nextYear);
+  }
 
   function handleSelectFromLeaderboard(s: Senator) {
     handleSelectSenator(s, 'leaderboard_row');
@@ -93,6 +107,13 @@ function ExplorerPageInner() {
   // When a senator is selected, auto-switch to their most recent year if current year unavailable
   function handleSelectSenator(s: Senator | null, source: 'search' | 'leaderboard_row' | 'year_pill' | 'suggestion_chip' | 'url_param' = 'search') {
     setSelectedSenator(s);
+    const activeYear = yearRef.current;
+    const senatorYears = s?.years.map(Number) ?? [];
+    const targetYear = s && !senatorYears.includes(activeYear)
+      ? senatorYears.reduce((prev, cur) =>
+          Math.abs(cur - activeYear) < Math.abs(prev - activeYear) ? cur : prev
+        ) as ElectionYear
+      : activeYear;
 
     // Keep ?candidate= in sync with the current selection (except when it's just replaying
     // the param we were already given) so the explorer view is shareable/bookmarkable —
@@ -101,22 +122,16 @@ function ExplorerPageInner() {
       const params = new URLSearchParams(searchParams.toString());
       if (s) params.set('candidate', s.senator_id);
       else params.delete('candidate');
+      params.set('year', String(targetYear));
       const query = params.toString();
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
     }
 
     if (!s) { setSwingYearPair(null); return; }
     trackEvent('select_candidate', {
-      candidate_id: s.senator_id, candidate_name: s.senator_name, selection_source: source, year,
+      candidate_id: s.senator_id, candidate_name: s.senator_name, selection_source: source, year: targetYear,
     });
-    const senatorYears = s.years.map(Number);
-    if (!senatorYears.includes(year)) {
-      // Pick their most recent year, or closest to current
-      const best = senatorYears.reduce((prev, cur) =>
-        Math.abs(cur - year) < Math.abs(prev - year) ? cur : prev
-      );
-      setYear(best as ElectionYear);
-    }
+    if (targetYear !== activeYear) setActiveYear(targetYear);
     // A link shared from a swing-share card carries ?yearA=&yearB= naming the exact pair that
     // card depicted — honor it so landing here reproduces what was shared, not just the
     // candidate's most recent pair (which resolveShareYearPair falls back to otherwise).
@@ -138,13 +153,18 @@ function ExplorerPageInner() {
     // the overlay stayed up forever, since it was still checking the stale `year` against
     // yearData. Land on the pair's later year, since that's the one usually still selectable
     // from the normal year bar too.
-    setYear(pair[1] as ElectionYear);
+    setActiveYear(pair[1] as ElectionYear);
   }
 
   function handleYearChange(y: ElectionYear, source: 'year_selector' | 'candidate_pill' = 'year_selector') {
-    if (y === year) return;
+    if (y === yearRef.current) return;
     trackEvent('select_year', { year: y, previous_year: year, source, candidate_id: selectedSenator?.senator_id });
-    setYear(y);
+    setActiveYear(y);
+    const params = new URLSearchParams(searchParams.toString());
+    if (selectedSenator) params.set('candidate', selectedSenator.senator_id);
+    params.set('year', String(y));
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }
 
   function handleMetricChange(m: Metric) {
@@ -187,7 +207,6 @@ function ExplorerPageInner() {
       const fromParam = candidateParam ? list.find(s => s.senator_id === candidateParam) : undefined;
       const defaultSenator = fromParam ?? list.find(s => s.senator_id === 'go_bong');
       if (defaultSenator) {
-        setYear(2025);
         // Routed through handleSelectSenator (not a bare setSelectedSenator) so the
         // default candidate gets the same side effects as any other selection —
         // notably computing swingYearPair, which otherwise stayed null until the
