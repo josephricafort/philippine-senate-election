@@ -52,7 +52,16 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
   const candidateData = await loadCandidateDataServer(senator.senator_id);
   const isProvince = view === 'province';
 
-  const pair = resolveShareYearPair(senator, { yearA, yearB });
+  // resolveShareYearPair falls back to the latest two runs whenever yearA/yearB aren't both
+  // given — which would otherwise make every ?candidate=&year=<older run> sitemap URL for a
+  // multi-run candidate describe the SAME latest-vs-previous swing (identical title/description,
+  // differing only in canonical), collapsing what's meant to be one indexable page per run into
+  // duplicate content. Only take the swing path for an explicit yearA/yearB share link, or a
+  // bare `year` that already matches the latest run (today's default-homepage-link behavior);
+  // any other specific `year` falls through to the per-year top-provinces branch below instead.
+  const latestRunYear = Math.max(...senator.years);
+  const wantsSwing = (yearA !== undefined && yearB !== undefined) || (!yearA && !yearB && (!year || Number(year) === latestRunYear));
+  const pair = wantsSwing ? resolveShareYearPair(senator, { yearA, yearB }) : null;
   const swingResult = pair && candidateData.years[String(pair[0])] && candidateData.years[String(pair[1])]
     ? (isProvince
         ? candidateProvinceSwingHeadline(candidateData, senator, pair[0], pair[1])
@@ -105,8 +114,12 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
     // "top provinces by vote share" fallback. Reuse that same fallback (and its og-image route)
     // here too, since THIS page's metadata — not /share/*'s — is what a crawler actually fetches
     // when a candidate's profile "Share" link is shared (see CandidateCard.tsx's shareUrl).
-    const latestYear = Math.max(...senator.years);
-    const topResult = candidateTopProvincesHeadline(candidateData, senator, latestYear);
+    // Prefers the explicit `year` param (sitemap now emits one ?candidate=&year= entry per run,
+    // e.g. a candidate's 2013 loss as well as their 2019 win) over always the latest run, so
+    // that year's own page describes that year, not whichever run happened most recently.
+    const requestedYear = year ? Number(year) : NaN;
+    const targetYear = senator.years.includes(requestedYear) ? requestedYear : Math.max(...senator.years);
+    const topResult = candidateTopProvincesHeadline(candidateData, senator, targetYear);
     if (!topResult) return { title, description };
 
     shareTitle = topResult.headline;
